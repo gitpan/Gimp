@@ -19,10 +19,11 @@ eval "use PDL;"; $PDL = $@ eq "";
 
 $GTK or print <<EOF;
 
-WARNING: unable to use the Perl-Gtk interface.  Some features (like Gimp::Fu)
-         rely on this extension.  You can try to build without it, but it's
-         better to install it (version 0.2.3 is required, you can get it
-         from ftp://ftp.gimp.org/pub/gtk/perl/ or any CPAN mirror).
+WARNING: unable to use the Perl-Gtk interface.  Some features (like
+         Gimp::Fu) rely on this extension.  You can try to build without it,
+         but it's better to install it (version 0.2_03 or higher is
+         required, you can get it from ftp://ftp.gimp.org/pub/gtk/perl/ or
+         any CPAN mirror).
 
 EOF
 

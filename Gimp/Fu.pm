@@ -6,6 +6,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @EXPORT_FAIL
             %EXPORT_TAGS @PREFIXES @scripts @_params $run_mode %pf_type2string);
 use Gimp qw(:param);
 use Gimp::UI;
+use Gimp::Data;
 use File::Basename;
 use Gtk;
 use Gtk::ColorSelectButton;
@@ -235,22 +236,37 @@ sub string2pf($$) {
    }
 }
 
+my $outputfile;
+
 sub net {
    no strict 'refs';
    my $this = this_script;
    my(%map,@args);
+   my($interact)=1;
    @map{map $_->[1],@{$this->[8]}} = (0..$#{$this->[8]});
    while(defined($_=shift @ARGV)) {
       if (/^-+(.*)$/) {
-         my $arg=shift @ARGV;
-         my $idx=$map{$1};
-         die "$1: illegal switch, try $0 --help\n" unless defined($idx);
-         $args[$idx]=string2pf($arg,$this->[8][@args]);
+	 if($1 eq "i" or $1 eq "-interact") {
+	   $interact=1e6;
+	 } elsif($1 eq "o" or $1 eq "-output") {
+	   $outputfile=shift @ARGV;
+	 } elsif($1 eq "-info") {
+	   print "no additional information available, use --help\n";
+	   exit 0;
+	 } else {
+           my $arg=shift @ARGV;
+	   my $idx=$map{$1};
+	   die "$1: illegal switch, try $0 --help\n" unless defined($idx);
+	   $args[$idx]=string2pf($arg,$this->[8][@args]);
+	   $interact--;
+	 }
       } else {
          push(@args,string2pf($_,$this->[8][@args]));
+	 $interact--;
       }
    }
-   $this->[0]->(&Gimp::RUN_INTERACTIVE,@args);
+   $this->[0]->($interact>0 ? &Gimp::RUN_INTERACTIVE
+                            : &Gimp::RUN_NONINTERACTIVE,@args);
 }
 
 sub query {
@@ -416,7 +432,7 @@ sub register($$$$$$$$$&) {
    $function=~s/^perl_fu_|/perl_fu_/;
    *$function = sub {
       $run_mode=shift;	# global!
-      my(@pre);
+      my(@pre,@defaults);
       if ($menupath=~/^<Image>\//) {
          @_ >= 2 or die "<Image> plug-in called without an image and drawable!\n";
          @pre = (shift,shift);
@@ -426,13 +442,17 @@ sub register($$$$$$$$$&) {
          die "menupath _must_ start with <Image> or <Toolbox>!";
       }
       
-      # supplement default arguments
-      for my $i (0..$#{$params}) {
-         $_[$i]=$params->[$i]->[3] unless defined($_[$i]);
+      # keep your fingers crossed and requite Data::Dumper later
+      @defaults=split /\0\0/,$Gimp::Data{"_fu_data"};
+      if (@defaults) {
+         for (0..$#{$params}) {
+	    $params->[$_]->[3]=$defaults[$_];
+	 }
       }
       
-      if ($run_mode == &Gimp::RUN_WITH_LAST_VALS) {
-         die "RUN_WITH_LAST_VALS not yet implemented\n";
+      # supplement default arguments
+      for (0..$#{$params}) {
+         $_[$_]=$params->[$_]->[3] unless defined($_[$_]);
       }
       
       if ($run_mode == &Gimp::RUN_INTERACTIVE) {
@@ -441,17 +461,26 @@ sub register($$$$$$$$$&) {
             @_=interact($params,@_);
             return unless defined(@_);
          }
-      } elsif ($run_mode = &Gimp::RUN_NONINTERACTIVE) {
+      } elsif ($run_mode == &Gimp::RUN_NONINTERACTIVE) {
+      } elsif ($run_mode == &Gimp::RUN_WITH_LAST_VALS) {
       } else {
          die "run_mode must be INTERACTIVE, NONINTERACTIVE or WITH_LAST_VALS\n";
       }
       
+      # keep your fingers crossed and requite Data::Dumper later
+      $Gimp::Data{"_fu_data"}=join("\0\0",@_);
+      
       print $function,"(",join(",",(@pre,@_)),")\n" if $Gimp::verbose;
       
       for my $img (&$code(@pre,@_)) {
-         Gimp::gimp_display_new($img) if defined $img;
+         next unless defined $img;
+	 if ($outputfile) {
+	    die "writing to a file is not yet supported!";
+	 } else {
+	    Gimp::gimp_display_new($img);
+	    Gimp::gimp_displays_flush();
+	 }
       }
-      Gimp::gimp_displays_flush();
    };
    push(@scripts,[$function,$blurb,$help,$author,$copyright,$date,
                   $menupath,$imagetypes,$params,$code]);
@@ -474,8 +503,7 @@ sub main {
       print <<EOF;
        interface-arguments are
            -o | --output <filespec>   write image to disk, then delete (NYI)
-           --info                     provide some info about this script(NYI)
-           -i | --interact            let the user edit the values first (NYI)
+           -i | --interact            let the user edit the values first
        script-arguments are
 EOF
       print_switches ($this);

@@ -9,6 +9,7 @@ not-so-important issues
   * return values for run()
   * default function parameters (with hash %defaults?)
   * gimp_text(text => "hallo", family => "engraver", size => 20);
+  * RUN_WITH_LAST_VALS
   
   * unimplemented functions:
     

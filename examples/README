@@ -1,3 +1,6 @@
+This file describes the various files in the example/ directory. It also
+contains links to applications/scripts people have written. If you
+want to be added, drop me a note at <pcg@goof.com>
 
 example-fu.pl
 	a very small, bare-bones Gimp::Fu script. it is useful
@@ -33,5 +36,9 @@ example-oo.pl
 example-net.pl
 	a small nonsense extension showing a bare-bones networked script.
 	this is obsoleted by Gimp::Fu
+
+http://members.xoom.com/bewebe
+	create contact sheets with comments in tex.
+
 
 

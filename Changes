@@ -1,7 +1,19 @@
 Revision history for Gimp-Perl extension.
 
-0.98
+0.99  Tue Jul  7 03:23:07 CEST 1998
+	- --info switch deleted from Fu
+	- implemented --interact switch, default is now NOT
+	  to interact when any script-arguments are given.
+	- switched to using vi, instead of joe, for editing
+	- killed configure, a Makefile.PL is now used (which
+	  calls confiugr ;-)
 	- got rid of the top-level configure, now use the Makefile.PL
+	- implemented RUN_WITH_LAST_VALS in Fu, with hopefully useful
+	  semantics. \0\0 is currently illegal in arguments, otherwise I had
+	  required Data::Dumper or Storable
+
+0.98  (not correctly issued)
+	- 0.98 was wrongly issued to CPAN.
 
 0.97  Tue Jun 30 19:36:23 CEST 1998
 	- bugfixes, changes for gimp-1.1
@@ -16,6 +28,7 @@ Revision history for Gimp-Perl extension.
 0.95  Fri May 29 13:47:48 CEST 1998
 	- thanks mr. libgimpui developer for this braindamaged "use static
 	  structures" attitude. I reimplemented the libgimpui in perl.
+	  not that it got worse...
 
 0.94  Wed May 27 04:19:24 CEST 1998
 	- PixelRgn and Tile manpages merged.
