@@ -1,5 +1,10 @@
 Revision history for Gimp-Perl extension.
 
+0.995 Tue Jul 21 20:08:32 CEST 1998
+	- do not depend on origargc and origargv anymore, as
+	  these do not exist in perl5.004_76 (this is now even uglier)
+	- this is the release 1.0 candidate
+
 0.994 Tue Jul 21 04:57:28 CEST 1998
 	- check wether DIVIDE_MODE is available
 	- commented out gimp_channel_get_show_masked

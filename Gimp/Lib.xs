@@ -632,13 +632,27 @@ gimp_main(...)
 		  RETVAL = 0;
 		else
 		  {
+		    char *argv [10];
+		    int argc = 0;
+		    
 		    if (items == 0)
 		      {
+		        AV *av = perl_get_av ("ARGV", FALSE);
+		        
+		        argv [argc++] = SvPV (perl_get_sv ("0", FALSE), na);
+		        if (av && av_len (av) < 10-1)
+		          {
+		            while (argc-1 <= av_len (av))
+		              argv [argc] = SvPV (*av_fetch (av, argc-1, 0), na),
+		              argc++;
+		          }
+		        else
+		          croak ("internal error (please report): too many main arguments");
 		      }
 		    else
 		      croak ("arguments to main not yet supported!");
-		
-		    RETVAL = gimp_main (origargc-1, origargv+1);
+		    
+		    RETVAL = gimp_main (argc, argv);
 		  }
 	OUTPUT:
 	RETVAL
