@@ -35,6 +35,7 @@ if ($ARGV[0] ne "--writemakefile") {
    $ENV{IN_GIMP}=0;
    exit system("./etc/configure",@ARGV)>>8;
 } else {
+   local $do_config_msg = 1;
    do './config.pl'; die $@ if $@;
 }
 
@@ -73,17 +74,15 @@ WARNING: I've detected another installation of the Gimp-Perl extension.
 	 The already installed version uses the prefix '$old_prefix'.
 
 	 They don't match, which indicates that installing Gimp-Perl might
-	 overwrite an old but still used installation. Gimp-Perl will
-	 therefore be disabled, and not be installed.
+	 overwrite an old but still used installation. The Gimp-Perl
+         installation _might_ therefore be broken.
 
 EOF
-	 not_halt("prefix mismatch");
       }
    }
 }
 
 eval "use Gtk;"; $GTK = $@ eq "";
-eval "use PDL;"; $PDL = $@ eq "";
 eval "use Parse::RecDescent;"; $PRD = $@ eq "";
 
 $] >= 5.005 or print <<EOF;
@@ -101,29 +100,10 @@ EOF
 $GTK or print <<EOF;
 
 WARNING: unable to use the Perl-Gtk interface. Most features (like
-	 Gimp::Fu) rely on this extension. You can try to build without
-	 it (and many scripts won't work), but it's better to install
-	 it (version 0.3 or higher is required, you can get it from
-	 ftp://ftp.gimp.org/pub/gtk/perl/ or any CPAN mirror.
-
-EOF
-
-$PDL or print <<EOF;
-
-WARNING: unable to use PDL (the perl data language). This means that
-	 Gimp::PDL is non-functional. Unless you plan to use Tile/PixelRgn
-	 functions together with PDL, this is harmless. Gimp::PDL will
-	 be installed, just in case you later install PDL. The plug-ins
-	 using PDL, however, will NOT WORK. You can get PDL from any CPAN
-	 mirror.
-
-EOF
-
-!$PDL or $PDL::Version::VERSION > 1.99 or print <<EOF;
-
-WARNING: PDL version $PDL::Version::VERSION is installed. Gimp::PDL was only
-	 tested with 2.0 and higher.  In case of problems its advisable to
-	 upgrade PDL to at least version 2.
+         Gimp::Fu) rely on this extension. You can try to build without
+         it (and many scripts won't work), but it's better to install
+         it (version 0.5120 or higher is required, you can get it from
+         ftp://ftp.gimp.org/pub/gtk/perl/ or any CPAN mirror.
 
 EOF
 
@@ -273,14 +253,21 @@ close C;
 print "ok\n";
 
 $GIMP_INC_NOUI = "-I../../ $GIMP_INC_NOUI" if $IN_GIMP;
-
 @DIRS= 'Gimp';
-if ($IN_GIMP) {
+
+$build_module = $IN_GIMP || $ENV{GIMP_PERL_MODULE_INC};
+# temporarily disabled because of politics
+$build_module = $ENV{GIMP_PERL_MODULE_INC};
+
+print "building embedded perl module... ";
+if ($build_module) {
+   print "yes\n";
    $dont_embed = "false";
    push(@DIRS,'nolib');
    print "configuring in embed/Makefile...\n";
    system("cd embed && perl Makefile.PL");
 } else {
+   print "no\n";
    $dont_embed = "true";
 }
 

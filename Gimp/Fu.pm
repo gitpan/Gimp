@@ -320,8 +320,8 @@ sub interact($$$$@) {
            $a=new Gtk::HBox (0,5);
            my $b=new Gimp::UI::ColorSelectButton -width => 90, -height => 18;
            $a->pack_start ($b,1,1,0);
-           $value = [216, 152, 32] unless defined $value;
-           push(@setvals,sub{$b->set('color', "@{Gimp::canonicalize_color $_[0]}")});
+           $default = [216, 152, 32] unless defined $default;
+           push(@setvals,sub{$b->set('color', "@{defined $_[0] ? Gimp::canonicalize_color $_[0] : [216,152,32]}")});
            push(@getvals,sub{[split ' ',$b->get('color')]});
            set_tip $t $b,$desc;
            
@@ -588,7 +588,7 @@ sub net {
    my $this = this_script;
    my(%map,@args);
    my($interact)=1;
-   my $params = $this->[8];
+   my $params = $this->[9];
    
    for(@{$this->[11]}) {
       return unless fu_feature_present($_,$this->[1]);
@@ -1098,7 +1098,7 @@ sub save_image($$) {
 # provide some clues ;)
 sub print_switches {
    my($this)=@_;
-   for(@{$this->[8]}) {
+   for(@{$this->[9]}) {
       my $type=$pf_type2string{$_->[0]};
       my $key=mangle_key($_->[1]);
       printf "           -%-25s %s%s\n","$key $type",$_->[2],defined $_->[3] ? " [$_->[3]]" : "";
@@ -1106,7 +1106,7 @@ sub print_switches {
 }
 
 sub main {
-   $old_trace = Gimp::set_trace (0);
+   $old_trace = Gimp::set_trace (0);#d#
    if ($Gimp::help) {
       my $this=this_script;
       print <<EOF;
