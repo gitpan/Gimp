@@ -10,6 +10,7 @@ use Gimp::Data;
 use File::Basename;
 use Gtk;
 use Gtk::ColorSelectButton;
+use Data::Dumper;
 
 require Exporter;
 require DynaLoader;
@@ -131,7 +132,7 @@ sub interact($@) {
       || $type == PF_STRING) {	# I love it
          $a=new Gtk::Entry;
          set_usize $a 0,25;
-         set_text $a $value;
+         set_text $a $value if $value;
          #select_region $a 0,1;
          push(@getres,,sub{get_text $a});
       } elsif($type == PF_COLOR) {
@@ -218,7 +219,6 @@ sub this_script {
 
 sub string2pf($$) {
    my($s,$type,$name,$desc)=($_[0],@{$_[1]});
-   print "convertin $s to $type $name $desc\n";
    if($type==PF_STRING) {
       $s;
    } elsif($type==PF_INT8 || $type==PF_INT16 || $type==PF_INT32) {
@@ -239,12 +239,26 @@ sub string2pf($$) {
 # set options read from the command line
 my $outputfile;
 
+# mangle argument switches to contain only a-z0-9 and the underscore,
+# for easier typing.
+sub mangle_key {
+   my $key = shift;
+   $key=~y/A-Z /a-z_/;
+   $key=~y/a-z0-9_//cd;
+   $key;
+}
+
 sub net {
    no strict 'refs';
    my $this = this_script;
    my(%map,@args);
    my($interact)=1;
-   @map{map $_->[1],@{$this->[8]}} = (0..$#{$this->[8]});
+   my $params = $this->[8];
+   
+   # %map is a hash that associates (mangled) parameter names to parameter index
+   @map{map mangle_key($_->[1]), @{$params}} = (0..$#{$params});
+   
+   # Parse the command line
    while(defined($_=shift @ARGV)) {
       if (/^-+(.*)$/) {
 	 if($1 eq "i" or $1 eq "interact") {
@@ -258,14 +272,24 @@ sub net {
            my $arg=shift @ARGV;
 	   my $idx=$map{$1};
 	   die "$_: illegal switch, try $0 --help\n" unless defined($idx);
-	   $args[$idx]=string2pf($arg,$this->[8][@args]);
+	   $args[$idx]=string2pf($arg,$params->[@args]);
 	   $interact--;
 	 }
       } else {
-         push(@args,string2pf($_,$this->[8][@args]));
+         push(@args,string2pf($_,$params->[@args]));
 	 $interact--;
       }
    }
+   
+   # Fill in default arguments
+   foreach my $i (0..@$params-1) {
+       next if defined $args[$i];
+       my $entry = $params->[$i];
+       $args[$i] = $entry->[3];             # Default value
+       die "parameter '$entry->[1]' is not optional\n" unless defined $args[$i];
+   }
+   
+   # Go for it
    $this->[0]->($interact>0 ? &Gimp::RUN_INTERACTIVE
                             : &Gimp::RUN_NONINTERACTIVE,@args);
 }
@@ -443,8 +467,8 @@ sub register($$$$$$$$$&) {
          die "menupath _must_ start with <Image> or <Toolbox>!";
       }
       
-      # keep your fingers crossed and require Data::Dumper later
-      @defaults=split /\0\0/,"".$Gimp::Data{"_fu_data"};
+      my $VAR1; # Data::Dumper is braindamaged
+      @defaults=@{eval $Gimp::Data{"_fu_data"}};
       if (@defaults) {
          for (0..$#{$params}) {
 	    $params->[$_]->[3]=$defaults[$_];
@@ -470,7 +494,7 @@ sub register($$$$$$$$$&) {
       
       # keep your fingers crossed and require Data::Dumper later,
       # when 5.005 is out it will be part of the distribution
-      $Gimp::Data{"_fu_data"}=join("\0\0",@_);
+      $Gimp::Data{"_fu_data"}=Dumper([@_]);
       
       print $function,"(",join(",",(@pre,@_)),")\n" if $Gimp::verbose;
       
@@ -491,13 +515,13 @@ sub register($$$$$$$$$&) {
                   $img->delete;
                } else {
                   $img->display_new;
-                  Gimp::gimp_displays_flush();
                }
             } else {
                warn "WARNING: $function returned something that is not an image: \"$img\"\n";
             }
 	 }
       }
+      Gimp::gimp_displays_flush();
    };
    push(@scripts,[$function,$blurb,$help,$author,$copyright,$date,
                   $menupath,$imagetypes,$params,$code]);
@@ -596,7 +620,8 @@ sub print_switches {
    my($this)=@_;
    for(@{$this->[8]}) {
       my $type=$pf_type2string{$_->[0]};
-      printf "           -%-25s %s\n","$_->[1] $type",$_->[2];
+      my $key=mangle_key($_->[1]);
+      printf "           -%-25s %s\n","$key $type",$_->[2];
    }
 }
 

@@ -85,7 +85,8 @@ WriteMakefile(
                     'SUFFIX'	=> '.gz',
                    },
     'PREREQ_PM'	=> {
-#    		    "Gtk"	=> '0.2_03',
+#    		    "Gtk"		=> 0.2_03,
+    		    "Data::Dumper"	=> 2,
 		   },
     'DIR'	=> ['Gimp'],
     'NAME'	=> 'Gimp',

@@ -1,5 +1,9 @@
 Revision history for Gimp-Perl extension.
 
+1.002 Mon Jul 27 12:44:46 CEST 1998
+	- Patch by Dov Grobgeld (default values for arguments, bugfixes)
+	- gimp_displays_flush called always after a Fu-script
+
 1.001 Sat Jul 25 04:01:55 CEST 1998
 	- another fix by Aaron Sherman
 

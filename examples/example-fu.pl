@@ -21,9 +21,6 @@ register "my_first_gimp_fu",				# fill in name
          ],
          sub {
    
-   print "Hello there, this is the very first Gimp::Fu script!\n";
-   print "called with these arguments: ",join(":",@_),"\n";
-   
    # now do sth. useful with the garbage we got ;)
    my($text,$font,$size,$fg,$bg,$ignore)=@_;
    
