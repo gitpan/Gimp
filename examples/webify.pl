@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use Gimp qw(:consts);
+use Gimp;
 use Gimp::Fu;
 
 Gimp::set_trace(TRACE_ALL);

@@ -64,13 +64,17 @@ INSTALLATION
        If you don't have unix, you can install linux instead
        (http://www.linux.org)
 
-MAILING LIST
+SUPPORT/MAILING LISTS/MORE INFO
        If you want to get notified of new versions automatically, send
        a mail with the single line:
        
        subscribe notify-gimp
        
        to majordomo@gcc.ml.org.
+       
+       You can also upload your scripts to the gimp registry at
+       http://registry.gimp.org/, there is a special "version" available for
+       gimp-perl.
        
 PLOP
        Scheme is the crappiest language ever. Have a look at Haskell

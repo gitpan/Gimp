@@ -6,7 +6,7 @@
 # This is just a complete rip-off of Marc's first plug-in.
 # Doesn't really do much, but hey, we'll get there!
 
-use Gimp qw( :auto );
+use Gimp;
 
 $black  = "#000000";
 $white  = "#FFFFFF";

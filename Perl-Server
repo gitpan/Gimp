@@ -122,7 +122,7 @@ sub handle_request($) {
          no strict 'refs';
          ($trace_level,$req,@args)=Gimp::Net::net2args($data);
          Gimp::set_trace($trace_level);
-         undef $trace_res;
+         $trace_res="";
          @args=deobjectify(eval { Gimp->$req(objectify(@args)) });
          $data=Gimp::Net::args2net($trace_res,$@,@args);
          print $fh pack("N",length($data)).$data;

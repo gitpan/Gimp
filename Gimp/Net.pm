@@ -141,8 +141,8 @@ sub start_server {
       my $args = &Gimp::RUN_NONINTERACTIVE." ".
                  (&Gimp::_PS_FLAG_BATCH | &Gimp::_PS_FLAG_QUIET)." ".
                  fileno(GIMP_FH);
-      exec "gimp","-n","-b","(extension_perl_server $args)",
-                            "(extension-perl-server $args)";
+      exec "gimp","-n","-b","(extension-perl-server $args)",
+                            "(extension_perl_server $args)";
    } else {
       croak "unable to fork: $!";
    }

@@ -4,7 +4,7 @@
 
 # it's really easy
 
-use Gimp qw( :auto );
+use Gimp;
 
 # the extension that's called.
 sub plug_in_example_oo {

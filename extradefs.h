@@ -36,11 +36,6 @@
 #define BG_BUCKET_FILL 1
 #define PATTERN_BUCKET_FILL 2
 
-#define BG_IMAGE_FILL 0
-#define WHITE_IMAGE_FILL 1
-#define TRANS_IMAGE_FILL 2
-#define NO_IMAGE_FILL 3
-
 #define RED_CHANNEL 0
 #define GREEN_CHANNEL 1
 #define BLUE_CHANNEL 2

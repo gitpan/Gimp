@@ -80,6 +80,8 @@ char *name;
 	    return EXPAND_AS_NECESSARY;
 	break;
     case 'F':
+	if (strEQ(name, "FG_IMAGE_FILL"))
+	    return FG_IMAGE_FILL;
 	if (strEQ(name, "FG_BG_HSV"))
 	    return FG_BG_HSV;
 	if (strEQ(name, "FG_BG_RGB"))

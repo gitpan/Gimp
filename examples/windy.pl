@@ -3,7 +3,7 @@
 # sent to me by Seth Burgess <sjburges@ou.edu>
 # small changes my Marc Lehmann <pcg@goof.com>
 
-use Gimp qw( :auto );
+use Gimp;
 use Gimp::Fu;
 
 Gimp::set_trace(TRACE_CALL);

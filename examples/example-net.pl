@@ -2,7 +2,7 @@
 
 # example for the gimp-perl-server (also called Net-Server)
 
-use Gimp qw( :auto );
+use Gimp;
 
 sub net {
   # simple benchmark ;)

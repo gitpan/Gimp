@@ -1,5 +1,18 @@
 Revision history for Gimp-Perl extension.
 
+1.043 Thu Oct  8 07:27:23 CEST 1998
+	- allow <None> as menupath
+	- added HORIZONTAL, VERTICAL
+	- implemented PF_BRUSH, PF_PATTERN and PF_GRADIENT
+	- examples/example-fu.pl shows all possible dialog widgets
+	- fixed Gimp::Fu::xlfd_size to correctly return the pointsize
+	  (rather than pointsize*10)
+	- added FG_IMAGE_FILL (and fixed the values of the other FILL
+	  constants, which were documented incorrectly)
+	- Please note that you can upload your perl-scripts to the
+	  Gimp-registry now(!!!!). Visit http://registry.gimp.org/
+	  and deposit your script ;)
+
 1.042 Mon Oct  5 00:50:04 CEST 1998
 	- implemented PF_ADJUSTMENT to aid scm2perl's job, its undocumented
 	  and should not be used by new code.

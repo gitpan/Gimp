@@ -78,6 +78,9 @@ sub PF_SLIDER	() { &PARAM_END+2	};
 sub PF_FONT	() { &PARAM_END+3	};
 sub PF_SPINNER	() { &PARAM_END+4	};
 sub PF_ADJUSTMENT(){ &PARAM_END+5	}; # compatibility fix for script-fu
+sub PF_BRUSH	() { &PARAM_END+6	};
+sub PF_PATTERN	() { &PARAM_END+7	};
+sub PF_GRADIENT	() { &PARAM_END+8	};
 
 sub PF_BOOL	() { PF_TOGGLE		};
 sub PF_INT	() { PF_INT32		};
@@ -91,6 +94,9 @@ sub Gimp::RUN_FULLINTERACTIVE { &Gimp::RUN_INTERACTIVE+100 };	# you don't want t
          &PF_INT32	=> 'integer',
          &PF_FLOAT	=> 'value',
          &PF_STRING	=> 'string',
+         &PF_BRUSH	=> 'string',
+         &PF_GRADIENT	=> 'string',
+         &PF_PATTERN	=> 'string',
          &PF_COLOR	=> 'colour',
          &PF_FONT	=> 'XLFD',
          &PF_TOGGLE	=> 'boolean',
@@ -106,7 +112,8 @@ sub Gimp::RUN_FULLINTERACTIVE { &Gimp::RUN_INTERACTIVE+100 };	# you don't want t
 @_params=qw(PF_INT8 PF_INT16 PF_INT32 PF_FLOAT PF_VALUE
             PF_STRING PF_COLOR PF_COLOUR PF_TOGGLE PF_IMAGE
             PF_DRAWABLE PF_FONT PF_LAYER PF_CHANNEL PF_BOOL
-            PF_SLIDER PF_INT PF_SPINNER PF_ADJUSTMENT);
+            PF_SLIDER PF_INT PF_SPINNER PF_ADJUSTMENT
+            PF_BRUSH PF_PATTERN PF_GRADIENT);
 
 @ISA = qw(Exporter);
 @EXPORT = (qw(register main gimp_main xlfd_size),@_params);
@@ -133,8 +140,8 @@ sub _default {
 sub xlfd_size {
   local $^W=0;
   my ($px,$pt)=(split(/-/,$_[0]))[7,8];
-  $px>0 ? ($px,&Gimp::PIXELS)
-        : ($pt,&Gimp::POINTS);
+  $px>0 ? ($px    ,&Gimp::PIXELS)
+        : ($pt*0.1,&Gimp::POINTS);
 }
 
 sub wrap_text {
@@ -207,7 +214,8 @@ sub interact($$$@) {
                  $fs->set_font_name ($val);
               }
               
-              $l->set((split(/-/,$val))[2]."@".(xlfd_size($val))[0]);
+              my($n,$t)=xlfd_size($val);
+              $l->set((split(/-/,$val))[2]."\@$n".($t ? "p" : ""));
            };
            
            $fs->ok_button->signal_connect("clicked",sub {$setval->($fs->get_font_name); $fs->hide});
@@ -299,6 +307,21 @@ sub interact($$$@) {
            push(@setvals,sub{});
            push(@getvals,sub{$res});
            
+        } elsif($type == PF_PATTERN) {
+           $a=new Gimp::UI::PatternSelect -active => $default;
+           push(@setvals,sub{$a->set('active',$default)});
+           push(@getvals,sub{$a->get('active')});
+           
+        } elsif($type == PF_BRUSH) {
+           $a=new Gimp::UI::BrushSelect -active => $default;
+           push(@setvals,sub{$a->set('active',$default)});
+           push(@getvals,sub{$a->get('active')});
+           
+        } elsif($type == PF_GRADIENT) {
+           $a=new Gimp::UI::GradientSelect -active => $default;
+           push(@setvals,sub{$a->set('active',$default)});
+           push(@getvals,sub{$a->get('active')});
+           
         } else {
            $label="Unsupported argumenttype $type";
            push(@setvals,sub{});
@@ -316,7 +339,7 @@ sub interact($$$@) {
         $a && do {
            set_tip $t $a,$desc;
            show $a;
-           $g->attach($a,1,2,$res,$res+1,{},{},4,2);
+           $g->attach($a,1,2,$res,$res+1,["expand","fill"],["expand","fill"],4,2);
         };
         $res++;
      }
@@ -450,7 +473,7 @@ sub net {
        next if defined $args[$i];
        my $entry = $params->[$i];
        $args[$i] = $entry->[3];             # Default value
-       die "parameter '$entry->[1]' is not optional\n" unless defined $args[$i];
+       die "parameter '$entry->[1]' is not optional\n" unless defined $args[$i] || $interact>0;
    }
    
    # Go for it
@@ -474,8 +497,10 @@ sub query {
          unshift(@$params,@image_params);
       } elsif ($menupath=~/^<Toolbox>\//) {
          $type=&Gimp::PROC_EXTENSION;
+      } elsif ($menupath=~/^<None>/) {
+         $type=&Gimp::PROC_EXTENSION;
       } else {
-         die "menupath _must_ start with <Image> or <Toolbox>!";
+         die "menupath _must_ start with <Image>, <Toolbox> or <None>!";
       }
       
       unshift(@$params,
@@ -484,9 +509,13 @@ sub query {
                                    $menupath,$imagetypes,$type,
                                    [map {
                                       $_->[0]=PARAM_INT32	if $_->[0] == PF_TOGGLE;
-                                      $_->[0]=PARAM_STRING	if $_->[0] == PF_FONT;
                                       $_->[0]=PARAM_INT32	if $_->[0] == PF_SLIDER;
                                       $_->[0]=PARAM_INT32	if $_->[0] == PF_SPINNER;
+                                      $_->[0]=PARAM_INT32	if $_->[0] == PF_ADJUSTMENT;
+                                      $_->[0]=PARAM_STRING	if $_->[0] == PF_FONT;
+                                      $_->[0]=PARAM_STRING	if $_->[0] == PF_BRUSH;
+                                      $_->[0]=PARAM_STRING	if $_->[0] == PF_PATTERN;
+                                      $_->[0]=PARAM_STRING	if $_->[0] == PF_GRADIENT;
                                       $_;
                                    } @$params],
                                    $results);
@@ -545,8 +574,9 @@ I recommend ISO format (yyyymmdd or yyyy-mm-dd).
 
 =item menu path
 
-The menu entry Gimp should create. It should start either with <Image>, meaning
-this script is an image-plug-in, or <Xtns>, for scripts creating new images.
+The menu entry Gimp should create. It should start either with <Image>, if
+you want an entry in the image menu (the one that opens when clicking into
+an image), <Xtns>, for the Xtns menu or <None> for none.
 
 =item image types
 
@@ -648,6 +678,11 @@ The default argument, if specified, must be a full XLFD specification, or a
 warning will be printed. Please note that the gimp text functions using
 these fontnames (gimp_text_..._fontname) ignore the size. You can extract
 the size and dimension by using the C<xlfd_size> function.
+
+=item PF_BRUSH, PF_PATTERN, PF_GRADIENT
+
+Lets the user select a brush/pattern/gradient whose name is returned as a
+string. The default brush/pattern/gradient-name can be preset.
 
 =back
 

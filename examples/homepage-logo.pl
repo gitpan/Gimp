@@ -5,7 +5,7 @@
 
 # it works as plug-in as well as standalone!
 
-use Gimp qw( :auto );
+use Gimp;
 
 $blend1 = [0, 150, 255];
 $blend2 = [0, 255, 208];

@@ -136,7 +136,6 @@ WriteMakefile(
     		    'Gimp/UI.pm'	=> '$(INST_LIBDIR)/Gimp/UI.pm',
     		    'Gimp/Net.pm'	=> '$(INST_LIBDIR)/Gimp/Net.pm',
     		    'Gimp/PDL.pm'	=> '$(INST_LIBDIR)/Gimp/PDL.pm',
-#    		    'Gtk/ColorSelectButton.pm'=> '$(INST_LIBDIR)/Gimp/ColorSelectButton.pm',
     		   },
     'LIBS'	=> [''],
     'INC'	=> "$CPPFLAGS $GIMP_INC $CFLAGS $DEFS",

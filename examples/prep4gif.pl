@@ -1,6 +1,6 @@
 #!/usr/bin/perl 
 
-use Gimp qw( :auto );
+use Gimp;
 use Gimp::Fu;
 
 # This script requires a Gimp version >= 0.96 (I haven't checked - ymmv)

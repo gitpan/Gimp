@@ -2,6 +2,9 @@
 #include <stdio.h>
 
 #include <libgimp/gimp.h>
+#if UI
+#include <libgimp/gimpui.h>
+#endif
 
 /* FIXME */
 /* sys/param.h is redefining these! */
@@ -778,6 +781,15 @@ static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, 
 
 GPlugInInfo PLUG_IN_INFO = { pii_init, pii_quit, pii_query, pii_run };
 
+#if UI
+static void gimp_pattern_select_widget_callback (gchar *name, gint width,
+	gint height, gint bpp, gchar *mask, gint closing, gpointer nameref)
+{
+  SV *sv = (SV *)nameref;
+  sv_setpv (sv, name);
+}
+#endif#
+
 MODULE = Gimp::Lib	PACKAGE = Gimp::Lib
 
 PROTOTYPES: ENABLE
@@ -1434,12 +1446,10 @@ gimp_pixel_rgn_set_rect(pr, data, x, y, width)
 #gimp_pixel_rgns_process(pri_ptr)
 #	gpointer	pri_ptr
 
-MODULE = Gimp::Lib	PACKAGE = Gimp::Tile
+PROTOTYPES: DISABLE
 
 # ??? optimize these two functions so tile_*ref will only be called once on
 # construction/destruction.
-
-PROTOTYPES: DISABLE
 
 SV *
 get_data(tile)
@@ -1465,6 +1475,38 @@ set_data(tile, data)
 
 BOOT:
 	trace_file = PerlIO_stderr ();
+
+#
+# this function exists to overwrite 
+#
+
+void
+gimp_patterns_get_pattern_data(name)
+	SV *	name
+	PPCODE:
+	{
+		GParam *return_vals;
+		int nreturn_vals;
+		
+		return_vals = gimp_run_procedure ("gimp_patterns_get_pattern_data",
+		                                  &nreturn_vals,
+		                                  PARAM_STRING, SvPV (name, na),
+		                                  PARAM_END);
+		
+		if (nreturn_vals == 7
+		    && return_vals[0].data.d_status == STATUS_SUCCESS)
+		  {
+		    EXTEND (sp, 5);
+		    
+		    PUSHs (newSVpv (return_vals[1].data.d_string, 0));
+		    PUSHs (newSViv (return_vals[2].data.d_int32));
+		    PUSHs (newSViv (return_vals[3].data.d_int32));
+		    PUSHs (newSViv (return_vals[4].data.d_int32));
+		    PUSHs (newSVpvn(return_vals[6].data.d_int8array, return_vals[5].data.d_int32));
+		  }
+		
+		gimp_destroy_params (return_vals, nreturn_vals);
+	}
 
 PROTOTYPES: ENABLE
 
@@ -1524,8 +1566,30 @@ PROTOTYPES: ENABLE
 #gimp_query_images(nimages)
 #	int *	nimages
 
+MODULE = Gimp::Lib	PACKAGE = Gimp::UI
 
+#if UI
+#if GIMP_MAJOR_VERSION > 1 || (GIMP_MAJOR_VERSION == 1 && GIMP_MINOR_VERSION == 1)
 
+GtkWidget *
+_new_pattern_select(dname, ipattern, nameref)
+	gchar *	dname
+	gchar *	ipattern
+	SV *	nameref;
+	CODE:
+	{
+		if (!SvROK (nameref))
+		  croak ("last argument to gimp_pattern_select_widget must be scalar ref");
+		
+		nameref = SvRV (nameref);
+		SvUPGRADE (nameref, SVt_PV);
+		
+		RETVAL = gimp_pattern_select_widget (dname, ipattern,
+				gimp_pattern_select_widget_callback, (gpointer) nameref);
+	}
+	OUTPUT:
+	RETVAL
 
-
+#endif
+#endif
 
