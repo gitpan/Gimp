@@ -138,15 +138,17 @@ sub start_server {
    my $opt = shift;
    $opt = $Gimp::spawn_opts unless $opt;
    print "trying to start gimp with options \"$opt\"\n" if $Gimp::verbose;
-   $server_fh=local *FH;
-   my $gimp_fh=local *FH;
+   $server_fh=local *SERVER_FH;
+   my $gimp_fh=local *CLIENT_FH;
    socketpair $server_fh,$gimp_fh,PF_UNIX,SOCK_STREAM,AF_UNIX
       or socketpair $server_fh,$gimp_fh,PF_UNIX,SOCK_STREAM,PF_UNSPEC
       or croak "unable to create socketpair for gimp communications: $!";
+
+   # do it here so it i done only once
+   require Gimp::Config;
    $gimp_pid = fork;
    if ($gimp_pid > 0) {
-      Gimp::ignore_functions(@Gimp::gimp_gui_functions);
-      close $gimp_fh;
+      Gimp::ignore_functions(@Gimp::gimp_gui_functions) unless $opt=~s/(^|:)gui//;
       return $server_fh;
    } elsif ($gimp_pid == 0) {
       close $server_fh;
@@ -156,16 +158,15 @@ sub start_server {
          open STDOUT,">/dev/null";
          open STDERR,">&1";
       }
+      my @args;
       my $args = &Gimp::RUN_NONINTERACTIVE." ".
                  (&Gimp::_PS_FLAG_BATCH | &Gimp::_PS_FLAG_QUIET)." ".
                  fileno($gimp_fh);
+      push(@args,"--no-data") if $opt=~s/(^|:)no-?data//;
+      push(@args,"-n") unless $opt=~s/(^|:)gui//;
+      push(@args,"--verbose") if $Gimp::verbose;
       { # block to suppress warning with broken perls (e.g. 5.004)
-         require Gimp::Config;
-         my @args;
-         push(@args,"--no-data") if $opt=~s/(^|:)no-?data//;
-         push(@args,"-n") unless $opt=~s/(^|:)gui//;
-         push(@args,"--verbose") if $Gimp::verbose;
-         exec $Gimp::Config{GIMP_PATH},
+         exec $Gimp::Config{GIMP},
               "--no-splash",
               @args,
               "-b",
@@ -250,7 +251,7 @@ sub gimp_init {
 sub gimp_end {
    $initialized = 0;
 
-   close $server_fh if $server_fh;
+   #close $server_fh if $server_fh;
    undef $server_fh;
    kill 'KILL',$gimp_pid if $gimp_pid;
    undef $gimp_pid;
