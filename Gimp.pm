@@ -12,7 +12,7 @@ use base qw(DynaLoader);
 
 require DynaLoader;
 
-$VERSION = 1.049;
+$VERSION = 1.052;
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -43,6 +43,7 @@ $VERSION = 1.049;
 	SHARPEN		SQUARE		STATUS_CALLING_ERROR		STATUS_EXECUTION_ERROR
 	STATUS_PASS_THROUGH		STATUS_SUCCESS	SUBTRACT_MODE	TRANS_IMAGE_FILL
 	VALUE_MODE	DIVIDE_MODE	PARASITE_PERSISTANT		WHITE_IMAGE_FILL
+        SPIRAL_CLOCKWISE		SPIRAL_ANTICLOCKWISE
 	
 	TRACE_NONE	TRACE_CALL	TRACE_TYPE	TRACE_NAME	TRACE_DESC
 	TRACE_ALL
@@ -61,6 +62,84 @@ $VERSION = 1.049;
 
 bootstrap Gimp $VERSION;
 
+# defs missing from libgimp
+
+sub BEHIND_MODE		(){ 2 };
+
+sub FG_BG_RGB		(){ 0 };
+sub FG_BG_HSV		(){ 1 };
+sub FG_TRANS		(){ 2 };
+sub CUSTOM		(){ 3 };
+
+sub LINEAR		(){ 0 };
+sub BILINEAR		(){ 1 };
+sub RADIAL		(){ 2 };
+sub SQUARE		(){ 3 };
+sub CONICAL_SYMMETRIC	(){ 4 };
+sub CONICAL_ASYMMETRIC	(){ 5 };
+sub SHAPEBURST_ANGULAR	(){ 6 };
+sub SHAPEBURST_SPHERICAL(){ 7 };
+sub SHAPEBURST_DIMPLED	(){ 8 };
+sub SPIRAL_CLOCKWISE	(){ 9 };
+sub SPIRAL_ANTICLOCKWISE(){10 };
+
+sub REPEAT_NONE		(){ 0 };
+sub REPEAT_SAWTOOTH	(){ 1 };
+sub REPEAT_TRIANGULAR	(){ 2 };
+
+sub FG_BUCKET_FILL	(){ 0 };
+sub BG_BUCKET_FILL	(){ 1 };
+sub PATTERN_BUCKET_FILL	(){ 2 };
+
+sub RED_CHANNEL		(){ 0 };
+sub GREEN_CHANNEL	(){ 1 };
+sub BLUE_CHANNEL	(){ 2 };
+sub GRAY_CHANNEL	(){ 3 };
+sub INDEXED_CHANNEL	(){ 4 };
+
+sub WHITE_MASK		(){ 0 };
+sub BLACK_MASK		(){ 1 };
+sub ALPHA_MASK		(){ 2 };
+
+sub APPLY		(){ 0 };
+sub DISCARD		(){ 1 };
+
+sub EXPAND_AS_NECESSARY	(){ 0 };
+sub CLIP_TO_IMAGE	(){ 1 };
+sub CLIP_TO_BOTTOM_LAYER(){ 2 };
+
+sub SELECTION_ADD	(){ 0 };
+sub SELECTION_SUB	(){ 1 };
+sub SELECTION_REPLACE	(){ 2 };
+sub SELECTION_INTERSECT	(){ 3 };
+
+sub PIXELS		(){ 0 };
+sub POINTS		(){ 1 };
+
+sub IMAGE_CLONE		(){ 0 };
+sub PATTERN_CLONE	(){ 1 };
+
+sub BLUR		(){ 0 };
+sub SHARPEN		(){ 1 };
+
+sub ALL_HUES		(){ 0 };
+sub RED_HUES		(){ 1 };
+sub YELLOW_HUES		(){ 2 };
+sub GREEN_HUES		(){ 3 };
+sub CYAN_HUES		(){ 4 };
+sub BLUE_HUES		(){ 5 };
+sub MAGENTA_HUES	(){ 6 };
+
+sub MESSAGE_BOX		(){ 0 };
+sub CONSOLE		(){ 1 };
+
+sub SHADOWS		(){ 0 };
+sub MIDTONES		(){ 1 };
+sub HIGHLIGHTS		(){ 2 };
+
+sub HORIZONTAL		(){ 0 };
+sub VERTICAL		(){ 1 };
+
 # internal constants shared with Perl-Server
 
 sub _PS_FLAG_QUIET	{ 0000000001 };	# do not output messages
@@ -76,7 +155,7 @@ sub import($;@) {
    
    # make a quick but dirty guess ;)
    
-   @_=qw(gimp_main main :auto) unless @_;
+   @_=qw(gimp_main main xlfd_size :auto) unless @_;
    
    for(@_) {
       if ($_ eq ":auto") {
@@ -95,7 +174,7 @@ sub import($;@) {
       } elsif ($_ ne "") {
          push(@export,$_);
       } elsif ($_ eq "") {
-         #nop #d#FIXME
+         #nop #d#FIXME, Perl-Server requires this!
       } else {
          croak "$_ is not a valid import tag for package $pkg";
       }
@@ -104,6 +183,13 @@ sub import($;@) {
    for(@export) {
       *{"${up}::$_"} = \&$_;
    }
+}
+
+sub xlfd_size($) {
+  local $^W=0;
+  my ($px,$pt)=(split(/-/,$_[0]))[7,8];
+  $px>0 ? ($px    ,&Gimp::PIXELS)
+        : ($pt*0.1,&Gimp::POINTS);
 }
 
 my %rgb_db;
@@ -239,14 +325,24 @@ sub AUTOLOAD {
       } elsif (_gimp_procedure_available ($sub)) {
          *{$AUTOLOAD} = sub {
             shift unless ref $_[0];
-#               goto gimp_call_procedure
+#               goto gimp_call_procedure # does not always work, PERLBUG! #FIXME
             my @r=eval { gimp_call_procedure ($sub,@_) };
             _croak $@ if $@;
             wantarray ? @r : $r[0];
          };
          goto &$AUTOLOAD;
       } elsif (defined(*{"${interface_pkg}::$sub"}{CODE})) {
-         die "safety net $interface_pkg :: $sub";#d#
+         die "safety net $interface_pkg :: $sub (REPORT THIS!!)";#d#
+      } elsif (UNIVERSAL::can(Gimp::Util,$sub)) {
+         my $ref = \&{"Gimp::Util::$sub"};
+         *{$AUTOLOAD} = sub {
+            shift unless ref $_[0];
+#               goto &$ref # does not always work, PERLBUG! #FIXME
+            my @r = eval { &$ref };
+            _croak $@ if $@;
+            wantarray ? @r : $r[0];
+         };
+         goto &$AUTOLOAD;
       }
    }
    croak "function/macro \"$name\" not found in $class";
@@ -418,7 +514,7 @@ create hybrid (networked & libgimp) scripts as well.
 
 =item *
 Use either a plain pdb (scheme-like) interface or nice object-oriented
-syntax, i.e. "gimp_layer_new(600,300,RGB)" is the same as "new Image(600,300,RGB)"
+syntax, i.e. "gimp_image_new(600,300,RGB)" is the same as "new Image(600,300,RGB)"
 
 =item *
 Gimp::Fu will start The Gimp for you, if it cannot connect to an existing
@@ -444,13 +540,13 @@ callback procedures do not poass return values to The Gimp.
 All plug-ins (and extensions etc.) _must_ contain a call to C<Gimp::main>.
 The return code should be immediately handed out to exit:
 
- C<exit main;>		# Gimp::main is exported by default.
+ exit main;		# Gimp::main is exported by default.
 
 Before the call to C<Gimp::main>, I<no> other PDB function must be called.
 
 In a Gimp::Fu-script, you should call C<Gimp::Fu::main> instead:
 
- C<exit main;>		# Gimp::Fu::main is exported by default as well.
+ exit main;		# Gimp::Fu::main is exported by default as well.
 
 This is similar to Gtk, Tk or similar modules, where you have to call the
 main eventloop.
@@ -487,7 +583,7 @@ If you C<die> within the callback, the error will be reported to The Gimp
 =item net ()
 
 this is called when the plug-in is not started directly from within the
-Gimp, but instead from the I<Net-Server> (the perl network server extension you
+Gimp, but instead from the B<Net-Server> (the perl network server extension you
 hopefully have installed and started ;)
 
 =back
@@ -550,6 +646,15 @@ speak for you), or just plain interesting functions.
 
 Should be called immediately when perl is initialized. Arguments are not yet
 supported. Initializations can later be done in the init function.
+
+=item xlfd_size(fontname)
+
+This auxillary functions parses the XLFD (usually obtained from a C<PF_FONT>
+parameter) and returns its size and unit (e.g. C<(20,POINTS)>). This can
+conviniently used in the gimp_text_..._fontname functions, which ignore the
+size (no joke ;). Example:
+
+ $drawable->text_fontname (50, 50, "The quick", 5, 1, xlfd_size $font, $font;
 
 =item Gimp::init([connection-argument]), Gimp::end()
 
@@ -692,6 +797,8 @@ invocation.
 =item set_trace(*FILEHANDLE)
 
 write trace to FILEHANDLE instead of STDERR.
+
+=back
 
 =head1 SUPPORTED GIMP DATA TYPES
 

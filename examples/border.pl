@@ -1,9 +1,10 @@
-#!/usr/bin/perl -w
+#!/usr/app/bin/perl
 
 #BEGIN {$^W=1};
 
 use Gimp;
 use Gimp::Fu;
+BEGIN { eval "use PDL"; $@ and exit main }
 use Gimp::PDL;
 use PDL::LiteF;
 

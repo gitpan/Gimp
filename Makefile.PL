@@ -4,13 +4,13 @@ use ExtUtils::MakeMaker;
 use Config;
 
 $topdir=".";
+$|=1;
 
 if ($ARGV[0] ne "--writemakefile") {
    for(@ARGV) {
       s/^prefix=/--prefix=/i;
    }
    
-   $|=1;
    do './config.pl';
    if(defined $EXTENSIVE_TESTS) {
       print "\nFetched some defaults from an earlier Makefile.PL run.\n";
@@ -25,9 +25,9 @@ gimp-1.1 ;)
 If you decide to run these tests (please!), I'd be glad to hear
 success stories (and of course any bug-reports ;)
 
-Do you want me to make these tests [n]? ";
+Do you want me to make these tests [y]? ";
       
-      $EXTENSIVE_TESTS = (<STDIN> =~ /^[yYjJ]/) ? 1 : 0;
+      $EXTENSIVE_TESTS = (<STDIN> !~ /^[nN]/) ? 1 : 0;
    }
    
    print "\n";
@@ -41,7 +41,6 @@ Do you want me to make these tests [n]? ";
    $ENV{IN_GIMP}=0;
    exit system("./etc/configure",@ARGV)>>8;
 } else {
-   shift @ARGV;
    do './config.pl';
 }
 
@@ -53,29 +52,32 @@ $] >= 5.005 or print <<EOF;
 
 WARNING: you are using a version of perl older than 5.005. While this
          extension should run on older versions (and I try to keep source
-         compatibility), some people get spurious errors that go away after
-         upgrading to 5.005. Since 5.005 is much better and has many many
-         bugs fixed, an upgrade wpuld come in handy...
+         compatibility), some people get spurious errors that go away
+         after upgrading to 5.005 (or to gimp-1.1). Therefore, some
+         features of Gimp DO NOT WORK WITH 5.004 or gimp-1.0. Since 5.005
+         is much better and has many many bugs fixed, an upgrade would
+         come in handy...
 
 EOF
 
 $GTK or print <<EOF;
 
-WARNING: unable to use the Perl-Gtk interface.  Some features (like
-         Gimp::Fu) rely on this extension.  You can try to build without it,
-         but it's better to install it (version 0.3 or higher is required,
-         you can get it from ftp://ftp.gimp.org/pub/gtk/perl/ or any
-         CPAN mirror.
+WARNING: unable to use the Perl-Gtk interface. Most features (like
+         Gimp::Fu) rely on this extension. You can try to build without
+         it (and many scripts won't work), but it's better to install
+         it (version 0.3 or higher is required, you can get it from
+         ftp://ftp.gimp.org/pub/gtk/perl/ or any CPAN mirror.
 
 EOF
 
 $PDL or print <<EOF;
 
-WARNING: unable to use PDL (the perl data language).  This means that
-         Gimp::PDL is non-functional.  Unless you plan to use Tile/PixelRgn
-         functions together with PDL, this is harmless.  Gimp::PDL will be
-         installed, just in case you later install PDL.  You can get PDL
-         from any CPAN mirror.
+WARNING: unable to use PDL (the perl data language). This means that
+         Gimp::PDL is non-functional. Unless you plan to use Tile/PixelRgn
+         functions together with PDL, this is harmless. Gimp::PDL will
+         be installed, just in case you later install PDL. The plug-ins
+         using PDL, however, will NOT WORK. You can get PDL from any CPAN
+         mirror.
 
 EOF
 
@@ -104,40 +106,46 @@ unless ($major > 0
         || ($major == 0 && $minor == 3 && $patch >= -1)) {
    print <<EOF;
 
-WARNING: version 0.3 of Gtk is _required_ for this module to build
-         properly.  You can get the newest version from
+WARNING: version 0.3 of Gtk is _required_ for this module to
+         build properly.  You can get the newest version from
          ftp://ftp.gimp.org/pub/gtk/perl/ or any CPAN mirror.  Older
          versions may work, but I have warned you!
 
 EOF
 }
 
+@examples =
+   qw(windy.pl prep4gif.pl webify.pl PDB alpha2color.pl tex-to-float ditherize.pl
+      border.pl view3d.pl feedback.pl xachlego.pl xachshadow.pl);
+@shebang = (map("examples/$_",@examples),
+   qw(Perl-Server scm2perl scm2scm examples/example-net.pl));
+
+for(@shebang) {
+   print "updating bangpath in $_\n";
+   system ($PERL,"-pi","-e","\$. == 1 and \$_ = '#!$PERL\n'",$_);
+}
+
 sub MY::postamble {
    (my $GIMPTOOL2 = $GIMPTOOL) =~ s/^\.\./..\/../;
-   <<"EOF";
+   my $postamble=<<"EOF";
 
+objclean :: clean
 maintainer-clean :: realclean
-objclean :: realclean
 distclean :: realclean
 check :: test
 
+clean ::
+	test -f Makefile || mv -f Makefile.old Makefile
+
 install :: install-plugins
+	$GIMPTOOL --install-admin-bin Perl-Server
 
 install-plugins:
-	$GIMPTOOL --install-admin-bin Perl-Server
-	-cd examples && $GIMPTOOL2 --install-admin-bin windy.pl
-	-cd examples && $GIMPTOOL2 --install-admin-bin prep4gif.pl
-	-cd examples && $GIMPTOOL2 --install-admin-bin webify.pl
-	-cd examples && $GIMPTOOL2 --install-admin-bin PDB
-	-cd examples && $GIMPTOOL2 --install-admin-bin alpha2color.pl
-	-cd examples && $GIMPTOOL2 --install-admin-bin tex-to-float
-	-cd examples && $GIMPTOOL2 --install-admin-bin ditherize
-	-cd examples && $GIMPTOOL2 --install-admin-bin border.pl
 EOF
+
+   $postamble.join("",map "	-cd examples && $GIMPTOOL2 --install-admin-bin $_\n", @examples);
 }
 
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
 WriteMakefile(
     'dist'	=> {
                     'PREOP'     => 'chmod -R u=rwX,go=rX . ;',
@@ -159,19 +167,20 @@ WriteMakefile(
     		    'Gimp/UI.pm'	=> '$(INST_LIBDIR)/Gimp/UI.pm',
     		    'Gimp/Net.pm'	=> '$(INST_LIBDIR)/Gimp/Net.pm',
     		    'Gimp/PDL.pm'	=> '$(INST_LIBDIR)/Gimp/PDL.pm',
+    		    'Gimp/Util.pm'	=> '$(INST_LIBDIR)/Gimp/Util.pm',
     		   },
     'LIBS'	=> [''],
     'INC'	=> "$CPPFLAGS $CFLAGS $GIMP_INC_NOUI $DEFS",
     'DEFINE'	=> ($IN_GIMP ? " -DIN_GIMP" : ""),
     'realclean'	=> { FILES => "config.status config.cache config.log config.pl config.h" },
-    'clean'	=> { FILES => "Makefile.old config.pl" },
+    'clean'	=> { FILES => "Makefile.old stamp-h" },
 );
 
 $IN_GIMP or print <<EOF;
 
 
-Hopefully, Gimp is now correctly configured. you can now enter "make", "make
-test" and "make install".
+Hopefully, Gimp is now correctly configured. you can now enter "make",
+"make test" and "make install".
 
 EOF
 

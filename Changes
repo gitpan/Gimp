@@ -1,5 +1,36 @@
 Revision history for Gimp-Perl extension.
 
+1.052 Tue Feb  9 18:16:15 CET 1999
+	- moved the xlfd_size function from Gimp::Fu into Gimp
+          (and maybe later into Gimp::Util?)
+	- functions in Gimp::Util are now treated in the same way
+          as PDB functions (when the module is loaded)
+        - improved handling of "make clean" to make it less perl-ish
+          and more gnu-ish
+        - enabled full testsuite (keep your fingers crossed)
+	- PDL examples no longer cause errors at startup
+        - more compatibility fixes for 5.005_54
+        - bangpaths are now replaced by $PERL at configuration time
+        - fixed a few quirks in scm2scm and added it to the package
+
+1.051 Tue Jan 19 21:10:20 CET 1999
+	- corrected a minor typoe found by Stefan Traby <stefan@sime.com>
+        - added SPIRAL* constants for gimp_blend
+        - moved constants from Gimp.xs and extradefs.h to Gimp.pm, where
+          they belong (either there or into Gimp.xs)
+	- added view3d.pl to examples (untested)
+	- Gimp::Util is reborn (give it a try and contribute!)
+	- more Gtk changes (tested with Gtk-0.5 and gtk-1.1.x, uh-oh)
+   	- faster startup by not loading Gtk by default ;)
+
+1.05  Fri Dec 18 22:05:25 CET 1998
+	- some 5.006 compatibility fixes
+        - disabled some functionality for poor gtk-1.0 which
+          is borken to no end
+        - fixed PARASITE_PERSISTENT typoe
+        - new functions: gimp_{major,minor,micro}_version
+        - PF_BRUSH, PATTERN and GRADIENT widgets are "emulated" in gimp-1.0
+
 1.049 Mon Nov 23 20:54:41 CET 1998
 	- updated configure to require 1.0.2
 	- added some more scripts to the dist
