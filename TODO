@@ -1,0 +1,15 @@
+
+* unimplemented functions:
+gimp_drawable_mask_bounds
+gimp_drawable_offsets
+*tile* functions
+*rgn* functions
+gimp_gradients_get_list
+gimp_gradients_sample_uniform
+gimp_gradients_sample_custom
+
+* function clash could be solved by adding namespace
+pdb_xxx and/or lib_xxx, i.e. pdb_gimp_palette_set_foreground and
+lib_gimp_palette_set_foreground.
+
+* oo interface for layers, image.. ?

@@ -1,0 +1,39 @@
+GPrintFunc					T_PTROBJ
+GSList *					T_PTROBJ
+GTree *						T_PTROBJ
+gdouble						T_DOUBLE
+gchar						T_IV
+guint						T_IV
+gpointer					T_PTROBJ
+GLayerMode					T_IV
+GDrawableType					T_IV
+gdouble *					T_PTROBJ
+guint32						T_IV
+gchar *						T_PV
+GParamDef *					T_PTROBJ
+char **						T_PTROBJ
+gint						T_IV
+int *						T_PTROBJ
+gchar const *					T_PV
+const gchar *					T_PV
+gint32						T_IV
+gchar **					T_PTROBJ
+GPixelRgn *					T_PTROBJ
+guchar						T_U_CHAR
+GParamDef **					T_PTROBJ
+gint *						T_PTROBJ
+GHashTable *					T_PTROBJ
+GTile *						T_PTROBJ
+gint32 *					T_PTROBJ
+GParam *					T_PTROBJ
+guchar *					T_PV
+GValue						T_PTROBJ
+GCache *					T_PTROBJ
+gboolean					T_IV
+GImageType					T_IV
+gulong						T_U_LONG
+const gpointer					T_PTROBJ
+GRunProc					T_PTROBJ
+GDrawable *					T_PTROBJ
+gulong *					T_PTROBJ
+char ***					T_PTROBJ

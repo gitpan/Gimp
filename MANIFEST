@@ -1,0 +1,11 @@
+Changes
+Gimp.pm
+Gimp.xs
+MANIFEST
+TODO
+Makefile.PL
+test.pl
+typemap
+plugin.pl
+extradefs.h
+gimpenums

@@ -1,0 +1,26 @@
+Revision history for Perl extension Gimp.
+
+0.01  Fri Feb  6 17:51:56 CET 1998
+	- original version; created by h2xs 1.18
+
+0.02  Sat Feb  7 04:18:17 CET 1998
+	- first working version
+
+0.03  Sat Feb  7 06:15:09 CET 1998
+	- even more usable. although only pdb calls are implemented,
+	  most gimp functions are available. dealing with tiles
+	  directly in perl is probbaly too slow anyway.
+	- the example plugin does slightly more now.
+
+0.04  Sat Feb  7 21:43:56 CET 1998
+	- gimp_channel_set_color uses a d_color argument, like everybody else
+	- libgimp functions will be used instead of pdb calls
+	  wherever possible. libgimp functions using different calling
+	  conventions than equivalent pdb functions (gimp_layer_copy, etc..)
+	  are NOT exported.
+
+0.05  Sat Feb  7 23:31:08 CET 1998
+	- added set_trace and trace capabilities. helps to track down bugs in
+	  pdb calls
+
+
