@@ -5,12 +5,13 @@ use Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
             @_consts @_procs $interface_pkg $interface_type @_param
             @PREFIXES $_PROT_VERSION
+            @gimp_gui_functions
             $help $verbose $host $gimp_main);
 
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '1.034';
+$VERSION = '1.035';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -211,6 +212,20 @@ sub _croak($) {
 
 @PREFIXES=("gimp_", "");
 
+my %ignore_function = ();
+
+@gimp_gui_functions = qw(
+   gimp_progress_init
+   gimp_progress_update
+   gimp_displays_flush
+   gimp_display_new
+   gimp_display_delete
+);
+
+sub ignore_functions(@) {
+   undef $ignore_function{$_} for @_;
+}
+
 sub AUTOLOAD {
    no strict;
    my ($class,$name) = $AUTOLOAD =~ /^(.*)::(.*?)$/;
@@ -218,16 +233,10 @@ sub AUTOLOAD {
    if ($!) {
       for(@{"${class}::PREFIXES"}) {
          my $sub = $_.$name;
-         if (_gimp_procedure_available ($sub)) {
-            *{$AUTOLOAD} = sub {
-               shift unless ref $_[0];
-#               goto gimp_call_procedure
-               my @r=eval { gimp_call_procedure ($sub,@_) };
-               _croak $@ if $@;
-               wantarray ? @r : $r[0];
-            };
-            goto &$AUTOLOAD;
-         } elsif (defined(*{"${interface_pkg}::$sub"}{CODE})) {
+         if (exists $ignore_function{$sub}) {
+           *{$AUTOLOAD} = sub { return () };
+           goto &$AUTOLOAD;
+         } elsif (UNIVERSAL::can($interface_pkg,$sub)) {
             my $ref = \&{"${interface_pkg}::$sub"};
             *{$AUTOLOAD} = sub {
                shift unless ref $_[0];
@@ -237,6 +246,17 @@ sub AUTOLOAD {
                wantarray ? @r : $r[0];
             };
             goto &$AUTOLOAD;
+         } elsif (_gimp_procedure_available ($sub)) {
+            *{$AUTOLOAD} = sub {
+               shift unless ref $_[0];
+#               goto gimp_call_procedure
+               my @r=eval { gimp_call_procedure ($sub,@_) };
+               _croak $@ if $@;
+               wantarray ? @r : $r[0];
+            };
+            goto &$AUTOLOAD;
+         } elsif (defined(*{"${interface_pkg}::$sub"}{CODE})) {
+            die "safety net $interface_pkg :: $sub";#d#
          }
       }
       croak "function/macro \"$name\" not found in $class";

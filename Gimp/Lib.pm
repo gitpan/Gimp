@@ -14,13 +14,7 @@ use subs qw(
 	_gimp_procedure_available	set_trace
 );
 
-sub import {
-   no strict;
-   my $up = caller;
-   for(qw(gimp_list_images gimp_image_get_layers gimp_image_get_channels)) {
-     *{"${up}::$_"} = \&$_;
-   }
-}
+sub import {}
 
 bootstrap Gimp::Lib $VERSION;
 
@@ -28,17 +22,14 @@ bootstrap Gimp::Lib $VERSION;
 # does not work.
 
 sub gimp_list_images {
-   shift;
    map _autobless($_,&Gimp::PARAM_IMAGE),gimp_call_procedure "gimp_list_images";
 }
 
 sub gimp_image_get_layers {
-   shift;
    map _autobless($_,&Gimp::PARAM_LAYER),gimp_call_procedure "gimp_image_get_layers",@_;
 }
 
 sub gimp_image_get_channels {
-   shift;
    map _autobless($_,&Gimp::PARAM_CHANNEL),gimp_call_procedure "gimp_image_get_channels",@_;
 }
 

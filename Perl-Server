@@ -19,6 +19,7 @@ use Gimp '';
 use Gimp::Net qw(:server);
 
 Gimp::set_trace(\$trace_res);
+Gimp::ignore_functions(qw(gimp_progress_init gimp_progress_update));
 
 #
 # the protocol is quite easy ;)

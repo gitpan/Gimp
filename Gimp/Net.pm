@@ -111,11 +111,6 @@ sub server_quit {
    exit(0);
 }
 
-# progress bar would never go away, since Net-Server isn't
-# stopped... to avoid confusion. just disable the progress bar.
-sub gimp_progress_init {};
-sub gimp_progress_update {};
-
 sub set_trace {
    my($trace)=@_;
    if(ref $trace) {
@@ -132,8 +127,7 @@ sub start_server {
       or croak "unable to create socketpair for gimp communications: $!";
    $gimp_pid = fork;
    if ($gimp_pid > 0) {
-      *gimp_display_new=sub {};
-      *gimp_displays_flush=sub {};
+      Gimp::ignore_functions(@Gimp::gimp_gui_functions);
       return $server_fh;
    } elsif ($gimp_pid == 0) {
       close $server_fh;
