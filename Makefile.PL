@@ -12,7 +12,7 @@ if ($ARGV[0] eq "---called-after-configure") {
 do './pcfg';
 
 @ARGV=();
-unshift(@ARGV,"prefix=$prefix") if $prefix;
+unshift(@ARGV,"PREFIX=$prefix") if $prefix;
 
 eval "use Gtk;"; $GTK = $@ eq "";
 eval "use PDL;"; $PDL = $@ eq "";
@@ -63,14 +63,12 @@ EOF
 sub MY::postamble {
    <<"EOF";
 
-#install :: install-plugins
+install :: install-plugins
 
 install-plugins:
 	$GIMPTOOL --install-admin-bin Perl-Server
 	cd examples && $GIMPTOOL --install-admin-bin windy.pl
-	cd examples && $GIMPTOOL --install-admin-bin example-oo.pl
-	cd examples && $GIMPTOOL --install-admin-bin example-net.pl
-	cd examples && $GIMPTOOL --install-admin-bin example-fu.pl
+	cd examples && $GIMPTOOL --install-admin-bin prep4gif.pl
 EOF
 }
 

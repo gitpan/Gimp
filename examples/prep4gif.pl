@@ -4,6 +4,7 @@ use Gimp qw( :auto );
 use Gimp::Fu;
 
 # This script requires a Gimp version >= 0.96 (I haven't checked - ymmv)
+# small changes by Marc Lehmann <pcg@goof.com>
 
 # prep4gif.pl
 # by Seth Burgess <sjburges@gimp.org>
@@ -14,7 +15,7 @@ use Gimp::Fu;
 # close to the intended background as the bottom layer.  If convert
 # to indexed is not selected, the bottom two options are unused.
 # 
-# TODO: Write a nicer GUI than GIMP:FU provides (learn some gtk)
+# TODO: Write a nicer GUI than Gimp::Fu provides (learn some gtk)
 #       Anything else that seems useful 
 
 # Gimp::set_trace(TRACE_ALL);
@@ -83,17 +84,18 @@ sub prep {
 
 # Show all the changes.
 	gimp_displays_flush();
-	return 0;
+	
+	undef;
 	}
 
 register
-	"prep4gif",
+	"plug_in_prep4gif",
 	"Prep for gif",
 	"Make the image a small-cut-out of the intended background, so your transparent text doesn't look blocky.",
 	"Seth Burgess",
 	"Seth Burgess",
 	"1998-06-23",
-	"<Image>/Perl-Fu/prep4gif",
+	"<Image>/Filters/Misc/Prepare for GIF",
 	"RGB*",
 	[
 	 [PF_INT32, "Lower Threshold", "Lower Alpha Threshold", 64],

@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 # sent to me by Seth Burgess <sjburges@ou.edu>
+# small changes my Marc Lehmann <pcg@goof.com>
 
 use Gimp qw( :auto );
 use Gimp::Fu;
@@ -9,7 +10,7 @@ use Gimp::Fu;
 
 sub windify {
 	my ($img, $drawable, $angle, $density, $distance, $wrap) = @_;
-	my @oldbg = gimp_palette_get_background();
+	my $oldbg = gimp_palette_get_background();
 	my $xsize = gimp_drawable_width($drawable);
 	my $ysize = gimp_drawable_height($drawable);
 
@@ -37,19 +38,20 @@ sub windify {
 					  1,1, $newlay,$newlay, $wrap);
 	gimp_image_remove_layer($out,$newlay);
 	gimp_image_delete ($out);
-	gimp_palette_set_background(@oldbg);
+	gimp_palette_set_background($oldbg);
 	gimp_displays_flush();
-	return 0;
+	
+	undef;
 	}
 
 register
-	"windify",
+	"plug_in_windify",
 	"Add wind to an image",
 	"Blow your image all over :)",
 	"Seth Burgess",
 	"Seth Burgess (c)",
 	"1998-05-20",
-	"<Image>/Perl-Fu/Windify",
+	"<Image>/Filters/Artistic/Windify",
 	"*",
 	[
 	 [PF_INT32, "Angle", "Wind Angle, 0 is left", 120],

@@ -1,8 +1,16 @@
 Revision history for Gimp-Perl extension.
 
+0.996 Wed Jul 22 14:39:23 CEST 1998
+	- greatly reduced code bloat, almost all functions
+	  can be traced now, at expense of speed and possible
+	  libgimp-bashing ;-<
+	- _some_ plug-ins are installed by default now
+	- if this surives the test, it will be 1.0. really.
+
 0.995 Tue Jul 21 20:08:32 CEST 1998
 	- do not depend on origargc and origargv anymore, as
-	  these do not exist in perl5.004_76 (this is now even uglier)
+	  these do not exist in perl5.004_76 (due to a bug, but
+	  the new solution is better)
 	- this is the release 1.0 candidate
 
 0.994 Tue Jul 21 04:57:28 CEST 1998

@@ -2,6 +2,13 @@ NAME
        Gimp - Perl extension for writing Gimp Extensions/Plug-
        ins/Load & Save-Handlers
 
+SYNOPSIS
+       my $img = new Image (600, 300, RGB);
+       my $bg = $img->layer_new(600,300,RGB_IMAGE,"BAckground",100,NOTMAL_MODE);
+       $img->add_layer($bg, 1);
+       $img->edit_fill($bg);
+       $img->display_new;
+
 HUH?
        For a quick (but outdated) intro on the general
        look & feel, go to
@@ -40,10 +47,17 @@ INSTALLATION
        
        perl ./Makefile.PL --help
        
-       a straight "./configure" should do the job on most systems, but watch
-       out for warnings. If everything went fine, enter "make", "make test",
-       "make install" and, if you want to install the Perl-Server and some
-       other plug-ins, "make install-plugins"
+       a straight "perl Makefile.PL" should do the job on most systems, but
+       watch out for warnings. If everything went fine, enter "make", "make
+       test", "make install" and, if you want to install the Perl-Server and
+       some other plug-ins, "make install-plugins"
+       
+       After installation, these perl plug-ins should be visible from with
+       The Gimp:
+       
+       <Toolbox>/Xtns/Perl-Server
+       <Image>/Filters/Artistic/Windify
+       <Image>/Filters/Misc/Prepare for GIF
        
        If you don't have unix, you can install linux instead
        (http://www.linux.org)

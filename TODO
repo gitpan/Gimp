@@ -1,8 +1,12 @@
 bugs
 
+  * modification of read-only variable attempted in Gimp::Data
+  * croak where croak to croak is croaked
+
 important issues
 
   * add realclean
+  * make traceable
 
 not-so-important issues
 
@@ -14,6 +18,7 @@ not-so-important issues
   * unimplemented functions:
     
     gimp_query_procedure(proc_name, proc_blurb, proc_help, proc_author, proc_copyright, proc_date, proc_type, nparams, nreturn_vals, params, return_vals)
+    gimp_query_database
     gimp_channel_get_show_masked(channel_ID)
     gimp_channel_set_show_masked(channel_ID, show_masked)
     

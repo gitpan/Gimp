@@ -479,18 +479,23 @@ sub register($$$$$$$$$&) {
       if (@imgs) {
          for my $i (0..$#imgs) {
             my $img = $imgs[$i];
-            if ($outputfile) {
-               my $path = sprintf $outputfile,$i;
-               if ($#imgs and $path eq $outputfile) {
-                  $path=~s/\.(?=[^.]*$)/$i./; # insert image number before last dot
+            next unless defined $img;
+            if (ref $img eq "Gimp::Image") {
+               if ($outputfile) {
+                  my $path = sprintf $outputfile,$i;
+                  if ($#imgs and $path eq $outputfile) {
+                     $path=~s/\.(?=[^.]*$)/$i./; # insert image number before last dot
+                  }
+                  print "saving image $path\n" if $Gimp::verbose;
+                  save_image($img,$path);
+                  $img->delete;
+               } else {
+                  $img->display_new;
+                  Gimp::gimp_displays_flush();
                }
-               print "saving image $path\n" if $Gimp::verbose;
-               save_image($img,$path);
-               $img->delete;
-	    } else {
-	       $img->display_new;
-	       Gimp::gimp_displays_flush();
-	    }
+            } else {
+               warn "WARNING: $function returned something that is not an image: \"$img\"\n";
+            }
 	 }
       }
    };
