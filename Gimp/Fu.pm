@@ -19,7 +19,7 @@ require AutoLoader;
 
 =head1 NAME
 
-Gimp::Fu - easy to use framework for Gimp scripts
+Gimp::Fu - "easy to use" framework for Gimp scripts
 
 =head1 SYNOPSIS
 
@@ -97,7 +97,7 @@ sub PF_TOGGLE	() { PARAM_END+1	};
 
 @ISA = qw(Exporter);
 @EXPORT = (qw(register main),@_params);
-@EXPORT_OK = qw(interact $run_mode);
+@EXPORT_OK = qw(interact $run_mode save_image);
 %EXPORT_TAGS = (params => [@_params]);
 
 sub interact($@) {
@@ -236,6 +236,7 @@ sub string2pf($$) {
    }
 }
 
+# set options read from the command line
 my $outputfile;
 
 sub net {
@@ -246,17 +247,17 @@ sub net {
    @map{map $_->[1],@{$this->[8]}} = (0..$#{$this->[8]});
    while(defined($_=shift @ARGV)) {
       if (/^-+(.*)$/) {
-	 if($1 eq "i" or $1 eq "-interact") {
+	 if($1 eq "i" or $1 eq "interact") {
 	   $interact=1e6;
-	 } elsif($1 eq "o" or $1 eq "-output") {
+	 } elsif($1 eq "o" or $1 eq "output") {
 	   $outputfile=shift @ARGV;
-	 } elsif($1 eq "-info") {
+	 } elsif($1 eq "info") {
 	   print "no additional information available, use --help\n";
 	   exit 0;
 	 } else {
            my $arg=shift @ARGV;
 	   my $idx=$map{$1};
-	   die "$1: illegal switch, try $0 --help\n" unless defined($idx);
+	   die "$_: illegal switch, try $0 --help\n" unless defined($idx);
 	   $args[$idx]=string2pf($arg,$this->[8][@args]);
 	   $interact--;
 	 }
@@ -467,23 +468,122 @@ sub register($$$$$$$$$&) {
          die "run_mode must be INTERACTIVE, NONINTERACTIVE or WITH_LAST_VALS\n";
       }
       
-      # keep your fingers crossed and requite Data::Dumper later
+      # keep your fingers crossed and require Data::Dumper later,
+      # when 5.005 is out it will be part of the distribution
       $Gimp::Data{"_fu_data"}=join("\0\0",@_);
       
       print $function,"(",join(",",(@pre,@_)),")\n" if $Gimp::verbose;
       
-      for my $img (&$code(@pre,@_)) {
-         next unless defined $img;
-	 if ($outputfile) {
-	    die "writing to a file is not yet supported!";
-	 } else {
-	    Gimp::gimp_display_new($img);
-	    Gimp::gimp_displays_flush();
+      my @imgs = &$code(@pre,@_);
+      
+      if (@imgs) {
+         for my $i (0..$#imgs) {
+            my $img = $imgs[$i];
+            if ($outputfile) {
+               my $path = sprintf $outputfile,$i;
+               if ($#imgs and $path eq $outputfile) {
+                  $path=~s/\.(?=[^.]*$)/$i./; # insert image number before last dot
+               }
+               print "saving image $path\n" if $Gimp::verbose;
+               save_image($img,$path);
+               $img->delete;
+	    } else {
+	       $img->display_new;
+	       Gimp::gimp_displays_flush();
+	    }
 	 }
       }
    };
    push(@scripts,[$function,$blurb,$help,$author,$copyright,$date,
                   $menupath,$imagetypes,$params,$code]);
+}
+
+=cut
+
+=head2 MISC. FUNCTIONS
+
+=over
+
+=item C<save_image(img,options_and_path)>
+
+This is the internal function used to save images. As it does more than just
+gimp_file_save, I thought it would be handy in other circumstances as well.
+
+The C<img> is the image you want to save (which might get changed during
+the operation!), C<options_and_path> denotes the filename and optinal
+options. If there are no options, C<save_image> tries to deduce the filetype
+from the extension. The syntax for options is
+
+ [IMAGETYPE[OPTIONS...]:]filespec
+
+IMAGETYPE is one of GIF, JPG, JPEG, PNM or PNG, options include
+
+ options valid for all images
+ +F	flatten the image (default depends on the image)
+ -F	do not flatten the image
+ 
+ options for GIF and PNG images
+ +I	do save as interlaced (GIF only)
+ -I	do not save as interlaced (default)
+ 
+ options for PNG images
+ -Cn	use compression level n
+
+ options for JPEG images
+ -Qn	use quality "n" to save file (JPEG only)
+ -S	do not smooth (default)
+ +S	smooth before saving
+ 
+some examples:
+
+ test.jpg		save the image as a simple jpeg
+ JPG:test.jpg		same
+ JPG-Q70:test.jpg	the same but force a quality of 70
+ GIF-I-F:test.jpg	save a gif image(!) named test.jpg
+ 			non-inerlaced and without flattening
+
+=back
+
+=cut
+
+sub save_image($$) {
+   my($img,$path)=@_;
+   my($interlace,$flatten,$quality,$type,$smooth,$compress);
+   
+   $interlace=0;
+   $quality=75;
+   $smooth=0;
+   $compress=7;
+   
+   $_=$path=~s/^([^:]+):// ? $1 : "";
+   $type=uc($1) if $path=~/\.([^.]+)$/;
+   $type=uc($1) if s/^(GIF|JPG|JPEG|PNM|PNG)//i;
+   while($_ ne "") {
+      $interlace=$1 eq "+", 	next if s/^([-+])[iI]//;
+      $flatten=$1 eq "+", 	next if s/^([-+])[fF]//;
+      $smooth=$1 eq "+", 	next if s/^([-+])[sS]//;
+      $quality=$1,		next if s/^-[qQ](\d+)//;
+      $compress=$1,		next if s/^-[cC](\d+)//;
+      croak "$_: unknown/illegal file-save option";
+   }
+   $flatten=(()=$img->get_layers)>1 unless defined $flatten;
+   
+   $img->flatten if $flatten;
+   
+   # always save the active layer
+   my $layer = $img->get_active_layer;
+   
+   if ($type eq "JPG" or $type eq "JPEG") {
+      Gimp::file_jpeg_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,$quality,$smooth,1);
+   } elsif ($type eq "GIF") {
+      Gimp::file_gif_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,$interlace,0,0,0);
+   } elsif ($type eq "PNG") {
+      Gimp::file_png_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,$interlace,$compress);
+   } elsif ($type eq "PNM") {
+      Gimp::file_pnm_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,1);
+   } else {
+      Gimp::gimp_file_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path);
+   }
 }
 
 # provide some clues ;)

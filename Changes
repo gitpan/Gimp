@@ -1,5 +1,9 @@
 Revision history for Gimp-Perl extension.
 
+0.993 Tue Jul 21 04:38:01 CEST 1998
+	- incorporated Dov's patch to enable --output
+	  (man Gimp::Fu, save_image)
+
 0.992 Thu Jul 16 17:10:46 CEST 1998
 	- added more constants (see DIVIDE_MODE, gimp_color_balance)
 	- Perl-Server now clears the trace result from the last command,
