@@ -18,8 +18,6 @@ use Gimp::Net;
 
 Gimp::set_trace(\$trace_res);
 
-$SIG{PIPE}='IGNORE'; # does not yet work, since libgimp (eech) overwrites it.
-
 #
 # the protocol is quite easy ;)
 #
@@ -83,6 +81,8 @@ sub handle_request($) {
 
 sub extension_perl_net_server {
   slog "server started";
+  
+  $SIG{PIPE}='IGNORE'; # may not work, since libgimp (eech) overwrites it.        
   my($unix_path)=$Gimp::Net::default_unix_dir.$Gimp::Net::default_unix_sock;
   my($rm,%handles,$r,$fh,$f);
   
@@ -91,12 +91,14 @@ sub extension_perl_net_server {
     rmdir $Gimp::Net::default_unix_dir;
     mkdir $Gimp::Net::default_unix_dir,0700 or die "$!";
     $unix = new IO::Socket::UNIX (Local => $unix_path, Listen => 5) or die "$!";
+    $unix->autoflush (1); # for compatibility with very old perls..
     slog "accepting connections on $unix_path";
     vec($rm,$unix->fileno,1)=1;
   }
   if ($use_tcp) {
     $tcp = new IO::Socket::INET (LocalPort => $Gimp::Net::default_tcp_port, Listen => 5,
                                  Reuse => 1) or die "$!";
+    $tcp->autoflush (1); # for compatibility with very old perls..
     slog "accepting connections on port $Gimp::Net::default_tcp_port";
     vec($rm,$tcp->fileno,1)=1;
   }

@@ -65,3 +65,9 @@ Revision history for Perl extension Gimp.
 0.84  Fri Mar 13 21:23:07 CET 1998
 	- calling "new Object" now actually works the second time.
 
+0.85  Fri Mar 27 17:43:35 CET 1998
+	- compatibility autoflush added in Net-Server, better upgrade to 5.004_04
+	- better signal handling in Net-Server... why does libgimp need SIGPIPE?
+	- add -lglib to the libraries for Lib.xs, to cater for yet more broken systems
+
+

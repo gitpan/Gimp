@@ -115,7 +115,7 @@ sub gimp_main {
     }
   }
   $server_fh or croak "could not connect to the gimp server server (make sure Net-Server is running)";
-  $server_fh->autoflush(1);
+  $server_fh->autoflush(1); # for compatibility with very old perls..
   no strict 'refs';
   &{caller()."::net"};
 }

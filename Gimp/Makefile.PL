@@ -8,7 +8,7 @@ WriteMakefile(
                    },
     'NAME'	=> 'Gimp::Lib',
     'VERSION_FROM' => '../Gimp.pm', # finds $VERSION
-    'LIBS'	=> ['-lgimp'],   # e.g., '-lm' 
+    'LIBS'	=> ['-lgimp -lglib'],   # e.g., '-lm' 
     'DEFINE'	=> '',     # e.g., '-DHAVE_SOMETHING' 
     'INC'	=> '-I..',     # e.g., '-I/usr/include/other' 
 );

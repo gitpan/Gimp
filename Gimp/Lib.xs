@@ -49,6 +49,12 @@ trace_init ()
     SvCUR_set (trace_var, 0);
 }
 
+#ifndef __STDC_VERSION__
+error You need to compile with an ansi-c compiler If you don´t have one,
+      comment out these lines and try again - on your own risk.
+#define __STDC_VERSION__ 0
+#endif
+
 #if __STDC_VERSION__ > 199900
 #define trace_printf(...) \
 	if (trace_file) PerlIO_printf (trace_file, __VA_ARGS__); \

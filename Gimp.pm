@@ -8,7 +8,7 @@ use vars qw(@_consts @_procs @_internals $interface_pkg $interface_type);
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '0.84';
+$VERSION = '0.85';
 
 @_consts = qw(
 	ADDITION_MODE	ALPHA_MASK	APPLY		BEHIND_MODE	BG_BUCKET_FILL
