@@ -1,5 +1,10 @@
 Revision history for Gimp-Perl extension.
 
+1.034 Wed Sep 16 21:21:42 CEST 1998
+	- various bugfixes in Gimp::Fu
+	- added slider type to Gimp::Fu (PF_SLIDER), see webify.pl
+	  for a demo.
+
 1.033 Tue Sep 15 17:53:50 CEST 1998
 	- added mailing list info to the README
 	- compatibility fix for 5.004

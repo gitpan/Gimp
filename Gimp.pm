@@ -10,7 +10,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '1.033';
+$VERSION = '1.034';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -195,6 +195,7 @@ if ($interface_type=~/^lib$/i) {
 }
 
 eval "require $interface_pkg" or croak "$@";
+$interface_pkg->import;
 
 # create some common aliases
 for(qw(_gimp_procedure_available gimp_call_procedure set_trace)) {

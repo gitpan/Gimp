@@ -10,7 +10,8 @@ webify.pl
 	a small plugin that flattens an image, makes the background
 	transparent, converts it to indexed and then crops it
 	to the right size. Useful to save small & transparent gifs
-	from a higher-quality source.
+	from a higher-quality source. It also features most
+	Gimp::Fu UI-elements.
 
 border.pl
 	a "port" of the similarly named plug-in written in C, to

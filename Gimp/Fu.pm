@@ -65,30 +65,34 @@ sub PF_INT8	() { PARAM_INT8		};
 sub PF_INT16	() { PARAM_INT16	};
 sub PF_INT32	() { PARAM_INT32	};
 sub PF_FLOAT	() { PARAM_FLOAT	};
-sub PF_VALUE	() { PARAM_FLOAT	};
 sub PF_STRING	() { PARAM_STRING	};
 sub PF_COLOR	() { PARAM_COLOR	};
 sub PF_COLOUR	() { PARAM_COLOR	};
 sub PF_IMAGE	() { PARAM_IMAGE	};
 sub PF_LAYER	() { PARAM_LAYER	};
 sub PF_CHANNEL	() { PARAM_CHANNEL	};
-sub PF_DRAWABLE	() { PARAM_DRAWABLE};
+sub PF_DRAWABLE	() { PARAM_DRAWABLE	};
 
-sub PF_FONT	() { PARAM_STRING	};	# at the moment!
-sub PF_TOGGLE	() { PARAM_END+1	};
+sub PF_TOGGLE	() { &PARAM_END+1	};
+sub PF_SLIDER	() { &PARAM_END+2	};
+
+sub PF_FONT	() { PF_STRING		};	# at the moment!
 sub PF_BOOL	() { PF_TOGGLE		};
+sub PF_INT	() { PF_INT32		};
+sub PF_VALUE	() { PF_STRING		};
 
 sub Gimp::RUN_FULLINTERACTIVE { &Gimp::RUN_INTERACTIVE+100 };	# you don't want to know
 
 %pf_type2string = (
          &PF_INT8	=> 'small integer',
-         &PF_INT16	=> 'integer',
+         &PF_INT16	=> 'medium integer',
          &PF_INT32	=> 'integer',
          &PF_FLOAT	=> 'value',
          &PF_STRING	=> 'string',
          &PF_COLOR	=> 'colour',
 #         &PF_FONT	=> 'XLFD',
          &PF_TOGGLE	=> 'boolean',
+         &PF_SLIDER	=> 'integer',
          &PF_IMAGE	=> 'NYI',
          &PF_LAYER	=> 'NYI',
          &PF_CHANNEL	=> 'NYI',
@@ -97,7 +101,8 @@ sub Gimp::RUN_FULLINTERACTIVE { &Gimp::RUN_INTERACTIVE+100 };	# you don't want t
 
 @_params=qw(PF_INT8 PF_INT16 PF_INT32 PF_FLOAT PF_VALUE
             PF_STRING PF_COLOR PF_COLOUR PF_TOGGLE PF_IMAGE
-            PF_DRAWABLE PF_FONT PF_LAYER PF_CHANNEL PF_BOOL);
+            PF_DRAWABLE PF_FONT PF_LAYER PF_CHANNEL PF_BOOL
+            PF_SLIDER PF_INT);
 
 @ISA = qw(Exporter);
 @EXPORT = (qw(register main gimp_main),@_params);
@@ -108,6 +113,17 @@ sub import {
    undef *{caller()."::main"};
    undef *{caller()."::gimp_main"};
    goto &Exporter::import;
+}
+
+sub _default {
+   my $d = shift;
+   my @a = @_;
+   if (ref $d) {
+     @a[0..$#$d] = @{$d};
+   } elsif (defined $d) {
+     $a[0] = $d;
+   }
+   @a;
 }
 
 sub interact($@) {
@@ -131,7 +147,7 @@ sub interact($@) {
      
      for(@types) {
         my($label,$a);
-        my($type,$name,$desc,$default)=@$_;
+        my($type,$name,$desc,$default,$extra)=@$_;
         my($value)=shift;
         $value=$default unless defined $value;
         push(@defaults,$default);
@@ -147,6 +163,14 @@ sub interact($@) {
            push(@setvals,sub{set_text $a defined $value ? $value : ""});
            #select_region $a 0,1;
            push(@getvals,sub{get_text $a});
+           
+        } elsif($type == PF_SLIDER) {
+           my($l,$r,$i)=_default($extra,0,0,99,1);
+           my $adj = new Gtk::Adjustment $value,$l,$r,$i,1,1;
+           $a=new Gtk::HScale $adj;
+           $a->set_usize (120,0);
+           push(@setvals,sub{$adj->set_value($value)});
+           push(@getvals,sub{$adj->get_value});
            
         } elsif($type == PF_COLOR) {
            $a=new Gtk::HBox (0,5);
@@ -178,10 +202,19 @@ sub interact($@) {
            
         } elsif($type == PF_IMAGE) {
            my $res;
-           $a=new Gtk::OptionMenu;
-           $a->set_menu(new Gimp::UI::ImageMenu(sub {1},-1,$res));
+           $a=new Gtk::HBox (0,5);
+           my $b=new Gtk::OptionMenu;
+           $b->set_menu(new Gimp::UI::ImageMenu(sub {1},-1,$res));
+           show $b; $a->pack_start ($b,1,1,0);
            push(@setvals,sub{});
            push(@getvals,sub{$res});
+           set_tip $t $b,$desc;
+           
+#           my $c = new Gtk::Button "Load";
+#           signal_connect $c "clicked", sub {$res = 2; main_quit Gtk};
+#           $g->attach($c,1,2,$res,$res+1,{},{},4,2);
+#           show $c; $a->pack_start ($c,1,1,0);
+#           set_tip $t $c,"Load an image into the Gimp (NYI)";
            
         } elsif($type == PF_LAYER) {
            my $res;
@@ -224,18 +257,13 @@ sub interact($@) {
         $res++;
      }
      
-     $button = new Gtk::Button "Last Values";
+     $button = new Gtk::Button "Reset to previous values";
      signal_connect $button "clicked", sub {
        for my $i (0..$#defaults) {
          $setvals[$i]->($defaults[$i]);
        }
      };
-     $g->attach($button,0,1,$res,$res+1,{},{},4,2);
-     show $button;
-     
-     $button = new Gtk::Button "Load an Image";
-     signal_connect $button "clicked", sub {$res = 2; main_quit Gtk};
-     $g->attach($button,1,2,$res,$res+1,{},{},4,2);
+     $g->attach($button,0,2,$res,$res+1,{},{},4,2);
      show $button;
      
      $res=0;
@@ -351,8 +379,8 @@ sub net {
    }
    
    # Go for it
-   $this->[0]->($interact>0 ? &Gimp::RUN_FULLINTERACTIVE
-                            : &Gimp::RUN_NONINTERACTIVE,@args);
+   $this->[0]->($interact>0 ? (&Gimp::RUN_FULLINTERACTIVE,undef,undef,@args)
+                            : (&Gimp::RUN_NONINTERACTIVE,@args));
 }
 
 # the <Image> arguments
@@ -381,6 +409,7 @@ sub query {
                                    [map {
                                       $_->[0]=PARAM_INT32	if $_->[0] == PF_TOGGLE;
                                       $_->[0]=PARAM_STRING	if $_->[0] == PF_FONT;
+                                      $_->[0]=PARAM_INT32	if $_->[0] == PF_SLIDER;
                                       $_;
                                    } @$params],
                                    $results);
@@ -399,8 +428,8 @@ sub query {
      "menu path",
      "image types",
      [
-       [PF_TYPE,name,desc,default],
-       [PF_TYPE,name,desc,default],
+       [PF_TYPE,name,desc,optional-default,optional-extra-args],
+       [PF_TYPE,name,desc,optional-default,optional-extra-args],
        etc...
      ],
      [
@@ -451,9 +480,10 @@ The types of images your script will accept. Examples are "RGB", "RGB*",
 
 An array ref containing parameter definitions. These are similar to the
 parameter definitions used for C<gimp_install_procedure>, but include an
-additional B<default> value used when the caller doesn't supply one.
+additional B<default> value used when the caller doesn't supply one, and
+optional extra arguments describing some types like C<PF_SLIDER>.
 
-Each array element has the form [type, name, description, default_value].
+Each array element has the form C<[type, name, description, default_value, extra_args]>.
 
 <Image>-type plugins get two additional parameters, image (C<PF_IMAGE>) and
 drawable (C<PF_DRAWABLE>). Do not specify these yourself. Also, the
@@ -486,13 +516,13 @@ return an array.
 
 =over 2
 
-=item PF_INT8, PF_INT16, PF_INT32, PF_FLOAT, PF_STRING, PF_VALUE
+=item PF_INT8, PF_INT16, PF_INT32, PF_INT, PF_FLOAT, PF_STRING, PF_VALUE
 
 Are all mapped to a string entry, since perl doesn't really distinguish
 between all these datatypes. The reason they exist is to help other scripts
 (possibly written in other languages! really!). It's nice to be able to
 specify a float as 13.45 instead of "13.45" in C! C<PF_VALUE> is synonymous
-to C<PF_STRING>.
+to C<PF_STRING>, and <PF_INT> is synonymous to <PF_INT32>.
 
 =item PF_COLOR, PF_COLOUR
 
@@ -514,12 +544,20 @@ a C<PF_STRING>. It might be replaced by a font selection dialog in the future.
 
 Please note that the Gimp has no value describing a font, so the format of
 this string is undefined (and will usually contain only the family name of
-the selected font).
+the selected font, but in the future it will contain a XLFD).
 
 =item PF_TOGGLE, PF_BOOL
 
 A boolean value (anything perl would accept as true or false). The description
 will be used for the toggle-button label!
+
+=item PF_SLIDER
+
+Uses a horizontal scale. To set the range and stepsize, append an array ref
+C<[range_min, range_max, step_size]> as "extra argument" to the description
+array, like:
+
+ [PF_SLIDER, "alpha value", "the alpha value", 100, [0, 255, 1] ]
 
 =back
 

@@ -3,22 +3,21 @@ up-to-date and may not even be readable ;)
 
 bugs
 
-  * return values do not at all work
+[DONE]  * return values do not at all work
   * enable t/run.t again (but how? different solutions
     for gimp-1.0 and gimp-1.1???)
-  * Gimp::main vs. Gimp::Fu::main (!)
+[DONE]  * Gimp::main vs. Gimp::Fu::main (!)
   * wait for working gimp_file_load (or do it myself?)
 [DONE]  * Gimp::Net, <Image>-scripts should always ask for Image & Drawable(!)
   * block display_new &c when Net
   * Gimp::import should croak on import "garbage".
-[????]  * enable prototypes for gimp_main
-[DONE]  * "Gimp" is eaten as first argument..
-  * memory leak on croak(). de-croakify the code!
+  * memory leak on croak()? de-croakify the code!
   
 important issues
 
-  * docs updating: return vals, return undef, main() etc.
-  * sliders for Gimp::Fu
+[DONE]  * can $value be changed in interact?
+  * doc update: return vals, return undef, main() etc.
+[DONE]  * sliders for Gimp::Fu
   * create working progress when Net and $verbose
   * require Storable soon(!)
   * Gimp::Fu::command(?)
@@ -30,7 +29,6 @@ important issues
 
 not-so-important issues and ideas
 
-  * memory leaks on many croak()'s
   * default function parameters (with hash %defaults?)
   * gimp_text(text => "hallo", family => "engraver", size => 20);
   

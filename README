@@ -9,9 +9,10 @@ SYNOPSIS
        $img->edit_fill($bg);
        $img->display_new;
 
-HUH?
-       Manpages in html format, the newest version and other information
-       can be found on the Gimp-perl homepage:
+DOCUMENTATION
+       The Manpages in html format, the newest version and other
+       information can be found on the Gimp-perl homepage, where
+       you should get an overview over the Gimp-perl extension:
        
        http://lehmann.home.ml.org/gimp.html
        
