@@ -116,13 +116,13 @@ EOF
 
 @examples =
    qw(windy.pl prep4gif.pl webify.pl PDB alpha2color.pl tex-to-float ditherize.pl
-      border.pl view3d.pl feedback.pl xachlego.pl xachshadow.pl);
+      border.pl view3d.pl feedback.pl xachlego.pl xachshadow.pl parasite-editor);
 @shebang = (map("examples/$_",@examples),
    qw(Perl-Server scm2perl scm2scm examples/example-net.pl));
 
 for(@shebang) {
    print "updating bangpath in $_\n";
-   system ($PERL,"-pi","-e","\$. == 1 and \$_ = '#!$PERL\n'",$_);
+   system ($Config{perlpath},"-pi","-e","\$. == 1 and \$_ = '#!$Config{perlpath}\n'",$_);
 }
 
 sub MY::postamble {

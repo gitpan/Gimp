@@ -13,17 +13,20 @@
 # Because the way xach does it is a bit ackward, I'm switching it around a bit
 # and working from the bottom up..
 
+# Revision 1.1: Marc Lehman <pcg@goof.com> added undo capability
+# Revision 1.2: Marc Lehman <pcg@goof.com>, changed function name
+
 # Here's the boring start of every script...
 
 use Gimp;
 use Gimp::Fu;
 
-register "Xach Shadows",
+register "xach_shadows",
          "Xach's Shadows o' Fun",
          "Screen of 50% of your drawing into a dropshadowed layer.",
          "Seth Burgess",
          "Seth Burgess",
-         "1.0",
+         "1.2",
          "<Image>/Filters/Misc/Xach Shadows",
          "RGB*, GRAY*",
          [

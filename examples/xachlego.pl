@@ -23,19 +23,21 @@
 #                   causing bad things to happen with refcounts.  I hope
 #                   gimp is cleaning up this memory on its own...
 #            1.2:   Fixed buggy selection handling - oops ;)  
+#            1.3:   Added undo capability by Marc Lehman <pcg@goof.com>
+#            1.4:   Marc Lehman <pcg@goof.com>, changed function name
 
 # Here's the boring start of every script...
 
 use Gimp;
 use Gimp::Fu;
 
-register "Xach Blocks",
+register "xach_blocks",
          "Xach's Blocks o' Fun",
          "Turn your picture into something that resembles a certain trademarked
           building block creation",
          "Seth Burgess",
          "Seth Burgess",
-         "1.2",
+         "1.3",
          "<Image>/Filters/Misc/Xach Blocks",
          "*",
          [
