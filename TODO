@@ -1,3 +1,8 @@
+* duh' progressbar does not work through Gimp::Net
+
+* return values for run()
+
+* tracing through Gimp::Net (tough ;)
 
 * unimplemented functions:
 gimp_drawable_mask_bounds
@@ -12,10 +17,3 @@ gimp_gradients_sample_custom
 
 gimp_text(text => "hallo", family => "engraver", size => 20);
 
-* Gimp:OO
-
-* function clash could be solved by adding namespace
-pdb_xxx and/or lib_xxx, i.e. pdb_gimp_palette_set_foreground and
-lib_gimp_palette_set_foreground.
-
-* oo interface for layers, image.. ?

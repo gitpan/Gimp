@@ -13,24 +13,6 @@ require AutoLoader;
 @EXPORT = qw(gimp_install_extension gimp_install_plug_in);
 @EXPORT_OK = ();
 
-sub AUTOLOAD {
-#    ($constname = $AUTOLOAD) =~ s/.*:://;
-#    my $val = constant($constname, @_ ? $_[0] : 0);
-#    if ($! != 0) {
-#	if ($! =~ /Invalid/) {
-#	    if (_gimp_procedure_available ($constname)) {
-#	       eval "sub $AUTOLOAD { gimp_call_procedure '$constname',\@_ }";
-#	       goto &$AUTOLOAD;
-#	    }
-#	}
-#	else {
-#		croak "Your vendor has not defined Gimp macro $constname";
-#	}
-#    }
-#    eval "sub $AUTOLOAD { $val }";
-#    goto &$AUTOLOAD;
-}
-
 sub gimp_install_extension($$$$$$$$;$) {
   my $params = [[&Gimp::PARAM_INT32, "run_mode", "Interactive, [non-interactive]"]];
   push(@$params, @$_[8]) if $_[8];

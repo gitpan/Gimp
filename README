@@ -17,21 +17,36 @@ WHY
 SYNOPSIS
       use Gimp;
       
-      also:
+      Other modules of interest:
       
       use Gimp::Util;
       use Gimp::OO;
-      use Gimp::Net;
       
-      all these have their own manpage.
+      these have their own manpage.
 
   IMPORT TAGS
 
-    :consts
-        Export useful constants, like RGB, RUN_NONINTERACTIVE etc..
+    :auto
+        Import useful constants, like RGB, RUN_NONINTERACTIVE... as
+        well as all libgimp and pdb functions automagically into the
+        caller's namespace. BEWARE! This will overwrite your
+        AUTOLOAD function, if you have one!
 
-    :procs
-        Export all functions (including all functions from the pdb).
+    interface=lib
+        Use direct interface via libgimp.
+
+    interface=net
+        Use network interface using Net-Server and Gimp::Net.
+
+GETTING STARTED
+    (ignore this section for now... ;) this will eventually contain
+    some minimal plug-in examples)
+
+    use Gimp qw( :auto );
+
+    sub net { gimp_quit; }
+
+    exit gimp_main;
 
 DESCRIPTION
     Sorry, not much of a description yet. It took me exactly 9 hours
@@ -44,17 +59,18 @@ DESCRIPTION
     version ;)
 
     It might also prove useful to know how a plug-in is written in
-    c, so have a look at some existing plug-ins in C!
+    C, so have a look at some existing plug-ins in C!
 
     Anyway, feedback is appreciated, otherwise, I won't publish
     future version.
 
-    And have a look at the other modules, Gimp::Util and Gimp:OO.
+    And have a look at the other modules, Gimp::Lib, Gimp::Net,
+    Gimp::Util and Gimp:OO.
 
     Some noteworthy limitations (subject to be changed):
 
     *
-    main() doesn't take arguments, but instead relies on the global
+    gimp_main() doesn't take arguments, but instead relies on the global
     variables origargc and origargv to do it's job.
     *
     callback procedures do not return anything to The Gimp, not even a status
@@ -67,7 +83,64 @@ DESCRIPTION
     this extension may not be thread safe, but I think libgimp isn't
     either, so this is not much of a concern...
     *
-    I wrote this extension with 5.004_57 (thread support), so watch out!
+    I wrote this extension with 5.004_58, which has some idiosynchrasies,
+    especially with goto &NAME, so watch out!
+CALLBACKS
+    init (), query (), quit (), <installed_procedure>()
+        the standard libgimp callback functions. run() is missing,
+        because this module will directly call the function you
+        registered with gimp_install_procedure.
+
+    net ()
+        this is called when the plug-in is not started from within
+        Gimp, but is using Net-Server (the perl network server
+        extension you hopefully have installed and started ;)
+
+FUNCTIONS
+    set_trace (traceflags)
+        Tracking down bugs in gimp scripts is difficult: no sensible
+        error messages. If anything goes wrong, you only get an
+        execution failure. This function is never exported, so you
+        have to qualify it when calling. (not yet implemented for
+        networked modules).
+
+        traceflags is any number of the following flags or'ed
+        together.
+
+    TRACE_NONE  nothing is printed.
+
+    TRACE_CALL  all pdb calls (and only pdb calls!) are printed with
+                arguments and return values.
+
+    TRACE_TYPE  the parameter types are printed additionally.
+
+    TRACE_NAME  the parameter names are printed.
+
+    TRACE_DESC  the parameter descriptions.
+
+    TRACE_ALL   all of the above.
+
+    gimp_main ()
+        Should be called immediately when perl is initialized.
+        Arguments are not yet supported. Initializations can later
+        be done in the init function.
+
+    gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, image_types, type, [params], [return_vals])
+        Mostly same as gimp_install_procedure. The parameters and
+        return values for the functions are specified as an array
+        ref containing either integers or array-refs with three
+        elements, [PARAM_TYPE, \"NAME\", \"DESCRIPTION\"].
+
+    gimp_progress_init (message)
+        Initializes a progress bar. In networked modules this is a
+        no-op.
+
+    gimp_progress_update (percentage)
+        Updates the progress bar.
+
+    Some functions that have a different calling convention than pdb
+    functions with the same name are not visible in the perl module.
+
 SUPPORTED GIMP DATA TYPES
     Gimp supports different data types like colors, regions,
     strings. In perl, these are represented as:
@@ -94,47 +167,10 @@ SUPPORTED GIMP DATA TYPES
     BOUNDARY, PATH, STATUS
         Not yet supported.
 
-Exported functions
-    set_trace (traceflags)
-        Tracking down bugs in gimp scripts is difficult: no sensible
-        error messages. If anything goes wrong, you only get an
-        execution failure. This function is never exported.
-
-        traceflags is any number of the following flags or'ed
-        together.
-
-    TRACE_NONE  nothing is printed.
-
-    TRACE_CALL  all pdb calls (and only podb calls!) are printed with
-                arguments and return values.
-
-    TRACE_TYPE  the parameter types are printed additionally.
-
-    TRACE_NAME  the parameter names are printed.
-
-    TRACE_DESC  the parameter descriptions.
-
-    TRACE_ALL   anything.
-
-    gimp_main ()
-        Should be called immediately when perl is initialized.
-        Arguments are not yet supported. Initializations can later
-        be done in the init function.
-
-    gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, image_types, type, [params], [return_vals])
-        Mostly same as gimp_install_procedure. The parameters and
-        return values for the functions are specified as an array
-        ref containing either integers or array-refs with three
-        elements, [PARAM_TYPE, \"NAME\", \"DESCRIPTION\"].
-
-    progress_init (message)
-        Initializes a progress bar.
-
-    progress_update (percentage)
-        Updates the progress bar.
-
-    Some functions that have a different calling convention than pdb
-    functions with the same name are not visible in the perl module.
+PLEASE
+    if you get this far while reading the manpage, please consider
+    helping me with the documentation, or write scripts etc... ;)
+    thanks!
 
 AUTHOR
     Marc Lehmann, pcg@goof.com

@@ -1,41 +1,26 @@
+#
+# This package is loaded by the Gimp, and is !private!, so don't
+# use it standalone, it won't work.
+#
 package Gimp::Net;
 
-use strict;
+use strict vars;
 use Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @EXPORT_FAIL %EXPORT_TAGS);
 use vars qw(
    $default_tcp_port $default_unix_dir $default_unix_sock
-   $server_fh
+   $server_fh $trace_level
 );
 
 use IO::Socket;
 
-use Gimp;
-
-require Exporter;
-
-@ISA = qw(Exporter);
-@EXPORT = ();
-@EXPORT_OK = ();
-
-%EXPORT_TAGS = (
-    'procs'	=> [@Gimp::_procs,"procs"],
-);
-@EXPORT_FAIL = qw( procs );
+@ISA = ();
 
 use subs @Gimp::_procs;
-
-Exporter::export_ok_tags('consts','procs');
 
 $default_tcp_port  = 10009;
 $default_unix_dir  = "/tmp/gimp-perl-serv/";
 $default_unix_sock = "gimp-perl-serv";
-
-# dirty trick to export AUTOLOAD when :procs is specified.
-sub export_fail {
-  eval '*'.caller(2).'::AUTOLOAD = *AUTOLOAD;';
-  ();
-}
 
 sub AUTOLOAD {
   my $constname;
@@ -80,37 +65,49 @@ sub args2net {
   $res;
 }
 
+sub _gimp_procedure_available {
+  my $req="TEST".$_[0];
+  print $server_fh pack("N",length($req)).$req;
+  $server_fh->read($req,1);
+  return $req;
+}
+
+sub gimp_call_procedure {
+  my($len,@args);
+  my $req="EXEC".args2net(@_);
+  print $server_fh pack("N",length($req)).$req;
+  $server_fh->read($len,4) == 4 or croak "protocol error";
+  $len=unpack("N",$len);
+  $server_fh->read($req,$len) == $len or croak "protocol error";
+  ($req,@args)=net2args($req);
+  croak $req if $req;
+  wantarray ? @args : $args[0];
+}
+
 sub server_quit {
   print "sending quit\n";
   print $server_fh pack("N",4)."QUIT";
   exit(0);
 }
 
+# progress bar would never go away, since Net-Server isn't
+# stopped... to avoid confusion. just disable the progress bar.
+sub gimp_progress_init {};
+sub gimp_progress_update {};
+
+# for what it's worth...
+sub set_trace {
+  $trace_level = $_[0];
+}
+
 sub gimp_main {
   $server_fh = new IO::Socket::UNIX (Peer => $default_unix_dir.$default_unix_sock);
   unless($server_fh) {
-    croak "tcp connections not yet supported in client (make sure the Server is running)";
+    croak "tcp connections not yet supported in client (make sure the Net-Server is running)";
   }
-  $server_fh or croak "could not connect to gimp-perl server (make sure the Server is running)";
+  $server_fh or croak "could not connect to the gimp server server (make sure Net-Server is running)";
   $server_fh->autoflush(1);
-  eval caller()."::net()";
-}
-
-sub fatal {
-  print STDERR "FATAL: @_\n";
-  exit(1);
-}
-
-sub gimp_call_procedure {
-  my($len,@args);
-  my($req)="EXEC".args2net(@_);
-  print $server_fh pack("N",length($req)).$req;
-  $server_fh->read($len,4) == 4 or fatal "protocol error";
-  $len=unpack("N",$len);
-  $server_fh->read($req,$len) == $len or fatal "protocol error";
-  ($req,@args)=net2args($req);
-  fatal $req if $req;
-  wantarray ? @args : $args[0];
+  &{caller()."::net"};
 }
 
 1;
@@ -122,22 +119,23 @@ Gimp::Net - Communication module for the gimp-perl server.
 
 =head1 SYNOPSIS
 
-  use Gimp::Net;
-  
-  recommended is:
-  
-  use Gimp ':consts';
-  use Gimp::Net ':procs';
+  use Gimp qw( interface=net );
 
 =head1 DESCRIPTION
 
-WARNING: the Server may open a listening socket at port 10009, reachable for
+WARNING: the Net-Server may open a listening socket at port 10009, reachable for
 everybody. In this version, no provisions for security have been made!
 
-This is early alpha.
-
 You first have to install the "Server" extension somewhere where Gimp can
-find it. Then have a look at example-net.pl (and run it!).
+find it. Then have a look at example-net.pl (and run it!), or homepage-logo.pl
+(which is a hybrid: works as plug-in and as
+
+=head1 CALLBACKS
+
+net
+
+is called after we succesfully connected to the server. Do your dirty work
+in this function.
 
 =head1 FUNCTIONS
 
@@ -146,8 +144,6 @@ server_quit
 sends the perl server a quit command.
 
 =head1 BUGS
-
-Does not work with Gimp:OO (yet).
 
 This module is much faster than it ought to be... Silly that I wondered
 wether I should implement it in perl or C, since perl is soo fast.

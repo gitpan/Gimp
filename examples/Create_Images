@@ -6,7 +6,7 @@
 # This is just a complete rip-off of Marc's first plug-in.
 # Doesn't really do much, but hey, we'll get there!
 
-use Gimp qw( :consts :procs );
+use Gimp qw( :auto );
 
 $black  = "#000000";
 $white  = "#FFFFFF";
@@ -77,10 +77,8 @@ sub Create_Image {
 
 }
 
-sub Create_Images {
-
+sub extension_create_images {
     #Get our list of strings that we want to make images with.
-    
     
     $Image_Directory = "/tmp";
     
@@ -95,18 +93,15 @@ sub Create_Images {
 }
 
 sub query {
-  gimp_install_procedure("Create_Images", "a test extension in perl",
+  gimp_install_procedure("extension_create_images", "a test extension in perl",
                         "try it out", "Marc Lehmann", "Marc Lehmann", "1997-02-06",
                         "<Toolbox>/Xtns/Create_Images", "*", PROC_EXTENSION,
                         [[PARAM_INT32, "run_mode", "Interactive, [non-interactive]"]], []);
 }
 
-
-sub init {
+sub net {
+  extension_create_images;
 }
 
-sub quit {
-}
-
-exit(gimp_main());
+exit gimp_main;
 

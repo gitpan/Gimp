@@ -1,20 +1,14 @@
 package Gimp;
 
-use strict;
+use strict vars;
 use Carp;
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @_consts @_procs %EXPORT_TAGS @EXPORT_FAIL);
+use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL);
+use vars qw(@_consts @_procs @_internals $interface_pkg $interface_type);
 
-require Exporter;
 require DynaLoader;
-require AutoLoader;
 
-@ISA = qw(Exporter DynaLoader);
-# Items to export into callers namespace by default. Note: do not export
-# names by default without a very good reason. Use EXPORT_OK instead.
-# Do not simply export all your public functions/methods/constants.
-@EXPORT = ();
-@EXPORT_OK = qw( AUTOLOAD );
-$VERSION = '0.07';
+@ISA = qw(DynaLoader);
+$VERSION = '0.80';
 
 @_consts = qw(
 	ADDITION_MODE	ALPHA_MASK	APPLY		BEHIND_MODE	BG_BUCKET_FILL
@@ -49,6 +43,7 @@ $VERSION = '0.07';
 	TRACE_ALL
 );
 
+# procs an interface module must(!) implement somehow
 @_procs = qw(
 	gimp_main			gimp_install_procedure		gimp_call_procedure
 	
@@ -100,16 +95,13 @@ $VERSION = '0.07';
 	gimp_gradients_get_active	gimp_gradients_set_active
 );
 
+# internal procedure not to be exported
+@_internals = qw(
+	_gimp_procedure_available	set_trace
+);
+
 use subs @_consts;
 use subs @_procs;
-
-%EXPORT_TAGS = (
-    'consts'	=> [@_consts],
-    'procs'	=> [qw(procs),@_procs],
-);
-@EXPORT_FAIL = qw( procs );
-
-Exporter::export_ok_tags('consts','procs');
 
 sub ALL_HUES		{ 0 };
 sub RED_HUES		{ 1 };
@@ -119,43 +111,65 @@ sub CYAN_HUES		{ 4 };
 sub BLUE_HUES		{ 5 };
 sub MAGENTA_HUES	{ 6 };
 
-# dirty trick to export AUTOLOAD when :procs is specified.
-sub export_fail {
-  eval '*'.caller(2).'::AUTOLOAD = *AUTOLOAD;';
-  ();
+# we really abuse the import facility..
+sub import($;@) {
+  my $pkg = shift;
+  my $up = caller();
+  my @export;
+  
+  # make a quick but dirty guess ;)
+  $interface_type = $ARGV[0] eq "-gimp" ? "lib" : "net";
+  
+  for(@_) {
+    if ($_ eq ":auto") {
+      push(@export,@_consts);
+      push(@export,@_procs);
+      push(@export,'AUTOLOAD');
+    } elsif (/^interface=(\S+)$/) {
+      $interface_type=$1;
+    } else {
+      croak "$_ is not a valid import tag for package $pkg";
+    }
+  }
+  
+  if ($interface_type=~/^lib$/i) {
+    $interface_pkg="Gimp::Lib";
+  } elsif ($interface_type=~/^net$/i) {
+    $interface_pkg="Gimp::Net";
+  } else {
+    croak "interface '$interface_type' unsupported, use either 'lib' or 'net'";
+  }
+  
+  # has to be done first
+  eval "require $interface_pkg";
+  import $interface_pkg ();
+  
+  for((@_procs,@_internals)) {
+    *$_ = \&{"${interface_pkg}::$_"};
+  }
+  
+  for(@export) {
+    *{"${up}::$_"} = \&$_;
+  }
 }
 
 sub AUTOLOAD {
-    # This AUTOLOAD is used to 'autoload' constants from the constant()
-    # XS function.  If a constant is not found then control is passed
-    # to the AUTOLOAD in AutoLoader.
-
-    my $constname;
-    ($constname = $AUTOLOAD) =~ s/.*:://;
-    my $val = constant($constname, @_ ? $_[0] : 0);
-    if ($! != 0) {
-	if ($! =~ /Invalid/) {
-	    if (_gimp_procedure_available ($constname)) {
-	       eval "sub $AUTOLOAD { gimp_call_procedure '$constname',\@_ }";
-	       goto &$AUTOLOAD;
-	    } else {
-	       $AutoLoader::AUTOLOAD = $AUTOLOAD;
-	       goto &AutoLoader::AUTOLOAD;
-	    }
-	}
-	else {
-		croak "Your vendor has not defined Gimp macro $constname";
-	}
+  my $constname;
+  ($constname = $AUTOLOAD) =~ s/.*:://;
+  my $val = constant($constname, @_ ? $_[0] : 0);
+  if ($! != 0) {
+    if ($! =~ /Invalid/) {
+      ${"${interface_pkg}::AUTOLOAD"}=$AUTOLOAD;
+      goto &{"${interface_pkg}::AUTOLOAD"};
+    } else {
+      croak "Your vendor has not defined Gimp macro $constname";
     }
-    eval "sub $AUTOLOAD { $val }";
-    goto &$AUTOLOAD;
+  }
+  eval "sub $AUTOLOAD { $val }";
+  goto &$AUTOLOAD;
 }
 
 bootstrap Gimp $VERSION;
-
-# Preloaded methods go here.
-
-# Autoload methods go after =cut, and are processed by the autosplit program.
 
 1;
 __END__
@@ -180,31 +194,48 @@ too.
 
   use Gimp;
   
-  also:
+  Other modules of interest:
   
   use Gimp::Util;
   use Gimp::OO;
-  use Gimp::Net;
   
-  all these have their own manpage.
+  these have their own manpage.
 
 =head2 IMPORT TAGS
 
 =over 4
 
-=item :consts
+=item :auto
 
-Export useful constants, like RGB, RUN_NONINTERACTIVE etc..
+Import useful constants, like RGB, RUN_NONINTERACTIVE... as well as all
+libgimp and pdb functions automagically into the caller's namespace. BEWARE!
+This will overwrite your AUTOLOAD function, if you have one!
 
-=item :procs
+=item interface=lib
 
-Export all functions (including all functions from the pdb).
+Use direct interface via libgimp.
+
+=item interface=net
+
+Use network interface using Net-Server and Gimp::Net.
 
 =back
   
-There are no symbols exported by default. ':consts' will export useful
-constants, and ':all' does export ALL functions and constants by default
-(this is quite nice for small scripts).
+If you don't give an interface= hint, we will guess a default which might be
+wrong in future versions of the Gimp, so watch out!
+
+=head1 GETTING STARTED
+
+(ignore this section for now... ;) this will eventually contain some minimal
+plug-in examples)
+
+use Gimp qw( :auto );
+
+sub net {
+  gimp_quit;
+}
+
+exit gimp_main;
 
 =head1 DESCRIPTION
 
@@ -216,19 +247,19 @@ this module. If you write other plug-ins, send them to me! If you have
 question on use, you might as well ask me (although I'm a busy man, so be
 patient, or wait for the next version ;)
 
-It might also prove useful to know how a plug-in is written in c, so
+It might also prove useful to know how a plug-in is written in C, so
 have a look at some existing plug-ins in C!
 
 Anyway, feedback is appreciated, otherwise, I won't publish future version.
 
-And have a look at the other modules, Gimp::Util and Gimp:OO.
+And have a look at the other modules, Gimp::Lib, Gimp::Net, Gimp::Util and Gimp:OO.
 
 Some noteworthy limitations (subject to be changed):
 
 =over 2
 
 =item *
-main() doesn't take arguments, but instead relies on the global
+gimp_main() doesn't take arguments, but instead relies on the global
 variables origargc and origargv to do it's job.
 
 =item *
@@ -245,9 +276,94 @@ this extension may not be thread safe, but I think libgimp isn't
 either, so this is not much of a concern...
 
 =item *
-I wrote this extension with 5.004_57 (thread support), so watch out!
+I wrote this extension with 5.004_58, which has some idiosynchrasies,
+especially with goto &NAME, so watch out!
 
 =back
+
+=head1 CALLBACKS
+
+=over 4
+
+=item init (), query (), quit (), <installed_procedure>()
+
+the standard libgimp callback functions. run() is missing, because this
+module will directly call the function you registered with
+gimp_install_procedure.
+
+=item net ()
+
+this is called when the plug-in is not started from within Gimp, but is using
+Net-Server (the perl network server extension you hopefully have installed
+and started ;)
+
+=back
+
+=head1 FUNCTIONS
+
+=over 4
+
+=item set_trace (traceflags)
+
+Tracking down bugs in gimp scripts is difficult: no sensible error messages.
+If anything goes wrong, you only get an execution failure. This function is
+never exported, so you have to qualify it when calling. (not yet implemented
+for networked modules).
+
+traceflags is any number of the following flags or'ed together.
+
+=over 8
+
+=item TRACE_NONE
+
+nothing is printed.
+
+=item TRACE_CALL
+
+all pdb calls (and only pdb calls!) are printed
+with arguments and return values.
+
+=item TRACE_TYPE
+
+the parameter types are printed additionally.
+
+=item TRACE_NAME
+
+the parameter names are printed.
+
+=item TRACE_DESC
+
+the parameter descriptions.
+
+=item TRACE_ALL
+
+all of the above.
+
+=back
+
+=item gimp_main ()
+
+Should be called immediately when perl is initialized. Arguments are not yet
+supported. Initializations can later be done in the init function.
+
+=item gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, image_types, type, [params], [return_vals])
+
+Mostly same as gimp_install_procedure. The parameters and return values for
+the functions are specified as an array ref containing either integers or
+array-refs with three elements, [PARAM_TYPE, \"NAME\", \"DESCRIPTION\"].
+
+=item gimp_progress_init (message)
+
+Initializes a progress bar. In networked modules this is a no-op.
+
+=item gimp_progress_update (percentage)
+
+Updates the progress bar.
+
+=back
+
+Some functions that have a different calling convention than pdb functions
+with the same name are not visible in the perl module.
 
 =head1 SUPPORTED GIMP DATA TYPES
 
@@ -286,70 +402,10 @@ Not yet supported.
 
 =back
 
-=head1 Exported functions
+=head1 PLEASE
 
-=over 4
-
-=item set_trace (traceflags)
-
-Tracking down bugs in gimp scripts is difficult: no sensible
-error messages. If anything goes wrong, you only get an
-execution failure. This function is never exported.
-
-traceflags is any number of the following flags or'ed together.
-
-=over 8
-
-=item TRACE_NONE
-
-nothing is printed.
-
-=item TRACE_CALL
-
-all pdb calls (and only podb calls!) are printed
-with arguments and return values.
-
-=item TRACE_TYPE
-
-the parameter types are printed additionally.
-
-=item TRACE_NAME
-
-the parameter names are printed.
-
-=item TRACE_DESC
-
-the parameter descriptions.
-
-=item TRACE_ALL
-
-anything.
-
-=back
-
-=item gimp_main ()
-
-Should be called immediately when perl is initialized. Arguments are not yet
-supported. Initializations can later be done in the init function.
-
-=item gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, image_types, type, [params], [return_vals])
-
-Mostly same as gimp_install_procedure. The parameters and return values for
-the functions are specified as an array ref containing either integers or
-array-refs with three elements, [PARAM_TYPE, \"NAME\", \"DESCRIPTION\"].
-
-=item progress_init (message)
-
-Initializes a progress bar.
-
-=item progress_update (percentage)
-
-Updates the progress bar.
-
-=back
-
-Some functions that have a different calling convention than pdb functions
-with the same name are not visible in the perl module.
+if you get this far while reading the manpage, please consider helping
+me with the documentation, or write scripts etc... ;) thanks!
 
 =head1 AUTHOR
 

@@ -3,15 +3,12 @@
 $use_unix	= 1;
 $use_tcp	= 0;	# don't enable tcp.  security...
 
-#ignore these three lines.
-#use lib '/root/src/Gimp';
-#use lib '/root/src/Gimp/blib/lib';
-#use lib '/root/src/Gimp/blib/arch';
-
-use Gimp;
-use Gimp::Net;
 use IO::Socket;
 
+use Gimp 'interface=lib';
+use Gimp::Net;
+
+# must implement remote tracing ASAP
 #Gimp::set_trace(&Gimp::TRACE_NAME); #d#
 
 #
@@ -22,6 +19,7 @@ use IO::Socket;
 # cmd			response		description
 # QUIT						quit server
 # EXEC in-args		status out-args		run simple command
+# TEST procname		bool			check for procedure existance
 #
 # args is "number of arguments" arguments preceded by length
 # type is first character
@@ -52,16 +50,21 @@ sub handle_request($) {
   if ($req eq "QUIT") {
     slog "received QUIT request";
     $server_quit = 1;
+  } elsif ($req eq "TEST") {
+    print $fh Gimp::_gimp_procedure_available($data) ? "1" : "0";
   } elsif($req eq "EXEC") {
     ($req,@args)=Gimp::Net::net2args($data);
     @args=eval { Gimp::gimp_call_procedure($req,@args) };
     $data=Gimp::Net::args2net($@,@args);
     print $fh pack("N",length($data)).$data;
+  } else {
+    slog "illegal command received, aborting connection";
+    return 0;
   }
   return 1;
 }
 
-sub extension_gimp_perl_server {
+sub extension_perl_net_server {
   slog "server started";
   my($unix_path)=$Gimp::Net::default_unix_dir.$Gimp::Net::default_unix_sock;
   my($rm,%handles,$r,$fh,$f);
@@ -121,7 +124,7 @@ sub extension_gimp_perl_server {
 }
 
 sub query {
-  Gimp::gimp_install_procedure("extension_gimp_perl_server", "A Server for Gimp-Perl plug-ins",
+  Gimp::gimp_install_procedure("extension_perl_net_server", "A Server for Gimp-Perl plug-ins",
                                "This is the server for plug-ins written using the Gimp::Net module",
                                "Marc Lehmann", "Marc Lehmann", "1997-02-12",
                                "<Toolbox>/Xtns/Gimp-Perl-Server", "*",&Gimp::PROC_EXTENSION,
@@ -130,6 +133,7 @@ sub query {
 
 sub quit {
 }
+
 
 exit(Gimp::gimp_main());
 

@@ -3,14 +3,12 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     'dist'	=> {
-                    'PREOP'     => 'pod2text Gimp.pm > README',
                     'COMPRESS'	=> 'gzip -9v',
                     'SUFFIX'	=> '.gz',
                    },
-    'DIR'	=> ['Gimp'],
-    'NAME'	=> 'Gimp',
-    'VERSION_FROM' => 'Gimp.pm', # finds $VERSION
-    'LIBS'	=> [],   # e.g., '-lm' 
+    'NAME'	=> 'Gimp::Lib',
+    'VERSION_FROM' => '../Gimp.pm', # finds $VERSION
+    'LIBS'	=> ['-lgimp'],   # e.g., '-lm' 
     'DEFINE'	=> '',     # e.g., '-DHAVE_SOMETHING' 
-    'INC'	=> '',     # e.g., '-I/usr/include/other' 
+    'INC'	=> '-I..',     # e.g., '-I/usr/include/other' 
 );

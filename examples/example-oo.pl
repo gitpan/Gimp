@@ -4,7 +4,7 @@
 
 # it's really easy
 
-use Gimp qw( :consts :procs );
+use Gimp qw( :auto );
 use Gimp::Util;
 use Gimp::OO;
 
@@ -29,11 +29,5 @@ sub query {
                          "<Toolbox>/Xtns/Perl-Experimental-OO", "*");
 }
 
-sub init {
-}
-
-sub quit {
-}
-
-exit(gimp_main());
+exit gimp_main;
 

@@ -32,3 +32,10 @@ Revision history for Perl extension Gimp.
 0.07  Thu Feb 12 06:51:56 CET 1998
 	- some bugfixes, and the addition of Gimp::Net and an accompanying
 	  server. See example-net.pl for a demo.
+
+0.80  Fri Feb 13 17:15:48 CET 1998
+	- version 1.0 is the first one generally usable.. we're getting close!
+	- Gimp::Net and Gimp::Lib are only internal modules, there is not much of
+	  a distinction between networked modules and modules using libgimp!
+	- Gimp::OO usable over the network.
+

@@ -3,9 +3,9 @@
 # this test-plugin will create a simple button, and does automatically
 # save it as an indexed gif in /tmp/x.gif
 
-# it's really easy
+# it works as plug-in as well as standalone!
 
-use Gimp qw( :consts :procs );
+use Gimp qw( :auto );
 
 $blend1 = [0, 150, 255];
 $blend2 = [0, 255, 208];
@@ -104,18 +104,8 @@ sub write_logo {
   gimp_image_delete($img) unless $example;
 }
 
-# check the progress-bar
-sub xxxxextension_perl_test {
-  gimp_progress_init ("Hallo");
-  print "gamma = ",Gimp::gimp_gamma (),"\n";
-  for(0.3,0.5,0.6,0.7,0.8,0.9.1) {
-     gimp_progress_update ($_);
-     sleep 1;
-  }
-}
-
 # the extension that's called.
-sub extension_perl_test {
+sub extension_homepage_logo {
   # if in example mode just draw one example logo.
   if($example) {
     push(@logos,[ "-Projects", 0, 480, 60 ]);
@@ -143,17 +133,15 @@ sub extension_perl_test {
 }
 
 sub query {
-  gimp_install_procedure("extension_perl_test", "a test extension in perl",
+  gimp_install_procedure("extension_homepage_logo", "a test extension in perl",
                         "try it out", "Marc Lehmann", "Marc Lehmann", "1997-02-06",
                         "<Toolbox>/Xtns/Homepage-Logo", "*", PROC_EXTENSION,
                         [[PARAM_INT32, "run_mode", "Interactive, [non-interactive]"]], []);
 }
 
-sub init {
+sub net {
+  extension_homepage_logo;
 }
 
-sub quit {
-}
-
-exit(gimp_main());
+exit gimp_main;
 
