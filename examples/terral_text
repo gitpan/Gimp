@@ -1,6 +1,6 @@
-#!/usr/app/bin/perl
+#!/opt/bin/perl
 
-eval 'exec /usr/app/bin/perl  -S $0 ${1+"$@"}'
+eval 'exec /opt/bin/perl  -S $0 ${1+"$@"}'
     if 0; # not running under some shell
 
 # Terral Text
@@ -43,7 +43,7 @@ register
 	"Seth Burgess",
 	"Seth Burgess <sjburges\@gimp.org>",
 	"1999-03-15",
-	N_"<Image>/Filters/Render/Terral Text...",
+	N_"<Image>/Filters/Text/Terral Text...",
 	"RGB*,GRAY*",
 	[ 
 	  [ PF_RADIO, "solid_noise", "The Texture Type", 0, ["solid noise" => 1, "current picture" => 0]],
@@ -71,7 +71,7 @@ sub {
 		"TextLayer", 100, 0);
 	$img->add_layer($textlayer,1);
 	palette_set_background([255,255,255]);
-	$textlayer->edit_fill(BG_IMAGE_FILL);
+	$textlayer->edit_fill(BACKGROUND_FILL);
 	palette_set_foreground([0,0,0]);
 
 	# Place centered Text - what a PITA!

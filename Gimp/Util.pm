@@ -51,7 +51,7 @@ require      Exporter;
 
 use Gimp;
 
-$VERSION=1.211;
+$VERSION=2.0;
 
 ##############################################################################
 =pod
@@ -70,7 +70,7 @@ sub get_state() {
    [
     Palette->get_foreground,
     Palette->get_background,
-    Gradients->get_active,
+    Gradients->get_gradient,
     scalar Patterns->get_pattern,
     scalar Brushes->get_brush,
    ]
@@ -80,7 +80,7 @@ sub set_state($) {
    my $s = shift;
    Palette->set_foreground($s->[0]);
    Palette->set_background($s->[1]);
-   Gradients->set_active($s->[2]);
+   Gradients->set_gradient($s->[2]);
    Patterns->set_pattern($s->[3]);
    Brushes->set_brush($s->[4]);
 }
@@ -296,7 +296,7 @@ sub gimp_layer2imagetype {
 sub gimp_image_add_new_layer {
    my ($image,$index,$filltype,$alpha)=@_;
    my $layer = new Layer ($image, $image->width, $image->height, $image->layertype (defined $alpha ? $alpha : 1), join(":",(caller)[1,2]), 100, NORMAL_MODE);
-   $layer->fill (defined $filltype ? $filltype : BG_IMAGE_FILL);
+   $layer->fill (defined $filltype ? $filltype : BACKGROUND_FILL);
    $image->add_layer ($layer, $index*1);
    $layer;
 }
@@ -305,7 +305,7 @@ sub gimp_image_set_visible {
    my $image = shift;
    my %layers; @layers{map $$_,@_}=(1) x @_;
    for ($image->get_layers) {
-      $_->set_visible ($layers{$$_});
+      $_->drawable_set_visible ($layers{$$_});
    }
 }
 
@@ -313,13 +313,13 @@ sub gimp_image_set_invisible {
    my $image = shift;
    my %layers; @layers{map $$_,@_}=(1) x @_;
    for ($image->get_layers) {
-      $_->set_visible (!$layers{$$_});
+      $_->drawable_set_visible (!$layers{$$_});
    }
 }
 
 sub gimp_layer_get_position {
    my $layer = shift;
-   my @layers = $layer->image->get_layers;
+   my @layers = $layer->get_image->get_layers;
    for (0..$#layers) {
       # the my is necessary for broken perl (return $_ => undef)
       return (my $index=$_) if ${$layers[$_]} == $$layer;

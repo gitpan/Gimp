@@ -18,14 +18,16 @@ gimpdoc
 xcftopnm
 embedxpm
 logo.xpm
-extradefs.h
+extra.h
+extra.c
+gimpenums.c
 gppport.h
 Perl-Server
+configure.ac
 configure
 t/load.t
 t/loadlib.t
 t/run.t
-configure.in
 aclocal.m4
 acconfig.h
 config.h.in
@@ -54,6 +56,7 @@ Net/Makefile.PL
 Net/Net.xs
 Net/Net.pm
 UI/Makefile.PL
+UI/typemap
 UI/UI.pm
 UI/UI.xs
 UI/basewidget.pm
@@ -132,17 +135,17 @@ examples/dust
 examples/clear_alpha
 examples/warp-sharp
 examples/fade-alpha
+examples/circular_text
+examples/redeye
+examples/dots
 pxgettext
-
-	po files are disabled right now
-
-	po/ChangeLog
-	po/Makefile.PL
-	po/de.po
-	po/it.po
-	po/cs.po
-	po/no.po
-	po/fr.po
-	po/ru.po
-	po/update.sh
+po/ChangeLog
+po/Makefile.PL
+po/de.po
+po/it.po
+po/cs.po
+po/no.po
+po/fr.po
+po/ru.po
+po/update.sh
 

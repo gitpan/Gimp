@@ -6,7 +6,6 @@
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
-#define NEED_newCONSTSUB
 #include "gppport.h"
 
 #if !defined(PERLIO_IS_STDIO) && defined(HASATTRIBUTE)
@@ -26,8 +25,6 @@
 #if HAVE_PDL
 
 # include <pdlcore.h>
-# undef croak
-# define croak Perl_croak
 
 #if 0
 /* hack, undocumented, argh! */

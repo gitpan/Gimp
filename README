@@ -3,6 +3,15 @@ NAME
        Gimp - Perl extension for writing Gimp Extensions/Plug-ins/Load &
        Save-Handlers
 
+WARNING
+
+       This version of the module only works for gimp-1.3 CVS (as of 12/12/03) 
+       or higher (including 2.0).
+
+       Current limitations:
+
+       - init callback has been disabled
+
 SYNOPSIS
 
        my $img = new Image (600, 300, RGB);
@@ -29,37 +38,24 @@ PREREQUISITES
        To install/use this perl extension, you need to have the following
        software packages installed (the given order is best):
 
-       Perl5.004 (or higher):
+       Perl5.008 (or higher):
 
-          While this extension should run fine with older versions (it has
-          been tested with 5.004_04), I work with Perl5.005 or higher,
-          which has much more bugs fixed than the old 5.004.
-
-          When in doubt, upgrade.
-
-       GTK+, the X11 toolkit:
-       http://www.gtk.org/
-       ftp://ftp.gimp.org/pub/gtk/
-
-          gtk+-1.2 or higher is recommended, but older versions mostly
-          work (some features not implemented in gtk+-1.0 do not work
-          properly, of course).
-
-       Gtk, the perl extension for the above:
-       ftp://ftp.gimp.org/pub/gtk/perl/
-
-          Gtk-0.6123 (or higher) is recommended. You might encounter some
-          problems compiling it for Perl5.004 (or any version), in that
-          case you might want to try the updated gnome-perl version on the
-          gnome-cvs-server. See the the gimp-perl pages for more info.
+          While this extension might run with perl 5.6, I do not support
+          nor encourage it in any way.
 
        The GNU Image Manipulation Program, i.e. The GIMP:
        http://www.gimp.org/
        ftp://ftp.gimp.org/pub/gimp/
 
-          gimp-1.1 (or newer, e.g. CVS or CVS snapshots) is recommended
-          for full functionality, but any version since 1.0.2 should do,
-          some features not implemented in 1.0 don't work, though.
+          gimp-1.3 (or newer, e.g. CVS or CVS snapshots) is required.  For
+          older versions of The Gimp, use version 1.2* of the Gimp-Perl
+          module.
+
+       Gtk, the perl extension for gtk+2
+       http://gtk2-perl.sourceforge.net
+
+          The special "gtk2-perl-xs" variant is required, the inline
+          version is *NOT* supported. Releases (as on CPAN) may work.
 
        PDL, the Perl Data Language
        http://www.cpan.org/
@@ -67,9 +63,9 @@ PREREQUISITES
           Optionally, you can install the PDL module to be able to
           manipulate pixel data (or to be able to run the example plug-ins
           that do pixel manipulation). PDL is available at any CPAN
-          mirror, version 1.9906 or higher is recommended. Without PDL,
-          some plug-ins do not work, and accessing raw image data is
-          impossible.
+          mirror, version 2.4 or higher is recommended. Without PDL,
+          some plug-ins do not work (they will not be installed), 
+	  and accessing raw image data is impossible.
 
 INSTALLATION
 
@@ -79,9 +75,9 @@ INSTALLATION
 
        perl ./Makefile.PL --help
        
-       a straight "perl Makefile.PL" should do the job on most systems,
+       A straight "perl Makefile.PL" should do the job on most systems,
        but watch out for warnings. If everything went fine, enter "make",
-       "make test", "make install".
+       "make install".  "make test" may be broken at the current time.
 
        After installation, these perl plug-ins should be visible from
        within the Gimp (and many, many more):
@@ -92,9 +88,6 @@ INSTALLATION
        <Image>/Filters/Misc/Prepare for GIF
        <Image>/Filters/Misc/Webify
        
-       If you don't have unix, you can install linux instead
-       (http://www.linux.org/)
-
 OVERWRITING INSTALL LOCATIONS (PREFIX)
 
        In the rare case that you want to install the Gimp-Perl modules
@@ -107,16 +100,6 @@ OVERWRITING INSTALL LOCATIONS (PREFIX)
 
        These options are described in the "perldoc ExtUtils::MakeMaker"
        manpage.
-
-       If you are configuring the gimp-pelr module that comes with the
-       Gimp sourcetree this won't work. In that case you can set the
-       environment variable:
-
-       PERL_MM_OPT='whatever options you want to pass to MakeMaker'
-
-       before running configure. The arguments that you put into that
-       variable will be passed to the Makefile.PL as if given on the
-       commandline.
 
        If you are building a slp/deb/rpm/whatever package you usually want
        to use the normal prefix, while overwriting the prefix at "make
@@ -137,10 +120,6 @@ OVERWRITING INSTALL LOCATIONS (PREFIX)
                INSTALLMAN3DIR=`pwd`/debian/tmp/usr/man/man3 \
                install
 
-       PS: I'm not a debian developer/fan. If at all, I'd recommend
-       www.stampede.org (since they are using my compiler ;), but the
-       _best_ thing is DIY.
-
 SUPPORT/MAILING LISTS/MORE INFO
 
        There is a mailinglist for general discussion about Gimp-Perl.  To
@@ -150,6 +129,8 @@ SUPPORT/MAILING LISTS/MORE INFO
        
        to gimp-perl-request@lists.netcentral.net.
 
+       (do these still work?)
+
        If you want to get notified of new versions automatically, send a
        mail with the single line:
 
@@ -158,14 +139,19 @@ SUPPORT/MAILING LISTS/MORE INFO
        to majordomo@gcc.ml.org.
        
        You can also upload your scripts to the gimp registry at
-       http://registry.gimp.org/, part of it is dedicated to gimp-perl.
+       http://registry.gimp.org/.  
+       
+       If you think your script is of general intrest, please let 
+       <sjburges@gimp.org> know and it will be considered for 
+       inclusion in future Gimp module releases.
 
 BLURB
 
-       Scheme is the crappiest language ever. Have a look at Haskell
-       (http://www.haskell.org) to see how functional is done right.  I am
-       happy to receive opinions on both languages, don't hesitate to tell
-       me.
+       GIMP's interface to scheme it makes script development an exercise 
+       in pain, having written a few myself.  Reasonable error reporting,
+       ability to glue outside programs in, and an (overly) full featured
+       set of language operators are all things that make the perl Gimp 
+       module preferable to me.  
 
 LICENSE
 

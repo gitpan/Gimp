@@ -18,9 +18,10 @@ use Socket; # IO::Socket is _really_ slow, so don't use it!
 use Gimp ('croak','__');
 use Fcntl qw(F_SETFD);
 
+# TODO: use dynaloader
 require DynaLoader;
 
-$VERSION = 1.211;
+$VERSION = 2.0;
 
 bootstrap Gimp::Net $VERSION;
 

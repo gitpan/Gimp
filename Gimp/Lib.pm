@@ -4,15 +4,9 @@ use strict;
 use vars qw($VERSION @ISA);
 
 BEGIN {
-   $VERSION = 1.211;
-   eval {
-      require XSLoader;
-      XSLoader::load Gimp::Lib $VERSION;
-   } or do {
-      require DynaLoader;
-      @ISA=qw(DynaLoader);
-      bootstrap Gimp::Lib $VERSION;
-   }
+   $VERSION = 2.0;
+   require XSLoader;
+   XSLoader::load Gimp::Lib $VERSION;
 }
 
 use subs qw(
@@ -56,9 +50,9 @@ sub gimp_image_get_channels {
 
 # "server-side" perl code evaluation
 sub server_eval {
-   my @res = eval shift;
+   my @res = eval "package Gimp::Eval; $_[0]";
    die $@ if $@;
-   @res;
+   wantarray ? @res : $res[0];
 }
 
 # this is here to be atomic over the perl-server

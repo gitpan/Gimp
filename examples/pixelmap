@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/opt/bin/perl
 
 use Gimp::Feature 'pdl';
 use Gimp 1.099;
@@ -53,11 +53,11 @@ sub pixelmap {					# es folgt das eigentliche Skript...
 
 register "pixelmap",
          "Maps Pixel values and coordinates through general Perl expressions",
-         "=pod(DESCRIPTION)",
+         undef,
          "Marc Lehmann",
          "Marc Lehmann <pcg\@goof.com>",
          "19991115",
-         N_"<Image>/Filters/Map/Pixelmap...",
+         N_"<Image>/Filters/Generic/Pixelmap...",
          "*",	
          [
            [PF_TEXT,		"expression"	, "The perl expression to use",	"(\$x*\$y*0.01)\n->slice(\"*\$bpp\")"]
@@ -66,7 +66,7 @@ register "pixelmap",
 
 register "pixelgen",
          "Generate the pixels of an image by expressions (in PDL)",
-         "=pod(DESCRIPTION)",
+         undef,
          "Marc Lehmann",
          "Marc Lehmann <pcg\@goof.com>",
          "19991115",
@@ -99,7 +99,7 @@ exit main;
 
 =head1 DESCRIPTION
 
-Not yet written yet, sorry...
+A PDL user-defined mapping plug-in
 
 =over 4
 

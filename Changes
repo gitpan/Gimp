@@ -1,12 +1,83 @@
 Revision history for Gimp-Perl extension.
 
-1.211 Sat Dec  1 00:35:07 CET 2001
-	- callback return values were still broken. yes, I am an idiot.
+Please add detailed ChangeLog entries to the ChangeLog file, keeping this
+file to document revision changes (similar to a GNU-style NEWS file).
 
-1.21  Fri Nov 30 23:54:20 CET 2001
-	- callback return values were broken(!).
+2.0pre1  Mon Mar 22, 2004 
+        - prerelease to have something available when The GIMP 2.0 ships.  
+	  Its quite usable now, but requires a good bit of testing and polish
+	  yet.
+	- bumped version number to 2.0 purely to be similar to the Gimp version
+          it requires (though it only requires 1.3 still).
+        - main maintainer is now Seth Burgess <sjburges@gimp.org>, who
+          ported almost all scripts to 2.0, plus lots of bugfixing and
+          other porting.
+
+1.3  not released
+	- updated enums.pl... watch out.
+	- removed old workaround for even older PDL versions.
+	- Seth Burgess <sjburges@gimp.org>:
+	   examples/randomblends: pass a null argument to match all
+	   examples/mirrorsplit
+	   examples/ditherize: strict subs doesn't like barewords -
+	    enclose GIMP_FOO in "'" characters instead.
+	   examples/layerfuncs: don't do layer to imagesize, since its
+	    now in C.  Put "center layer" in Layer rather than Layers
+           examples/frame_reshuffle: put in Layer rather than Layers
+
+	   Gimp.pm: Require version 1.3 of Gimp now
+	   
+	   UI/Ui.xs
+	   UI/typemap: Change to use GimpFileEntry rather than 
+	   GimpFileSelection to match the move in Gimp 
+	  
+	   UI/basewidget.pm: changed Gtk to Gtk2
+	   Gimp/Feature.pm: bumped the Gtk to Gtk2; no longer will
+	   install with the Gtk module, requires Gtk2
+
+	   Net/Net.xs: removed same old PDL work-around
+	   examples/dots: new plug-in, to create uniformly spaced dots
+
+           Gimp/Util.pm : changed enum to BACKGROUND_FILL
+	   Minor fixes to some scripts for Gimp 1.3.x comformance:
+           examples/innerbevel: changed font handling, blend arguments, 
+	                        color spec. to be 0.0-1.0.
+	   examples/guide_remove 
+	   examples/centerguide
+           examples/guidegrid
+           examples/guides_to_selection: changed to <Image>/Image/Guides/
+
+	   examples/fade-alpha: updated GTK to be 2.x confromant, 
+	                        changed blend parameters, 
+				changed color specifiers to be 0.0-1.0  
+
+	   examples/burst: changed to PF_SPINNERs
+
+           examples/randomblends: s/set_active/set_gradient/,
+                                  s/get_active/get_gradient/,
+				  changed to PF_SPINNERs, 
+				  changed number of blend arguments
+
+	   examples/prep4gif: channel_op PDB changed to $img->*
+
+           examples/xachshadow: s/gimp_channel_ops_offset/$draw->offset/
+
+           examples/perlotine: s/channel_ops//, added conversion to right
+                               image type since it seems to be picky about it.
+	- support alpha channel for colour values [Seth Burgess]
+	- started Gtk2 port... very rough.
+	- update configuration to gimp 1.3.
+	- require perl-5.8 and Gtk2.
+	- added redeye (should be re-worked).
+	- added example scripts triangu gallery iland
         - fixed typo in examples/xachvision
-        - this version will only compile with 1.2 versions of the
+	- added examples/circular_text by Mike Gherlone.
+        - various bugfixes/enhancements.
+
+1.21  Fri Mar  9 18:33:04 CET 2001
+	- better Gimp::Fu argument parsing.
+	- initializing the rgb database now works after a fork.
+        - this version will only compile with 1.1. versions of the
           Gimp. If you need to compile gimp-perl with gimp-1.0 please use
           version 1.201 from CPAN.
         - first round of mega-api-change.
@@ -32,7 +103,7 @@ Revision history for Gimp-Perl extension.
           than inside the gimp).
         - docfix by Alexander Kurz.
         - save_image now saves png again (reported by Michael Guntsche).
-        - perlotine updated (poatch by Michael Guntsche).
+        - perlotine updated (patches by Michael Guntsche and Seth).
 
 1.201 Thu Aug 24 23:44:43 CEST 2000
 	** LAST VERSION THAT WORKS WITH 1.0 **

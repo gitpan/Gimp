@@ -1,7 +1,4 @@
-#!/usr/app/bin/perl
-
-eval 'exec /usr/app/bin/perl  -S $0 ${1+"$@"}'
-    if 0; # not running under some shell
+#!/opt/bin/perl
 
 # <sjburges@gimp.org>
 # This is adrian and xachs idea - take a rectangluar selection, and select
@@ -40,19 +37,20 @@ register "fit_text",
          "Seth Burgess",
          "Seth Burgess <sjburges\@gimp.org>",
          "2000-01-29",
-         N_"<Image>/Filters/Render/Fit Text...",
+         N_"<Image>/Filters/Text/Fit Text...",
          "*",
          [
            [PF_FONT, "font", "What font type to use - size will be ignored", $defaultfont],
            [PF_STRING, "string", "Text String to fill with", "Fit Text"],
             ],
          sub {
-    my($img,$layer,$xlfd,$string) =@_;
+    my($img,$layer,$fontname,$string) =@_;
     ($sel,$x1,$y1,$x2,$y2) = $img->gimp_selection_bounds;
     $width = $x2-$x1;
 	$height = $y2-$y1;
-
-	@extents=Gimp->text_get_extents_fontname($string,xlfd_size($xlfd),$xlfd);
+	my $fontsize;
+        print 
+	@extents=Gimp->text_get_extents_fontname($string,$fontsize,PIXELS,$fontname);
 	$growsize = ($extents[0]<$width && $extents[1]<$height) ? 288 : -288;
 	if ($growsize > 0 ) {
 		 while ($extents[0]<$width && $extents[1]<$height) {

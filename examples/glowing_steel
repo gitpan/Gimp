@@ -1,8 +1,5 @@
-#!/usr/app/bin/perl
+#!/usr/bin/perl 
 
-eval 'exec /usr/app/bin/perl  -S $0 ${1+"$@"}'
-    if 0; # not running under some shell
-#
 # A plug-in for GIMP for producing logos and other such nifty things
 # which appear to be made of steel and floating over a glowing cloud.
 # This plug-in also includes several filters and such for performing the
@@ -11,7 +8,6 @@ eval 'exec /usr/app/bin/perl  -S $0 ${1+"$@"}'
 # Written in 1999 (c) by Aaron Sherman <ajs@ajs.com>.
 # This plugin may be distributed under the same terms as The Gimp itself.
 # See http://www.gimp.org/ for more information on The Gimp.
-#
 
 require 5.004;
 
@@ -71,12 +67,12 @@ sub perl_fu_glowing_steel {
     my $hl_layer = (gimp_image_get_layers($image))[0];
     $textlayer = gimp_image_merge_down($image, $hl_layer, EXPAND_AS_NECESSARY);
   }
-  gimp_layer_set_name($textlayer, "Text");
+  gimp_drawable_set_name($textlayer, "Text");
 
   # Fill the background
   gimp_selection_all($image);
   gimp_palette_set_foreground($background);
-  gimp_bucket_fill($backlayer, FG_BUCKET_FILL, NORMAL_MODE, 100, 0, 1, 0, 0);
+  gimp_edit_bucket_fill($backlayer, FG_BUCKET_FILL, NORMAL_MODE, 100, 0, 1, 0, 0);
 
   # Make the glow:
   perl_fu_add_glow($image, $textlayer, $glow, $radius);
@@ -99,7 +95,7 @@ sub perl_fu_add_glow {
   my $is_float = 0;
   my $old_sel = gimp_selection_save($image);
 
-  gimp_undo_push_group_start($image);
+  gimp_image_undo_group_start($image);
 
   if (!gimp_drawable_is_layer($drawable)) {
     die("add_glow: Only layers can have glow added");
@@ -136,7 +132,7 @@ sub perl_fu_add_glow {
   gimp_selection_layer_alpha($drawable);
   gimp_selection_grow($image, $radius);
   gimp_selection_feather($image, $radius*1.5);
-  gimp_bucket_fill($glow,FG_BUCKET_FILL,NORMAL_MODE,100,255,0,0,0);
+  gimp_edit_bucket_fill($glow,FG_BUCKET_FILL,NORMAL_MODE,100,255,0,0,0);
   gimp_palette_set_foreground($old);
   gimp_selection_layer_alpha($drawable);
   gimp_edit_clear($glow);
@@ -144,7 +140,7 @@ sub perl_fu_add_glow {
   gimp_selection_load($old_sel);
   gimp_floating_sel_anchor($drawable) if $is_float;
   gimp_image_set_active_layer($image,$old_draw);
-  gimp_undo_push_group_end($image);
+  gimp_image_undo_group_end($image);
   gimp_displays_flush();
 }
 
@@ -156,7 +152,7 @@ sub perl_fu_brushed_metal {
   my $use_gradient = shift;
   my $gradient = shift;
 
-  gimp_undo_push_group_start($image);
+  gimp_image_undo_group_start($image);
 
   # A whole lot of layer fiddling to get around the fact that
   # plug_in_mblur does the wrong thing with borders....
@@ -200,8 +196,9 @@ sub perl_fu_brushed_metal {
   gimp_layer_set_offsets($float, $x1+$length, $y1+$length);
   gimp_floating_sel_anchor($float);
   gimp_image_remove_layer($image,$templ);
+  # gimp_layer_delete($templ);
 
-  gimp_undo_push_group_end($image);
+  gimp_image_undo_group_end($image);
 
   gimp_displays_flush();
 }
@@ -214,10 +211,15 @@ sub perl_fu_highlight_edges {
   my $is_float = 0;
   my $old_sel = gimp_selection_save($image);
 
-  gimp_undo_push_group_start($image);
+  gimp_image_undo_group_start($image);
 
   if (!gimp_drawable_is_layer($drawable)) {
     gimp_message("highlight_edges: Only layers can be highlighted!");
+    return;
+  }
+
+  if (!gimp_drawable_get_visible($drawable)) {
+    gimp_message("highlight_edges: The active layer must be visible!");
     return;
   }
 
@@ -244,21 +246,21 @@ sub perl_fu_highlight_edges {
   gimp_image_add_layer($image, $white, $lnum);
   my $old = gimp_palette_get_foreground();
   gimp_palette_set_foreground([255,255,255]);
-  gimp_bucket_fill($white,FG_BUCKET_FILL,NORMAL_MODE,100,255,0,0,0);
+  gimp_edit_bucket_fill($white,FG_BUCKET_FILL,NORMAL_MODE,100,255,0,0,0);
   gimp_palette_set_foreground([0,0,0]);
-  gimp_bucket_fill($black,FG_BUCKET_FILL,NORMAL_MODE,100,255,0,0,0);
+  gimp_edit_bucket_fill($black,FG_BUCKET_FILL,NORMAL_MODE,100,255,0,0,0);
   gimp_palette_set_foreground($old);
   gimp_layer_translate($white, $gimp_white_fudge, -1);
   gimp_layer_translate($black, 1, 1);
   $white = gimp_image_merge_down($image, $white, EXPAND_AS_NECESSARY);
-  gimp_layer_set_name($white, "Edge Highlight");
+  gimp_drawable_set_name($white, "Edge Highlight");
   gimp_selection_layer_alpha($drawable);
   gimp_edit_clear($white);
 
   gimp_selection_load($old_sel);
   gimp_floating_sel_anchor($drawable) if $is_float;
   # gimp_image_set_active_layer($image,$old_draw);
-  gimp_undo_push_group_end($image);
+  gimp_image_undo_group_end($image);
   gimp_displays_flush();
 }
 
@@ -303,7 +305,7 @@ register
   N_"<Image>/Filters/Render/Add Glow",
   "*",
   [
-   [PF_COLOR, "glow_color", "Color", [0x00, 0x00, 0xff]],
+   [PF_COLOR, "glow_color", "Color", [0,0,1.0]],
    [PF_SPINNER, "glow_radius", "Radius", 10, [1, 1000, 1]]
   ],
   \&perl_fu_add_glow;
@@ -322,7 +324,7 @@ register
    # The font in the poster was like "cobalt extended"
    [PF_FONT, "font", "Font", undef],
    [PF_SPINNER, "size", "Size", 100, [0, 3000, 1]],
-   [PF_COLOR, "glow_color", "Color", [0xff, 0xd0, 0x00]],
+   [PF_COLOR, "glow_color", "Color", [1.0, 0.8157, 0]],
    [PF_COLOR, "background", "Color", [0x00, 0x00, 0x00]],
    [PF_INT32, "glow_radius", "radius", 4],
    [PF_TOGGLE, "highlight_edges", "", 1],

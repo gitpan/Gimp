@@ -1,4 +1,4 @@
-require 5.004_04;
+require 5.008;
 
 use Config;
 
@@ -29,49 +29,47 @@ if ($ARGV[0] ne "--writemakefile") {
 }
 
 @otherdeps = qw(
-      povray imagemagick
-);
+      povray 
+); # can't get imagemagick to work
 @gtk_pins =
    qw(
-     dataurl colorhtml avi PDB parasite-editor fade-alpha
+     dataurl colorhtml avi parasite-editor fade-alpha
    );
 @pins =
    qw(
-      windify prep4gif webify tex-to-float ditherize
-      xachlego xachshadow roundsel blended2 warp-sharp
-      scratches blowinout terral_text xachvision perlcc translogo
-      animate_cells image_tile yinyang stamps font_table sethspin
-      perlotine randomblends innerbevel fit-text guidegrid
-      repdup centerguide stampify goldenmean mirrorsplit
-      layerfuncs randomart1 glowing_steel frame_reshuffle frame_filter
-      logulator guide_remove guides_to_selection burst
-      layerfuncs bricks miff dust
+      animate_cells 
+      blended2 blowinout bricks burst  
+      centerguide  
+      ditherize dots dust 
+      font_table frame_filter frame_reshuffle 
+      glowing_steel goldenmean guidegrid guide_remove guides_to_selection
+      image_tile innerbevel  
+      layerfuncs miff mirrorsplit 
+      perlotine prep4gif 
+      repdup roundsel 
+      scratches sethspin stamps 
+      tex-to-float translogo 
+      randomart1 randomblends 
+      warp-sharp webify windify 
+      xachlego xachshadow xachvision
+      yinyang 
    );
 @pdl_pins =
    qw(
-      border gouge pixelmap view3d clear_alpha
+      clear_alpha gouge map_to_gradient pixelmap view3d 
+   );  
 
-      fire map_to_gradient
-   ); # fire should use normal gradient map!
-
-eval "use Gtk;"; $GTK = $@ eq "";
+eval "use Gtk2;"; $GTK = $@ eq "";
 eval "use Parse::RecDescent;"; $PRD = $@ eq "";
-
-$] >= 5.005 or print <<EOF;
-
-NOTICE:  You are using a version of perl older than 5.005. This will slightly
-         reduce the features available to the Gimp-Perl extension.
-
-EOF
 
 $GTK or print <<EOF;
 
-NOTICE:  unable to use the Perl-Gtk interface. Many features (like
+NOTICE:  unable to use the Perl-Gtk2 interface. Many features (like
          Gimp::Fu) rely on this extension. You can build without it (and
          many scripts will be disabled or run with reduced functionality
-         only), but it's better to install it (version 0.6123 or higher is
-         required, you can get it from ftp://ftp.gimp.org/pub/gtk/perl/ or
-         any CPAN mirror.
+         only), but it's better to install it.  If you do install it, 
+	 version 1.0 or higher is required; you can get it from 
+	 http://gtk2-perl.sourceforge.net/ or any CPAN mirror.
 
 EOF
 
@@ -83,44 +81,9 @@ NOTICE: Parse::RecDescent not found, scm2perl, the Scheme->Perl
 
 EOF
 
-($major,$minor,$patch)=split /[._]/,$Gtk::VERSION;
-
 require ExtUtils::MakeMaker;
 import ExtUtils::MakeMaker;
-
-$MICRO = int ($] * 100000 % 100);
-
-if ($MICRO > 49) {
-   print <<EOF;
-
-WARNING: You are using perl version $]. This is an *ALPHA* version that is
-         very likely to have serious bugs that keep gimp-perl from working
-         properly. Please upgrade/downgrade to a stable release.
-
-EOF
-}
-
-if ($Config{usethreads} or $Config{use5005threads}) {
-   print <<EOF;
-
-WARNING: Your perl has been built with multithreading enabled. The 5.005
-         threading model is utterly broken (and about to be removed),
-         while the 5.6 threading model is about to change very soon.
-         Since I suppose you know how to fix perl since you enabled
-         threading, I'll proceed with building gimp-perl.
-
-EOF
-}
-
-if ($] < 5.006 && $Config{usethreads}) {
-   print <<EOF;
-
-WARNING: You are using the experimental (and very broken) multithread support.
-         While gimp-perl might seem to work, it is very likely to not work
-         properly (or at all). Please use a *stable* version of perl.
-            
-EOF
-}
+#require ExtUtils::Depends;
 
 push @pins, @pdl_pins if $PDL;
 push @pins, @gtk_pins if $GTK;
@@ -173,7 +136,7 @@ sub MY::install {
    my $install = $self->SUPER::install(@_);
    ($install =~ s/\b(un)?install\b/really-$1install/g) or return $install;
    '
-install :: install-po
+install ::
 	@for dir in \
 	   $(INSTALLPRIVLIB) \
 	   $(INSTALLARCHLIB) \
@@ -195,7 +158,7 @@ install :: install-po
 	$main::dont_embed || (cd embed && \$(MAKE) install)
 
 install-po:
-	if test -d po; then cd po && \$(MAKE) install; else true; fi
+	cd po && \$(MAKE) install
         
 ".$install;
 }
@@ -260,6 +223,9 @@ autoconf:
 setver:
 	\$(PERL) -pi -e 's/^(\\s*\\\$\$VERSION\\s*=\\s*).*\$\$/\$\${1}\$(VERSION);/' *.pm Gimp/*.pm UI/*.pm Net/*.pm
 
+gimpenums.c: makeenums.pl
+	perl makeenums.pl arrays /opt/gimp/include/gimp-1.3/libgimp*/*.h >gimpenums.c
+
 ";
 
    $postamble;
@@ -312,7 +278,7 @@ WriteMakefile(
 	            SUFFIX	=> '.gz',
 	           },
     'PREREQ_PM'	=> {
-    		    Gtk			=> 0.5,
+    		    Gtk2		=> 0.90,
                     PDL			=> 1.99,
     		    Data::Dumper	=> 2.0,
                     Parse::RecDescent	=> 1.6,
@@ -364,6 +330,7 @@ distclean maintainer-clean realclean clobber: clean
 	\$(RM_F) Makefile config.cache config.pl config.log
         \$(RM_F) config.h config.status stamp-h Makefile.old Gimp/Config.pm
         \$(RM_RF) test-dir inst-temp
+
 EOF
    close MAKEFILE;
    exit;

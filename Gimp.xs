@@ -1,9 +1,7 @@
 #include "config.h"
 
 #include <libgimp/gimp.h>
-#ifdef GIMP_HAVE_EXPORT
 #include <libgimp/gimpexport.h>
-#endif
 
 #include <locale.h>
 
@@ -28,17 +26,13 @@
 #ifdef dirty
 # undef dirty
 #endif
-#include "extradefs.h"
-
-#if GIMP_MAJOR_VERSION>1 || (GIMP_MAJOR_VERSION==1 && GIMP_MINOR_VERSION>=1)
-# define GIMP11 1
-# define GIMP_PARASITE 1
-#endif
 
 #ifndef HAVE_EXIT
 /* expect iso-c here.  */
 # include <signal.h>
 #endif
+
+#include "extra.h"
 
 MODULE = Gimp	PACKAGE = Gimp
 
@@ -60,31 +54,32 @@ _exit()
 BOOT:
 #ifdef ENABLE_NLS
 	setlocale (LC_MESSAGES, ""); /* calling twice doesn't hurt, no? */
-        bindtextdomain ("gimp-perl", datadir "/locale");
-        textdomain ("gimp-perl");
+        bindtextdomain (GETTEXT_PACKAGE "-perl", datadir "/locale");
+        textdomain (GETTEXT_PACKAGE "-perl");
 #endif
 
 char *
 bindtextdomain(d,dir)
-	char *	d
-	char *	dir
+	char * d
+	char * dir
 
 char *
 textdomain(d)
 	char *	d
 
-char *
+utf8_str
 gettext(s)
-	char *	s
+	utf8_str s
+        PROTOTYPE: $
 
-char *
+utf8_str
 dgettext(d,s)
 	char *	d
-	char *	s
+	utf8_str s
 
-char *
+utf8_str
 __(s)
-	char *	s
+	utf8_str s
         PROTOTYPE: $
 
 void
@@ -95,68 +90,37 @@ xs_exit(status)
 
 BOOT:
 {
-   HV *stash = gv_stashpvn("Gimp", 4, TRUE);
+   HV *stash = gv_stashpvn ("Gimp", 4, TRUE);
    
-   newCONSTSUB(stash,"PDB_BOUNDARY",newSViv(GIMP_PDB_BOUNDARY));
-   newCONSTSUB(stash,"PDB_CHANNEL",newSViv(GIMP_PDB_CHANNEL));
-   newCONSTSUB(stash,"PDB_COLOR",newSViv(GIMP_PDB_COLOR));
-   newCONSTSUB(stash,"PDB_DISPLAY",newSViv(GIMP_PDB_DISPLAY));
-   newCONSTSUB(stash,"PDB_DRAWABLE",newSViv(GIMP_PDB_DRAWABLE));
-   newCONSTSUB(stash,"PDB_END",newSViv(GIMP_PDB_END));
-   newCONSTSUB(stash,"PDB_FLOAT",newSViv(GIMP_PDB_FLOAT));
-   newCONSTSUB(stash,"PDB_FLOATARRAY",newSViv(GIMP_PDB_FLOATARRAY));
-   newCONSTSUB(stash,"PDB_IMAGE",newSViv(GIMP_PDB_IMAGE));
-   newCONSTSUB(stash,"PDB_INT16",newSViv(GIMP_PDB_INT16));
-   newCONSTSUB(stash,"PDB_INT16ARRAY",newSViv(GIMP_PDB_INT16ARRAY));
-   newCONSTSUB(stash,"PDB_INT32",newSViv(GIMP_PDB_INT32));
-   newCONSTSUB(stash,"PDB_INT32ARRAY",newSViv(GIMP_PDB_INT32ARRAY));
-   newCONSTSUB(stash,"PDB_INT8",newSViv(GIMP_PDB_INT8));
-   newCONSTSUB(stash,"PDB_INT8ARRAY",newSViv(GIMP_PDB_INT8ARRAY));
-   newCONSTSUB(stash,"PDB_LAYER",newSViv(GIMP_PDB_LAYER));
-   newCONSTSUB(stash,"PDB_PATH",newSViv(GIMP_PDB_PATH));
-   newCONSTSUB(stash,"PDB_REGION",newSViv(GIMP_PDB_REGION));
-   newCONSTSUB(stash,"PDB_SELECTION",newSViv(GIMP_PDB_SELECTION));
-   newCONSTSUB(stash,"PDB_STATUS",newSViv(GIMP_PDB_STATUS));
-   newCONSTSUB(stash,"PDB_STRING",newSViv(GIMP_PDB_STRING));
-   newCONSTSUB(stash,"PDB_STRINGARRAY",newSViv(GIMP_PDB_STRINGARRAY));
-#if GIMP_PARASITE
-   newCONSTSUB(stash,"PDB_PARASITE",newSViv(GIMP_PDB_PARASITE));
+   newCONSTSUB (stash, "PARASITE_PERSISTENT", newSViv (GIMP_PARASITE_PERSISTENT));
+   newCONSTSUB (stash, "PARASITE_UNDOABLE", newSViv (GIMP_PARASITE_UNDOABLE));
 
-   newCONSTSUB(stash,"PARASITE_PERSISTENT",newSViv(GIMP_PARASITE_PERSISTENT));
-   newCONSTSUB(stash,"PARASITE_UNDOABLE",newSViv(GIMP_PARASITE_UNDOABLE));
-
-   newCONSTSUB(stash,"PARASITE_ATTACH_PARENT",newSViv(GIMP_PARASITE_ATTACH_PARENT));
-   newCONSTSUB(stash,"PARASITE_PARENT_PERSISTENT",newSViv(GIMP_PARASITE_PARENT_PERSISTENT));
-   newCONSTSUB(stash,"PARASITE_PARENT_UNDOABLE",newSViv(GIMP_PARASITE_PARENT_UNDOABLE));
+   newCONSTSUB (stash, "PARASITE_ATTACH_PARENT", newSViv (GIMP_PARASITE_ATTACH_PARENT));
+   newCONSTSUB (stash, "PARASITE_PARENT_PERSISTENT", newSViv (GIMP_PARASITE_PARENT_PERSISTENT));
+   newCONSTSUB (stash, "PARASITE_PARENT_UNDOABLE", newSViv (GIMP_PARASITE_PARENT_UNDOABLE));
    
-   newCONSTSUB(stash,"PARASITE_ATTACH_GRANDPARENT",newSViv(GIMP_PARASITE_ATTACH_GRANDPARENT));
-   newCONSTSUB(stash,"PARASITE_GRANDPARENT_PERSISTENT",newSViv(GIMP_PARASITE_GRANDPARENT_PERSISTENT));
-   newCONSTSUB(stash,"PARASITE_GRANDPARENT_UNDOABLE",newSViv(GIMP_PARASITE_GRANDPARENT_UNDOABLE));
-#endif
+   newCONSTSUB (stash, "PARASITE_ATTACH_GRANDPARENT", newSViv (GIMP_PARASITE_ATTACH_GRANDPARENT));
+   newCONSTSUB (stash, "PARASITE_GRANDPARENT_PERSISTENT", newSViv (GIMP_PARASITE_GRANDPARENT_PERSISTENT));
+   newCONSTSUB (stash, "PARASITE_GRANDPARENT_UNDOABLE", newSViv (GIMP_PARASITE_GRANDPARENT_UNDOABLE));
    
-   newCONSTSUB(stash,"TRACE_NONE",newSViv(TRACE_NONE));
-   newCONSTSUB(stash,"TRACE_CALL",newSViv(TRACE_CALL));
-   newCONSTSUB(stash,"TRACE_TYPE",newSViv(TRACE_TYPE));
-   newCONSTSUB(stash,"TRACE_NAME",newSViv(TRACE_NAME));
-   newCONSTSUB(stash,"TRACE_DESC",newSViv(TRACE_DESC));
-   newCONSTSUB(stash,"TRACE_ALL" ,newSViv(TRACE_ALL ));
-   /**/
-#if HAVE_DIVIDE_MODE || IN_GIMP
-   /*newCONSTSUB(stash,"GIMP_DIVIDE_MODE",newSViv(GIMP_DIVIDE_MODE));*/
-#endif
-#ifdef GIMP_HAVE_EXPORT
-   newCONSTSUB(stash,"EXPORT_CAN_HANDLE_RGB", newSViv(GIMP_EXPORT_CAN_HANDLE_RGB));
-   newCONSTSUB(stash,"EXPORT_CAN_HANDLE_GRAY", newSViv(GIMP_EXPORT_CAN_HANDLE_GRAY));
-   newCONSTSUB(stash,"EXPORT_CAN_HANDLE_INDEXED", newSViv(GIMP_EXPORT_CAN_HANDLE_INDEXED));
-   newCONSTSUB(stash,"EXPORT_CAN_HANDLE_ALPHA ", newSViv(GIMP_EXPORT_CAN_HANDLE_ALPHA ));
-   newCONSTSUB(stash,"EXPORT_CAN_HANDLE_LAYERS", newSViv(GIMP_EXPORT_CAN_HANDLE_LAYERS));
-   newCONSTSUB(stash,"EXPORT_CAN_HANDLE_LAYERS_AS_ANIMATION", newSViv(GIMP_EXPORT_CAN_HANDLE_LAYERS_AS_ANIMATION));
-   newCONSTSUB(stash,"EXPORT_NEEDS_ALPHA", newSViv(GIMP_EXPORT_NEEDS_ALPHA));
+   newCONSTSUB (stash, "TRACE_NONE", newSViv (TRACE_NONE));
+   newCONSTSUB (stash, "TRACE_CALL", newSViv (TRACE_CALL));
+   newCONSTSUB (stash, "TRACE_TYPE", newSViv (TRACE_TYPE));
+   newCONSTSUB (stash, "TRACE_NAME", newSViv (TRACE_NAME));
+   newCONSTSUB (stash, "TRACE_DESC", newSViv (TRACE_DESC));
+   newCONSTSUB (stash, "TRACE_ALL" , newSViv (TRACE_ALL ));
 
-   newCONSTSUB(stash,"EXPORT_CANCEL", newSViv(GIMP_EXPORT_CANCEL));
-   newCONSTSUB(stash,"EXPORT_IGNORE", newSViv(GIMP_EXPORT_CANCEL));
-   newCONSTSUB(stash,"EXPORT_EXPORT", newSViv(GIMP_EXPORT_EXPORT));
-#endif
+   newCONSTSUB (stash, "EXPORT_CAN_HANDLE_RGB", newSViv (GIMP_EXPORT_CAN_HANDLE_RGB));
+   newCONSTSUB (stash, "EXPORT_CAN_HANDLE_GRAY", newSViv (GIMP_EXPORT_CAN_HANDLE_GRAY));
+   newCONSTSUB (stash, "EXPORT_CAN_HANDLE_INDEXED", newSViv (GIMP_EXPORT_CAN_HANDLE_INDEXED));
+   newCONSTSUB (stash, "EXPORT_CAN_HANDLE_ALPHA ", newSViv (GIMP_EXPORT_CAN_HANDLE_ALPHA ));
+   newCONSTSUB (stash, "EXPORT_CAN_HANDLE_LAYERS", newSViv (GIMP_EXPORT_CAN_HANDLE_LAYERS));
+   newCONSTSUB (stash, "EXPORT_CAN_HANDLE_LAYERS_AS_ANIMATION", newSViv (GIMP_EXPORT_CAN_HANDLE_LAYERS_AS_ANIMATION));
+   newCONSTSUB (stash, "EXPORT_NEEDS_ALPHA", newSViv (GIMP_EXPORT_NEEDS_ALPHA));
+
+   newCONSTSUB (stash, "EXPORT_CANCEL", newSViv (GIMP_EXPORT_CANCEL));
+   newCONSTSUB (stash, "EXPORT_IGNORE", newSViv (GIMP_EXPORT_CANCEL));
+   newCONSTSUB (stash, "EXPORT_EXPORT", newSViv (GIMP_EXPORT_EXPORT));
 }
 
 MODULE = Gimp	PACKAGE = Gimp::RAW

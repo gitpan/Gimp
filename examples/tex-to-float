@@ -1,7 +1,5 @@
-#!/usr/app/bin/perl
+#!/opt/bin/perl
 
-eval 'exec /usr/app/bin/perl  -S $0 ${1+"$@"}'
-    if 0; # not running under some shell
 ######################################################################
 #  A Perl::Fu plugin for converting TeX strings to floating layers.
 #
@@ -79,7 +77,7 @@ sub tex_string_to_pgm {
     my $w = $bbox[2]-$bbox[0];
     my $h = $bbox[3]-$bbox[1];
     $psoutput=~ s/^%%BoundingBox:.*$/%%BoundingBox: 0 0 $w $h/m;
-    $psoutput=~ s/^1 0 bop/-$bbox[0] -$bbox[1] translate\n$&/m;
+    $psoutput=~ s/\b1 0 bop/-$bbox[0] -$bbox[1] translate\n$&/m;
 
     # Output to file in order not to have to use Open2.
     open(PS, ">$fn_base.ps");
@@ -101,7 +99,7 @@ sub grey_file_to_float {
 
     # Setup
     my $save_bg = gimp_palette_get_background();
-    gimp_undo_push_group_start($img1);
+    gimp_image_undo_group_start($img1);
 
     # Load the new img
     my $grey_img = gimp_file_load(RUN_NONINTERACTIVE, $fn, $fn);
@@ -119,13 +117,13 @@ sub grey_file_to_float {
     gimp_floating_sel_anchor($floating_layer);
     gimp_invert($mask);
     gimp_palette_set_background(gimp_palette_get_foreground());
-    gimp_edit_fill($grey_layer, BG_IMAGE_FILL);
+    gimp_edit_fill($grey_layer, BACKGROUND_FILL);
     gimp_image_remove_layer_mask($grey_img, $grey_layer, 0);
 
     # Now copy this layer to $img 1
     gimp_edit_copy($grey_layer);
     $floating_layer = gimp_edit_paste($drw1, 0);
-    gimp_edit_fill($floating_layer, BG_IMAGE_FILL);
+    gimp_edit_fill($floating_layer, BACKGROUND_FILL);
 
     print STDERR "Yohoo!\n";
     cleanup();
@@ -136,7 +134,7 @@ sub grey_file_to_float {
 
     # Restore
     gimp_palette_set_background($save_bg);
-    gimp_undo_push_group_end($img1);
+    gimp_image_undo_group_end($img1);
 
     # Update the display
     gimp_displays_flush();
@@ -166,7 +164,7 @@ sub tex_string_to_float {
 register "tex_string_to_float", "Turn a TeX-string into floating layer", "Takes a TeX string as input and creates a floating layer of the rendered string in the current layer in the foreground color.",
     "Dov Grobgeld <dov\@imagic.weizmann.ac.il>", "Dov Grobgeld",
     "1999-03-16",
-    N_"<Image>/Filters/Render/TeX String...",
+    N_"<Image>/Filters/Text/TeX String...",
     "*",
     [
      [PF_STRING,  "input_file",     "TeX macro file to input"],

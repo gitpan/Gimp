@@ -99,10 +99,10 @@ sub Gimp::RUN_FULLINTERACTIVE (){ Gimp::RUN_INTERACTIVE+100 };	# you don't want 
          &PF_CUSTOM	=> 'string',
          &PF_FILE	=> 'string',
          &PF_TEXT	=> 'string',
-         &PF_IMAGE	=> 'path',
-         &PF_LAYER	=> 'index',
-         &PF_CHANNEL	=> 'index',
-         &PF_DRAWABLE	=> 'index',
+         &PF_IMAGE	=> 'image',
+         &PF_LAYER	=> 'layer',
+         &PF_CHANNEL	=> 'channel',
+         &PF_DRAWABLE	=> 'drawable',
 );
 
 @_params=qw(PF_INT8 PF_INT16 PF_INT32 PF_FLOAT PF_VALUE PF_STRING PF_COLOR
@@ -150,7 +150,7 @@ sub expand_podsections() {
    my $pod;
    for (@scripts) {
       $_->[2] ||= "=pod(NAME)";
-      $_->[3] ||= "=pod(HELP)";
+      $_->[3] ||= "=pod(DESCRIPTION)";
       $_->[4] ||= "=pod(AUTHOR)";
       $_->[5] ||= "=pod(AUTHOR)";
       $_->[6] ||= "=pod(DATE)";
@@ -169,7 +169,7 @@ sub expand_podsections() {
 my $old_trace;
 
 sub interact {
-   eval { require Gtk };
+   eval { require Gtk2 };
 
    if ($@) {
       my @res = map {
@@ -214,18 +214,18 @@ sub this_script {
 my $latest_image;
 
 sub string2pf($$) {
-   my($s,$type,$name,$desc)=($_[0],@{$_[1]});
-   if($type==PF_STRING
-      || $type==PF_FONT
-      || $type==PF_PATTERN
-      || $type==PF_BRUSH
-      || $type==PF_CUSTOM
-      || $type==PF_FILE
-      || $type==PF_TEXT
-      || $type==PF_RADIO	# for now! #d#
-      || $type==PF_GRADIENT) {
+   my ($s, $type, $name, $desc) = ($_[0], @{$_[1]});
+   if($type == PF_STRING
+      || $type == PF_FONT
+      || $type == PF_PATTERN
+      || $type == PF_BRUSH
+      || $type == PF_CUSTOM
+      || $type == PF_FILE
+      || $type == PF_TEXT
+      || $type == PF_RADIO	# for now! #d#
+      || $type == PF_GRADIENT) {
       $s;
-   } elsif($type==PF_INT8
+   } elsif($type == PF_INT8
            || $type==PF_INT16
            || $type==PF_INT32
            || $type==PF_SLIDER
@@ -233,15 +233,15 @@ sub string2pf($$) {
            || $type==PF_ADJUSTMENT) {
       die __"$s: not an integer\n" unless $s==int($s);
       $s*1;
-   } elsif($type==PF_FLOAT) {
+   } elsif($type == PF_FLOAT) {
       $s*1;
-   } elsif($type==PF_COLOUR) {
+   } elsif($type == PF_COLOUR) {
       $s=Gimp::canonicalize_colour($s);
-   } elsif($type==PF_TOGGLE) {
+   } elsif($type == PF_TOGGLE) {
       $s?1:0;
-   #} elsif($type==PF_IMAGE) {
+   #} elsif($type == PF_IMAGE) {
    } else {
-      die __"conversion to type $pf_type2string{$type} is not yet implemented\n";
+      die __"conversion from string to type $pf_type2string{$type} is not yet implemented\n";
    }
 }
 
@@ -290,9 +290,11 @@ Gimp::on_net {
 	   $args[$idx]=string2pf($arg,$params->[$idx]);
 	   $interact--;
 	 }
-      } else {
+      } elsif (@args < @$params) {
          push(@args,string2pf($_,$params->[@args]));
 	 $interact--;
+      } else {
+         die __"too many arguments, use --help\n";
       }
    }
 
@@ -434,7 +436,7 @@ I recommend ISO format (yyyymmdd or yyyy-mm-dd). Default value is "=pod(DATE)".
 
 The menu entry Gimp should create. It should start either with <Image>, if
 you want an entry in the image menu (the one that opens when clicking into
-an image), <Xtns>, for the Xtns menu or <None> for none.
+an image), <Toolbox>/Xtns, for the Xtns menu or <None> for none.
 
 =item image types
 
@@ -452,7 +454,7 @@ Each array element has the form C<[type, name, description, default_value, extra
 
 <Image>-type plugins get two additional parameters, image (C<PF_IMAGE>) and
 drawable (C<PF_DRAWABLE>). Do not specify these yourself. Also, the
-C<run_mode> argument is never given to the script, but its value canm be
+C<run_mode> argument is never given to the script, but its value can be
 accessed in the package-global C<$run_mode>. The B<name> is used in the
 dialog box as a hint, the B<description> will be used as a tooltip.
 
@@ -584,8 +586,8 @@ anything (directory, link). It might not even exist at all.
 
 =item PF_TEXT
 
-Similar to PF_STRING, but the entry widget is much larger and has Load and
-Save buttons.
+Similar to PF_STRING, but the entry widget is much larger and has Load, 
+Save, and Edit (in external editor) buttons.
 
 =back
 
@@ -617,9 +619,9 @@ readable.
 
 sub register($$$$$$$$$;@) {
    no strict 'refs';
-   my($function,$blurb,$help,$author,$copyright,$date,
-      $menupath,$imagetypes,$params)=splice(@_,0,9);
-   my($results,$features,$code,$type,$defargs);
+   my ($function, $blurb, $help, $author, $copyright, $date,
+       $menupath, $imagetypes, $params) = splice @_, 0, 9;
+   my ($results, $features, $code, $type, $defargs);
 
    $results  = (ref $_[0] eq "ARRAY") ? shift : [];
    $features = (ref $_[0] eq "ARRAY") ? shift : [];
@@ -640,10 +642,10 @@ sub register($$$$$$$$$;@) {
          unshift @$params, @save_params;
          $defargs = @save_params;
       } elsif (/^<Toolbox>\//) {
-         $type = &Gimp::EXTENSION;
+         $type = &Gimp::PLUGIN;
          $defargs = 0;
       } elsif (/^<None>/) {
-         $type = &Gimp::EXTENSION;
+         $type = &Gimp::PLUGIN;
          $defargs = 0;
       } else {
          die __"menupath _must_ start with <Image>, <Toolbox>, <Load>, <Save> or <None>!";
@@ -801,7 +803,7 @@ IMAGETYPE is one of GIF, JPG, JPEG, PNM or PNG, options include
  -F	do not flatten the image
 
  options for GIF and PNG images
- +I	do save as interlaced (GIF only)
+ +I	do save as interlaced
  -I	do not save as interlaced (default)
 
  options for GIF animations (use with -F)
@@ -823,10 +825,10 @@ IMAGETYPE is one of GIF, JPG, JPEG, PNM or PNG, options include
 some examples:
 
  test.jpg		save the image as a simple jpeg
- JPG:test.jpg		same
+ JPG:test.jpg		the same
  JPG-Q70:test.jpg	the same but force a quality of 70
  GIF-I-F:test.jpg	save a gif image(!) named test.jpg
- 			non-inerlaced and without flattening
+ 			non-interlaced and without flattening
 
 =back
 
