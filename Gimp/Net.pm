@@ -32,36 +32,19 @@ sub AUTOLOAD {
 
 # network to array
 sub net2args($) {
-  my($arg)=@_;
-  my(@res,$offset,$len,$class,$value);
-  while($offset<length($arg)) {
-    $len=unpack("N",substr($arg,$offset,4));
-    $offset+=4;
-    $value=substr($arg,$offset,$len);
-    $offset+=$len;
-    if(substr($value,0,1) eq "S") {
-      push(@res,substr($value,1));
-    } elsif(substr($value,0,1) eq "A") {
-      push(@res,[split("\0",substr($value,1))]);
-    } elsif(substr($value,0,1) eq "R") {
-      ($class,$value)=split("\0",substr($value,1),2);
-      push(@res,bless(\"$value",$class));
-    }
-  }
-  @res;
+  eval "sub b(\$\$) { bless \\(my \$x = \$_[0]),\$_[1] }; ($_[0])";
 }
 
 sub args2net {
   my($res,$v);
-  for(@_) {
-    if(ref($_) eq "ARRAY") {
-      $v="A".join("\0",@$_);
-    } elsif(ref($_)) {
-      $v="R".ref($_)."\0${$_}";
+  for $v (@_) {
+    if(ref($v) eq "ARRAY") {
+      $res.="[".join(",",map { "qq[".quotemeta($_)."]" } @$v)."],";
+    } elsif(ref($v)) {
+      $res.="b(".${$v}.",".ref($v)."),";
     } else {
-      $v="S$_";
+      $res.="qq[".quotemeta($v)."],";
     }
-    $res.=pack("N",length($v)).$v;
   }
   $res;
 }

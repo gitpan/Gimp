@@ -16,6 +16,8 @@ use Gimp::Net;
 
 Gimp::set_trace(\$trace_res);
 
+$SIG{PIPE}='IGNORE'; # does not yet work, since libgimp (eech) overwrites it.
+
 #
 # the protocol is quite easy ;)
 #

@@ -34,9 +34,10 @@ Revision history for Perl extension Gimp.
 	  server. See example-net.pl for a demo.
 
 0.80  Fri Feb 13 17:15:48 CET 1998
-	- version 1.0 is the first one generally usable.. we're getting close!
-	- Gimp::Net and Gimp::Lib are only internal modules, there is not much of
-	  a distinction between networked modules and modules using libgimp!
+	- version 1.0 is the first one generally usable.. we're getting
+	- close!  Gimp::Net and Gimp::Lib are only internal modules, there
+	  is not much of a distinction between networked modules and modules
+	  using libgimp!
 	- Gimp::OO usable over the network.
 
 0.81  Sun Feb 15 20:57:53 CET 1998
@@ -46,4 +47,11 @@ Revision history for Perl extension Gimp.
 	- IO-syntax now support, i.e. new Image(..), which is still a hacky
 	  namespace game
 
+0.82  Mon Feb 16 12:20:42 CET 1998
+	- array types implemented... the gimp pdb wasn't thoughtfully
+	  designed, or better: not _too_ thoughtfully.
+	- network protocl changed (dunno why, not necessarily better..
+	  also I was infected by versionitis (but Data::Dumper has the same
+	  problem ;)))
+	- floats are now displayed as such ;)
 

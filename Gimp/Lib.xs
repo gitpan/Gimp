@@ -54,6 +54,16 @@ trace_init ()
 	else		sv_catpvf (trace_var, frmt, ## args) \
 	
 
+/* horrors!  c wasn't designed for this!  */
+#define dump_printarray(args,index,datatype,frmt) {\
+  int j; \
+  trace_printf ("["); \
+  for (j = 0; j < args[index-1].data.d_int32; j++) \
+    trace_printf (frmt ## "%s", args[index].data.datatype[j], \
+                  j < args[index-1].data.d_int32 - 1 ? ", " : ""); \
+  trace_printf ("]"); \
+}
+
 static void
 dump_params (int nparams, GParam *args, GParamDef *params)
 {
@@ -87,7 +97,7 @@ dump_params (int nparams, GParam *args, GParamDef *params)
           case PARAM_INT32:	trace_printf ("%d", args[i].data.d_int32); break;
           case PARAM_INT16:	trace_printf ("%d", args[i].data.d_int16); break;
           case PARAM_INT8:	trace_printf ("%d", args[i].data.d_int8); break;
-          case PARAM_FLOAT:	trace_printf ("%d", args[i].data.d_float); break;
+          case PARAM_FLOAT:	trace_printf ("%f", args[i].data.d_float); break;
           case PARAM_STRING:	trace_printf ("\"%s\"", args[i].data.d_string); break;
           case PARAM_DISPLAY:	trace_printf ("%d", args[i].data.d_display); break;
           case PARAM_IMAGE:	trace_printf ("%d", args[i].data.d_image); break;
@@ -98,6 +108,11 @@ dump_params (int nparams, GParam *args, GParamDef *params)
           case PARAM_BOUNDARY:	trace_printf ("%d", args[i].data.d_boundary); break;
           case PARAM_PATH:	trace_printf ("%d", args[i].data.d_path); break;
           case PARAM_STATUS:	trace_printf ("%d", args[i].data.d_status); break;
+          case PARAM_INT32ARRAY:	dump_printarray (args, i, d_int32array, "%d"); break;
+          case PARAM_INT16ARRAY:	dump_printarray (args, i, d_int16array, "%d"); break;
+          case PARAM_INT8ARRAY:		dump_printarray (args, i, d_int8array, "%d"); break;
+          case PARAM_FLOATARRAY:	dump_printarray (args, i, d_floatarray, "%f"); break;
+          case PARAM_STRINGARRAY:	dump_printarray (args, i, d_stringarray, "'%s'"); break;
           
           case PARAM_COLOR:
             trace_printf ("[%d,%d,%d]",
@@ -192,6 +207,16 @@ unbless (SV *sv)
     return SvIV (sv);
 }
 
+#define neuSVpv(arg) newSVpv((arg),0)
+
+#define gimp2av(arg,datatype,newsv) { \
+  int j; \
+  av = newAV (); \
+  for (j = 0; j < arg[-1].data.d_int32; j++) \
+    av_push (av, newsv (arg->data.datatype[j])); \
+  sv = newRV_inc ((SV *)av); \
+}
+
 static SV *
 convert_gimp2sv (GParam *arg)
 {
@@ -204,7 +229,7 @@ convert_gimp2sv (GParam *arg)
       case PARAM_INT16:		sv = newSViv(arg->data.d_int16	); break;
       case PARAM_INT8:		sv = newSViv(arg->data.d_int8	); break;
       case PARAM_FLOAT:		sv = newSVnv(arg->data.d_float	); break;
-      case PARAM_STRING:	sv = newSVpv(arg->data.d_string, strlen(arg->data.d_string)); break;
+      case PARAM_STRING:	sv = neuSVpv(arg->data.d_string	); break;
       case PARAM_DISPLAY:	sv = newSViv(arg->data.d_display); break;
       case PARAM_IMAGE:		sv = newSViv(arg->data.d_image	); break;
       case PARAM_LAYER:		sv = newSViv(arg->data.d_layer	); break;
@@ -222,6 +247,13 @@ convert_gimp2sv (GParam *arg)
         av_push (av, newSViv (arg->data.d_color.blue));
         sv = newRV_inc ((SV *)av);
         break;
+      
+      /* did I say difficult before????  */
+      case PARAM_INT32ARRAY:	gimp2av (arg, d_int32array , newSViv); break;
+      case PARAM_INT16ARRAY:	gimp2av (arg, d_int16array , newSViv); break;
+      case PARAM_INT8ARRAY:	gimp2av (arg, d_int8array  , newSViv); break;
+      case PARAM_FLOATARRAY:	gimp2av (arg, d_floatarray , newSVnv); break;
+      case PARAM_STRINGARRAY:	gimp2av (arg, d_stringarray, neuSVpv); break;
         
       default:
         croak ("dunno how to return param type %d", arg->type);
@@ -230,6 +262,21 @@ convert_gimp2sv (GParam *arg)
     }
   
   return autobless (sv, arg->type);
+}
+
+#define SvPv(sv) SvPV((sv), na)
+
+#define av2gimp(arg,sv,datatype,type,svxv) { \
+  if (SvROK (sv) && SvTYPE(SvRV(sv)) == SVt_PVAV) \
+    { \
+      int i; \
+      arg[-1].data.d_int32 = av_len ((AV *)sv) + 1; \
+      arg->data.datatype = g_new (type, av_len ((AV *)sv) + 1); \
+      for (i = 0; i <= av_len ((AV *)sv); i++) \
+        arg->data.datatype[i] = svxv (*av_fetch ((AV *)sv, i, 0)); \
+    } \
+  else \
+    croak ("perl-arrayref required as datatype for a gimp-array"); \
 }
 
 static void
@@ -241,7 +288,7 @@ convert_sv2gimp (char *err, GParam *arg, SV *sv)
       case PARAM_INT16:		arg->data.d_int16	= SvIV(sv); break;
       case PARAM_INT8:		arg->data.d_int8	= SvIV(sv); break;
       case PARAM_FLOAT:		arg->data.d_float	= SvNV(sv); break;
-      case PARAM_STRING:	arg->data.d_string	= SvPV(sv, na); break;
+      case PARAM_STRING:	arg->data.d_string	= SvPv(sv); break;
       case PARAM_DISPLAY:	arg->data.d_display	= unbless(sv); break;
       case PARAM_IMAGE:		arg->data.d_image	= unbless(sv); break;
       case PARAM_LAYER:		arg->data.d_layer	= unbless(sv); break;
@@ -285,10 +332,71 @@ convert_sv2gimp (char *err, GParam *arg, SV *sv)
               sprintf (err, "a color string must be of form #rrggbb");
           }
         break;
+      
+      case PARAM_INT32ARRAY:	av2gimp (arg, sv, d_int32array , gint32 , SvIV); break;
+      case PARAM_INT16ARRAY:	av2gimp (arg, sv, d_int16array , gint16 , SvIV); break;
+      case PARAM_INT8ARRAY:	av2gimp (arg, sv, d_int8array  , gint8  , SvIV); break;
+      case PARAM_FLOATARRAY:	av2gimp (arg, sv, d_floatarray , gdouble, SvNV); break;
+      case PARAM_STRINGARRAY:	av2gimp (arg, sv, d_stringarray, gchar *, SvPv); break;
         
       default:
         sprintf (err, "dunno how to pass arg type %d", arg->type);
     }
+}
+
+/* only free array pointers, but not actual aray values.  */
+static void
+destroy_params (GParam *arg, int count)
+{
+  int i;
+  
+  for (i = 0; i < count; i++)
+    switch (arg[i].type)
+      {
+        case PARAM_INT32ARRAY:	g_free (arg[i].data.d_int32array); break;
+        case PARAM_INT16ARRAY:	g_free (arg[i].data.d_int16array); break;
+        case PARAM_INT8ARRAY:	g_free (arg[i].data.d_int8array); break;
+        case PARAM_FLOATARRAY:	g_free (arg[i].data.d_floatarray); break;
+        case PARAM_STRINGARRAY:	g_free (arg[i].data.d_stringarray); break;
+          
+        default:
+      }
+  
+  g_free (arg);
+}
+
+static int
+is_arraytype (GParamType typ)
+{
+  return typ == PARAM_INT32ARRAY
+      || typ == PARAM_INT16ARRAY
+      || typ == PARAM_INT8ARRAY
+      || typ == PARAM_FLOATARRAY
+      || typ == PARAM_STRINGARRAY;
+}
+
+static int
+perl_param_count (GParam *arg, int count)
+{
+  GParam *end = arg + count;
+  
+  while (arg < end)
+    if (is_arraytype (arg++->type))
+      count--;
+  
+  return count;
+}
+
+static int
+perl_paramdef_count (GParamDef *arg, int count)
+{
+  GParamDef *end = arg + count;
+  
+  while (arg < end)
+    if (is_arraytype (arg++->type))
+      count--;
+  
+  return count;
 }
 
 /* first check wether the procedure exists at all.  */
@@ -320,9 +428,14 @@ static void pii_run(char *name, int nparams, GParam *param, int *nreturn_vals, G
   
   if (nparams)
     {
-      EXTEND (sp, nparams);
+      EXTEND (sp, perl_param_count (param, nparams));
       for (i = 0; i < nparams; i++)
-        PUSHs(convert_gimp2sv(&param[i]));
+        {
+          if (i < nparams-1 && is_arraytype (param[i+1].type))
+            i++;
+          
+          PUSHs(convert_gimp2sv(param+i));
+        }
       
       PUTBACK;
     }
@@ -469,7 +582,7 @@ gimp_call_procedure (proc_name, ...)
 		    g_free (proc_author);
 		    g_free (proc_copyright);
 		    g_free (proc_date);
-		    if (items-1 != nparams)
+		    if (items-1 != perl_paramdef_count (params, nparams))
 		      sprintf (croak_str, "'%s' expects %d arguments, not %d",
 		               proc_name, nparams, items-1);
 		    else
@@ -480,6 +593,9 @@ gimp_call_procedure (proc_name, ...)
     		        for (i = 0; i < nparams; i++)
 		          {
 		            args[i].type = params[i].type;
+		            if (i < nparams-1 && is_arraytype (args[i].type))
+		              i++;
+		            
 		            convert_sv2gimp (croak_str, &args[i], ST(i+1));
 		          }
 		        
@@ -492,7 +608,7 @@ gimp_call_procedure (proc_name, ...)
                         values = gimp_run_procedure2 (proc_name, &nvalues, nparams, args);
                         
     		        if (nparams)
-    		          g_free (args);
+    		          destroy_params (args, nparams);
     		    
 			if (trace & TRACE_CALL)
 			  {
@@ -508,9 +624,14 @@ gimp_call_procedure (proc_name, ...)
                               sprintf (croak_str, "%s: procedural database execution failed on invalid input arguments", proc_name);
                             else if (values[0].data.d_status == STATUS_SUCCESS)
                               {
-                                EXTEND(sp, nvalues-1);
+                                EXTEND(sp, perl_paramdef_count (return_vals, nvalues-1));
                                 for (i = 0; i < nvalues-1; i++)
-                                  PUSHs(sv_2mortal (convert_gimp2sv (&values[i+1])));
+                                  {
+	                            if (i < nvalues-2 && is_arraytype (values[i+2].type))
+	                              i++;
+	                            
+                                    PUSHs(sv_2mortal (convert_gimp2sv (values+i+1)));
+                                  }
                               }
                             else
                               sprintf (croak_str, "unsupported status code: %d\n", values[0].data.d_status);
@@ -519,7 +640,7 @@ gimp_call_procedure (proc_name, ...)
                           sprintf (croak_str, "gimp returned, well.. dunno how to interpret that...");
 		        
 		        if (values)
-		          g_free (values);
+		          gimp_destroy_params (values, nreturn_vals);
 		      
                       }
 		    
@@ -1440,10 +1561,12 @@ void
 gimp_gradients_set_active(name)
 	char *	name
 
+# dropped in favour of the pdb function
 #gdouble *
 #gimp_gradients_sample_uniform(num_samples)
 #	gint	num_samples
 
+# dropped in favour of the pdb function
 #gdouble *
 #gimp_gradients_sample_custom(num_samples, positions)
 #	gint	num_samples
