@@ -61,7 +61,7 @@ SYNOPSIS
 
 
 
-16/Feb/98              perl 5.004, patch 58                     1
+13/Mar/98              perl 5.004, patch 61                     1
 
 
 
@@ -127,7 +127,7 @@ CALLBACKS
 
 
 
-16/Feb/98              perl 5.004, patch 58                     2
+13/Mar/98              perl 5.004, patch 61                     2
 
 
 
@@ -193,7 +193,7 @@ FUNCTIONS
 
 
 
-16/Feb/98              perl 5.004, patch 58                     3
+13/Mar/98              perl 5.004, patch 61                     3
 
 
 
@@ -259,7 +259,7 @@ SEE ALSO
 
 
 
-16/Feb/98              perl 5.004, patch 58                     4
+13/Mar/98              perl 5.004, patch 61                     4
 
 
 
@@ -325,6 +325,6 @@ Gimp(3)        User Contributed Perl Documentation        Gimp(3)
 
 
 
-16/Feb/98              perl 5.004, patch 58                     5
+13/Mar/98              perl 5.004, patch 61                     5
 
 

@@ -49,10 +49,33 @@ trace_init ()
     SvCUR_set (trace_var, 0);
 }
 
+#if __STDC_VERSION__ > 199900
+#define trace_printf(...) \
+	if (trace_file) PerlIO_printf (trace_file, __VA_ARGS__); \
+	else		sv_catpvf (trace_var, __VA_ARGS__)
+#elif __GNUC__
 #define trace_printf(frmt,args...) \
 	if (trace_file) PerlIO_printf (trace_file, frmt, ## args); \
-	else		sv_catpvf (trace_var, frmt, ## args) \
-	
+	else		sv_catpvf (trace_var, frmt, ## args)
+#elif __STDC__
+
+/* sigh */
+#include <stdarg.h>
+void trace_printf (char *frmt, ...)
+{
+  va_list args;
+  char buffer[1024]; /* sorry... */
+  
+  va_start (args, frmt);
+  vsnprintf (buffer, sizeof buffer, frmt, args);
+  if (trace_file) PerlIO_printf (trace_file, "%s", buffer);
+  else		  sv_catpv (trace_var, buffer);
+}
+
+#else
+error need_ansi_compiler__maybe_try_c89
+#error need ansi compiler, maybe try c89?
+#endif
 
 /* horrors!  c wasn't designed for this!  */
 #define dump_printarray(args,index,datatype,frmt) {\
@@ -359,7 +382,7 @@ destroy_params (GParam *arg, int count)
         case PARAM_FLOATARRAY:	g_free (arg[i].data.d_floatarray); break;
         case PARAM_STRINGARRAY:	g_free (arg[i].data.d_stringarray); break;
           
-        default:
+        default: ;
       }
   
   g_free (arg);
@@ -412,9 +435,9 @@ static void try_call (char *name)
   }
 }
 
-static void pii_init (void) { try_call ("init" ); };
-static void pii_query(void) { try_call ("query"); };
-static void pii_quit (void) { try_call ("quit" ); };
+static void pii_init (void) { try_call ("init" ); }
+static void pii_query(void) { try_call ("query"); }
+static void pii_quit (void) { try_call ("quit" ); }
 
 static void pii_run(char *name, int nparams, GParam *param, int *nreturn_vals, GParam **return_vals)
 {
@@ -458,7 +481,6 @@ GPlugInInfo PLUG_IN_INFO = { pii_init, pii_quit, pii_query, pii_run };
 
 MODULE = Gimp::Lib	PACKAGE = Gimp::Lib
 
-# FIXME: ASAP
 PROTOTYPES: ENABLE
 
 #
@@ -676,8 +698,8 @@ gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, im
 		    AV *ret = (AV *)SvRV(return_vals);
 		    int nparams = av_len(args)+1;
 		    int nreturn_vals = av_len(ret)+1;
-		    GParamDef *apd = alloca(nparams * sizeof (GParamDef));
-		    GParamDef *rpd = alloca(nreturn_vals * sizeof (GParamDef));
+		    GParamDef *apd = (GParamDef *)alloca(nparams * sizeof (GParamDef));
+		    GParamDef *rpd = (GParamDef *)alloca(nreturn_vals * sizeof (GParamDef));
 		    int i;
 		    
 		    for (i = 0; i < nparams; i++)
@@ -958,13 +980,10 @@ gimp_image_get_component_active(image_ID, component)
 	IMAGE	image_ID
 	gint	component
 
-#
-# this is not implemented in my version of libgimp!
-#
-#gint
-#gimp_image_get_component_visible(image_ID, component)
-#	gint32	image_ID
-#	gint	component
+gint
+gimp_image_get_component_visible(image_ID, component)
+	gint32	image_ID
+	gint	component
 
 
 char *
@@ -1227,9 +1246,7 @@ gdouble
 gimp_channel_get_opacity(channel_ID)
 	CHANNEL	channel_ID
 
-#
-# not implemented in libgimp!
-#
+# not in libgimp!
 #gint
 #gimp_channel_get_show_masked(channel_ID)
 #	gint32	channel_ID
@@ -1259,9 +1276,7 @@ gimp_channel_set_opacity(channel_ID, opacity)
 	CHANNEL	channel_ID
 	gdouble	opacity
 
-#
-# not implemented in libgimp!
-#
+# not in libgimp!
 #void
 #gimp_channel_set_show_masked(channel_ID, show_masked)
 #	gint32	channel_ID

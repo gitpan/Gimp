@@ -1,6 +1,6 @@
 package Gimp;
 
-use strict vars;
+use strict;
 use Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL);
 use vars qw(@_consts @_procs @_internals $interface_pkg $interface_type);
@@ -8,7 +8,7 @@ use vars qw(@_consts @_procs @_internals $interface_pkg $interface_type);
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '0.82';
+$VERSION = '0.84';
 
 @_consts = qw(
 	ADDITION_MODE	ALPHA_MASK	APPLY		BEHIND_MODE	BG_BUCKET_FILL
@@ -141,15 +141,14 @@ sub import($;@) {
   }
   
   # has to be done first
-  eval "require $interface_pkg";
+  eval "require $interface_pkg" or die "$@";
   import $interface_pkg ();
-  
   for((@_procs,@_internals)) {
-    *$_ = \&{"${interface_pkg}::$_"};
+    eval "*$_ = \\&${interface_pkg}::$_";
   }
   
   for(@export) {
-    *{"${up}::$_"} = \&$_;
+    eval "*${up}::$_ = \\&$_";
   }
 }
 
@@ -159,6 +158,7 @@ sub AUTOLOAD {
   my $val = constant($constname, @_ ? $_[0] : 0);
   if ($! != 0) {
     if ($! =~ /Invalid/) {
+      no strict 'refs';
       ${"${interface_pkg}::AUTOLOAD"}=$AUTOLOAD;
       goto &{"${interface_pkg}::AUTOLOAD"};
     } else {
@@ -171,7 +171,6 @@ sub AUTOLOAD {
 
 bootstrap Gimp $VERSION;
 
-1;
 __END__
 
 =head1 NAME

@@ -55,3 +55,13 @@ Revision history for Perl extension Gimp.
 	  problem ;)))
 	- floats are now displayed as such ;)
 
+0.83  Tue Feb 24 17:29:34 CET 1998
+	- use strict always everywhere.
+	- more errors fixed (by compiling under solaris ;), thanks
+	  to dov@Orbotech.Co.IL for pointing it out!
+	- change to support gnuc, c9x, and old (none) varargs macro syntax
+	  could be done much easier, but I like the correct approach
+
+0.84  Fri Mar 13 21:23:07 CET 1998
+	- calling "new Object" now actually works the second time.
+

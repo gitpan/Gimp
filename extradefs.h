@@ -72,6 +72,8 @@
 #define BLUR 0
 #define SHARPEN 1
 
-//#define TRUE 1
-//#define FALSE 0
+/*
+#define TRUE 1
+#define FALSE 0
+*/
 

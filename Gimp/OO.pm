@@ -1,6 +1,6 @@
 package Gimp::OO;
 
-use strict vars;
+use strict;
 use Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @EXPORT_FAIL @PREFIXES);
 use Gimp;
@@ -16,10 +16,9 @@ require AutoLoader;
 
 sub AUTOLOAD {
   my ($class,$subname) = ($AUTOLOAD =~ /^(.*)::(.*?)$/);
-  shift if $_[0] eq $class;
-  for(@{"${class}::PREFIXES"}) {
+  for(eval "\@${class}::PREFIXES") {
     if (Gimp::_gimp_procedure_available ($_.$subname)) {
-      eval "sub $AUTOLOAD { Gimp::gimp_call_procedure '$_$subname',\@_ }";
+      eval "sub $AUTOLOAD { ".($_[0] eq $class ? "shift;" : "")."Gimp::gimp_call_procedure '$_$subname',\@_ }";
       goto &$AUTOLOAD;
     }
   }
@@ -29,9 +28,11 @@ sub AUTOLOAD {
 sub pseudoclass {
   my ($class, @prefixes)= @_;
   @prefixes=map { $_."_" } @prefixes;
-  @{"Gimp::${class}::ISA"}	= @{"${class}::ISA"}	  = ('Gimp::OO');
-  @{"Gimp::${class}::PREFIXES"}	= @{"${class}::PREFIXES"} = @prefixes;
+  eval "\@Gimp::${class}::ISA		= \@${class}::ISA	= ('Gimp::OO')";
+  eval "\@Gimp::${class}::PREFIXES	= \@${class}::PREFIXES	= \@prefixes";
 }
+
+sub DESTROY {};
 
 pseudoclass qw(Layer	gimp_layer gimp_drawable gimp);
 pseudoclass qw(Image	gimp_image gimp);

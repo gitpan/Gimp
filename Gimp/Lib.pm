@@ -1,6 +1,6 @@
 package Gimp::Lib;
 
-use strict vars;
+use strict;
 use Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @_consts @_procs %EXPORT_TAGS @EXPORT_FAIL);
 
@@ -10,11 +10,7 @@ require DynaLoader;
 $VERSION = $Gimp::VERSION;
 
 use subs @Gimp::_procs;
-
-#	    $AutoLoader::AUTOLOAD = $AUTOLOAD;
-#	    goto &AutoLoader::AUTOLOAD;
-
-bootstrap Gimp::Lib $VERSION;
+use subs @Gimp::_internals;
 
 # Preloaded methods go here.
 
@@ -28,6 +24,8 @@ sub AUTOLOAD {
      croak "$constname not defined in Gimp";
   }
 }
+
+bootstrap Gimp::Lib $VERSION;
 
 # Autoload methods go after =cut, and are processed by the autosplit program.
 

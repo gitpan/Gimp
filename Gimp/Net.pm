@@ -4,10 +4,10 @@
 #
 package Gimp::Net;
 
-use strict vars;
+use strict;
 use Carp;
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @EXPORT_FAIL %EXPORT_TAGS);
 use vars qw(
+   $VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @EXPORT_FAIL %EXPORT_TAGS
    $default_tcp_port $default_unix_dir $default_unix_sock
    $server_fh $trace_level $trace_res
 );
@@ -32,6 +32,7 @@ sub AUTOLOAD {
 
 # network to array
 sub net2args($) {
+  no strict 'subs';
   eval "sub b(\$\$) { bless \\(my \$x = \$_[0]),\$_[1] }; ($_[0])";
 }
 
@@ -115,6 +116,7 @@ sub gimp_main {
   }
   $server_fh or croak "could not connect to the gimp server server (make sure Net-Server is running)";
   $server_fh->autoflush(1);
+  no strict 'refs';
   &{caller()."::net"};
 }
 
@@ -153,7 +155,7 @@ sends the perl server a quit command.
 
 =head1 BUGS
 
-This module is much faster than it ought to be... Silly that I wondered
+(Ver 0.04..) This module is much faster than it ought to be... Silly that I wondered
 wether I should implement it in perl or C, since perl is soo fast.
 
 =head1 AUTHOR

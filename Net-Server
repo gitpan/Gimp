@@ -11,6 +11,8 @@ $use_tcp	= 0;	# don't enable tcp.  security...
 
 use IO::Socket;
 
+use strict;
+use vars qw($use_unix $use_tcp $trace_res $server_quit $max_pkt $unix $tcp);
 use Gimp 'interface=lib';
 use Gimp::Net;
 
@@ -148,7 +150,6 @@ sub query {
 
 sub quit {
 }
-
 
 exit(Gimp::gimp_main());
 
