@@ -1,5 +1,8 @@
 Revision history for Gimp-Perl extension.
 
+0.98
+	- got rid of the top-level configure, now use the Makefile.PL
+
 0.97  Tue Jun 30 19:36:23 CEST 1998
 	- bugfixes, changes for gimp-1.1
 	- Gtk-0.2.3 required

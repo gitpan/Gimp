@@ -1,4 +1,4 @@
-AC_INIT(Gimp.pm)
+AC_INIT(pcfg.in)
 
 AC_CONFIG_HEADER(config.h)
 
@@ -9,7 +9,7 @@ AC_ARG_WITH(ldflags, [  --with-ldflags=FLAGS    Set LDFLAGS to FLAGS (optional)]
    LDFLAGS="$with_ldflags")
 
 AC_ARG_WITH(includes,[  --with-includes=DIR     Additionally search for includes in dir DIR (optional)],
-   CFLAGS="$CFLAGS -I$with_includes")
+   CPPFLAGS="$CPPFLAGS -I$with_includes")
 
 AC_ARG_WITH(libs,    [  --with-libs=DIR         Additionally search for libraries in dir in DIR (optional)],
    LIBS="$LIBS -L$with_libs")
@@ -34,22 +34,17 @@ AM_PATH_GIMP(1.0.0,, AC_MSG_ERROR(
 ))
 
 AC_HEADER_STDC
-AC_CHECK_HEADERS(libgimp/gimp.h)
 
-AC_SUBST(LDFLAGS)
+AC_SUBST(CPPFLAGS)
 AC_SUBST(CFLAGS)
+AC_SUBST(LDFLAGS)
+AC_SUBST(prefix)
 
-AC_SUBST(GIMP_LIBS)
-AC_SUBST(GIMP_CFLAGS)
+AC_SUBST(PERL)
+AC_SUBST(GIMP)
 AC_SUBST(GIMPTOOL)
+AC_SUBST(GIMP_CFLAGS)
+AC_SUBST(GIMP_LIBS)
 
-AC_OUTPUT(Makefile.PL Gimp/Makefile.PL)
-
-echo invoking $PERL for configuration...
-if test -z "$prefix"; then
-   $PERL Makefile.PL
-else
-   $PERL Makefile.PL prefix="$prefix"
-fi
-
+AC_OUTPUT(pcfg)
 

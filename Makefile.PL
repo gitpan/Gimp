@@ -1,5 +1,19 @@
 use ExtUtils::MakeMaker;
 
+if ($ARGV[0] eq "---called-after-configure") {
+   shift(@ARGV);
+} elsif (!(system("./etc/configure",@ARGV)>>8) && -f "./pcfg") {
+   do './pcfg';
+   exec $PERL,$0,"---called-after-configure",@ARGV;
+} else {
+   exit(1);
+}
+
+do './pcfg';
+
+@ARGV=();
+unshift(@ARGV,"prefix=$prefix") if $prefix;
+
 eval "use Gtk;"; $GTK = $@ eq "";
 eval "use PDL;"; $PDL = $@ eq "";
 
@@ -48,17 +62,14 @@ EOF
 sub MY::postamble {
    <<"EOF";
 
-Makefile.PL :: Makefile.PL.in
-	./config.status
-
 #install :: install-plugins
 
 install-plugins:
-	@GIMPTOOL@ --install-admin-bin Perl-Server
-	cd examples && @GIMPTOOL@ --install-admin-bin windy.pl
-	cd examples && @GIMPTOOL@ --install-admin-bin example-oo.pl
-	cd examples && @GIMPTOOL@ --install-admin-bin example-net.pl
-	cd examples && @GIMPTOOL@ --install-admin-bin example-fu.pl
+	$GIMPTOOL --install-admin-bin Perl-Server
+	cd examples && $GIMPTOOL --install-admin-bin windy.pl
+	cd examples && $GIMPTOOL --install-admin-bin example-oo.pl
+	cd examples && $GIMPTOOL --install-admin-bin example-net.pl
+	cd examples && $GIMPTOOL --install-admin-bin example-fu.pl
 EOF
 }
 
@@ -89,10 +100,9 @@ WriteMakefile(
 #    		    'Gtk/ColorSelectButton.pm'=> '$(INST_LIBDIR)/Gimp/ColorSelectButton.pm',
     		   },
     'LIBS'	=> [''],
-    'INC'	=> '@CFLAGS@ @DEFS@',
+    'INC'	=> "$CPPFLAGS $CFLAGS $DEFS",
     'DEFINE'	=> '',
-    'clean'	=> { FILES => "config.log config.h Makefile.PL Gimp/Makefile.PL" },
-    'realclean'	=> { FILES => "config.status config.cache" },
+    'clean'	=> { FILES => "config.log config.h pcfg config.status config.cache" },
 );
 
 print <<EOF;

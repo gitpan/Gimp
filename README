@@ -34,13 +34,19 @@ PREREQUISITES
        http://www.gimp.org/
 
 INSTALLATION
-       On unix, you should be able to run ./configure,
+       On unix, you should be able to run "perl Makefile.PL"
        make, make test && make install. To get a listing
        of configuration options, enter
        
-       ./configure --help
+       ./perl Makefile.PL --help
        
-       On non-unix systems, well....
+       a straight "./configure" should do the job on most systems, but watch
+       out for warnings. If everything went fine, enter "make", "make test",
+       "make install" and, if you want to install the Perl-Server and some
+       other plug-ins, "make install-plugins"
+       
+       If you don't have unix, you can install linux instead
+       (http://www.linux.org)
        
 PLOP
        Scheme is the crappiest language ever. Have a look at Haskell

@@ -1,0 +1,14 @@
+# this is ugly, but it makes Gimp installable from within CPAN
+
+$CPPFLAGS	= q[@CPPFLAGS@];
+$CFLAGS		= q[@CFLAGS@];
+$LDFLAGS	= q[@LDFLAGS@];
+$prefix		= q[@prefix@];
+
+$PERL		= q[@PERL@];
+$GIMP		= q[@GIMP@];
+$GIMPTOOL	= q[@GIMPTOOL@];
+$GIMP_CFLAGS	= q[@GIMP_CFLAGS@];
+$GIMP_LIBS	= q[@GIMP_LIBS@];
+
+
