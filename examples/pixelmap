@@ -1,60 +1,97 @@
 #!/usr/bin/perl -w
 
 use Gimp::Feature 'pdl';
-use Gimp 1.092;
+use Gimp 1.099;
 use Gimp::Fu;
 use Gimp::Util;
 use PDL;
 
-register "pixelmap",
-         "Maps Pixel values and coordinates through general Perl exprtessions",
-         "=pod",
-         "Marc Lehmann",
-         "Marc Lehmann <pcg\@goof.com>",
-         "19990528",
-         "<Image>/Filters/Map/Pixelmap",
-         "*",	
-         [
-           [PF_STRING,		"expression"	, "The perl expression to use",	'$p=outer($x,$y)->slice("*$bpp")']
-         ],
-         sub {					# es folgt das eigentliche Skript...
-   my($image,$drawable,$expr)=@_;
+use constant PI => 4 * atan2 1,1;
+
+sub pixelmap {					# es folgt das eigentliche Skript...
+   my($image,$drawable,$_expr)=@_;
 
    Gimp->progress_init ("Mapping pixels...");
    
    my $init="";
 
-   $expr =~ /\$p/   and $init.='$p = $src->data;';
-   $expr =~ /\$x/   and $init.='$x = sequence(byte,$src->w); $x+=$src->x;';
-   $expr =~ /\$y/   and $init.='$y = sequence(byte,$src->h); $y+=$src->y;';
-   $expr =~ /\$bpp/ and $init.='$bpp = $src->bpp;';
+   $_expr =~ /\$p/   and $init.='$p = $src->data;';
+   $_expr =~ /\$x/   and $init.='$x = sequence(long,$w); $x+=$_dst->x;';
+   $_expr =~ /\$y/   and $init.='$y = sequence(long,$h); $y+=$_dst->y;';
+   $_expr =~ /\$bpp/ and $init.='$bpp = $_dst->bpp;';
 
-   $expr = "sub{$init\n#line 1\n$expr;\n\$p}";
+   my($p,$x,$y,$bpp,$w,$h);
 
-   my @bounds = $drawable->mask;
+   $_expr = "sub{$init\n#line 1\n$_expr\n;}";
+
+   my @_bounds = $drawable->bounds;
    {
       # $src and $dst must either be scoped or explicitly undef'ed
       # before merge_shadow.
-      my $src = new PixelRgn ($drawable->get,@bounds,0,0);
-      my $dst = new PixelRgn ($drawable->get,@bounds,1,1);
-      my($p,$x,$y,$bpp);
+      my $src  = new PixelRgn $drawable->get,@_bounds,0,0;
+      my $_dst = new PixelRgn $drawable,@_bounds,1,1;
 
-      $expr = eval $expr; die "$@" if $@;
+      $_expr = eval $_expr; die "$@" if $@;
 
-      $iter = Gimp->pixel_rgns_register ($src, $dst);
+      $_iter = Gimp->pixel_rgns_register ($src, $_dst);
+      my $_area = 0;
 
       do {
-         $dst->data(&$expr);
-
-         Gimp->progress_update (($src->y-$bounds[1])/$bounds[2]);
-      } while (Gimp->pixel_rgns_process ($iter));
+         ($w,$h)=($src->w,$src->h);
+         $_area += $w*$h/($_bounds[2]*$_bounds[3]);
+         $_dst->data(&$_expr);
+         Gimp->progress_update ($_area);
+      } while (Gimp->pixel_rgns_process ($_iter));
    }
-   Gimp->progress_update (1);
 
    $drawable->merge_shadow (1);
-   $drawable->update ($drawable->mask);
+   $drawable->update (@_bounds);
 
    ();		# wir haben kein neues Bild erzeugt
+}
+
+register "pixelmap",
+         "Maps Pixel values and coordinates through general Perl expressions",
+         "=pod(DESCRIPTION)",
+         "Marc Lehmann",
+         "Marc Lehmann <pcg\@goof.com>",
+         "19990729",
+         "<Image>/Filters/Map/Pixelmap",
+         "*",	
+         [
+           [PF_TEXT,		"expression"	, "The perl expression to use",	"outer(\$x*0.1,\$y*0.2)\n->slice(\"*\$bpp\")"]
+         ],
+         \&pixelmap;
+
+register "pixelgen",
+         "Generate the pixels of an image by expressions (in PDL)",
+         "=pod(DESCRIPTION)",
+         "Marc Lehmann",
+         "Marc Lehmann <pcg\@goof.com>",
+         "19990730",
+         "<Toolbox>/Xtns/Render/Pixelgenerator",
+         "*",	
+         [
+           [PF_SPINNER,		"width"		, "The width of the new image to generate",	512, [1, 4096, 1]],
+           [PF_SPINNER,		"height"	, "The height of the new image to generate",	512, [1, 4096, 1]],
+           [PF_RADIO,		"type"		, "The type of the layer to create (same as gimp_layer_new.type)",
+           			RGB_IMAGE	, [RGB => RGB_IMAGE, RGBA => RGBA_IMAGE, GRAY => GRAY_IMAGE,
+                                		   GRAYA => GRAYA_IMAGE, INDEXED => INDEXED_IMAGE, INDEXEDA => INDEXEDA_IMAGE]],
+           [PF_TEXT,		"expression"	, "The perl expression to use",	"outer(\$x*0.1,\$y*0.2)\n->slice(\"*\$bpp\")"]
+         ],
+         [[PF_IMAGE,		"image"		, "The resulting image"]],
+         sub {
+   my($w,$h,$type,$expr)=@_;
+   my $image = new Image $w, $h, Gimp->layer2imagetype($type);
+   my $layer = new Layer $image, $w, $h, $type, $expr, 100, NORMAL_MODE;
+   $image->add_layer($layer, 0);
+   eval { pixelmap($image, $layer, $expr) };
+   if ($@) {
+      my $error = $@;
+      $image->delete;
+      die $error;
+   };
+   $image;
 };
 
 exit main;
@@ -62,6 +99,7 @@ exit main;
 =head1 DESCRIPTION
 
 Not yet written yet, sorry...
+
 
 
 

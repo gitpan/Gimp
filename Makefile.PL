@@ -8,11 +8,12 @@ $|=1;
    # not yet: magick
    qw(windy.pl prep4gif.pl webify.pl PDB alpha2color.pl tex-to-float ditherize.pl
       border.pl view3d.pl feedback.pl xachlego.pl xachshadow.pl parasite-editor
-      scratches.pl blowinout.pl terral_text xachvision.pl perlcc
+      scratches.pl blowinout.pl terral_text xachvision.pl perlcc gouge
       sethspin.pl animate_cells image_tile yinyang stamps font_table
       perlotine randomblends innerbevel fit-text guidegrid roundrectsel
       repdup centerguide stampify goldenmean triangle billboard mirrorsplit
       oneliners randomart1 pixelmap glowing_steel frame_reshuffle frame_filter
+      logulator miff magick
    );
 @shebang = (map("examples/$_",@examples),
    qw(Perl-Server examples/example-net.pl examples/homepage-logo.pl
@@ -262,7 +263,7 @@ WriteMakefile(
     'LIBS'	=> [''],
     'INC'	=> "$INC1 $GIMP_INC_NOUI $CPPFLAGS $CFLAGS",
     'DEFINE'	=> "$DEFINE1 $DEFS",
-    'EXE_FILES'	=> ['scm2perl','scm2scm','gimpdoc'],
+    'EXE_FILES'	=> [qw(scm2perl scm2scm gimpdoc xcftopnm embedxpm)],
     'macro'	=> \%cfg,
     'realclean'	=> { FILES => "config.status config.cache config.pl config.log config.h Gimp/Config.pm" },
     'clean'	=> { FILES => "Makefile.old stamp-h" },
