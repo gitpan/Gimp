@@ -84,8 +84,6 @@ static void need_pdl (void)
     {
       /* the perl-server can't be bothered to do this itself! */
       perl_require_pv ("PDL::Core");
-      /* required for kludgy redim_pdl */
-      perl_require_pv ("PDL::Slices");
 
       /* Get pointer to structure of core shared C routines */
       if (!(CoreSV = perl_get_sv("PDL::SHARE",FALSE)))
@@ -132,16 +130,26 @@ static void pixel_rgn_pdl_delete_data (pdl *p, int param)
 /* please optimize! */
 static pdl *redim_pdl (pdl *p, int ndim, int newsize)
 {
-  SV *sv;
-  char reslice[512];
+  pdl *r = PDL->null ();
+  AV *dims, *dimincs;
+  int i;
 
-  sprintf (reslice,"$Gimp::_pdl->slice('%s0:%d')",(ndim ? "," : ""),newsize);
+  dims    = newAV ();
+  dimincs = newAV ();
 
-  PDL->SetSV_PDL (perl_get_sv ("Gimp::_pdl", TRUE), p);
-  if (!(sv = perl_eval_pv (reslice,1)))
-    croak ("FATAL: reslicing did not return a value! Please report!");
+  for (i = 0; i < p->ndims; i++)
+    {
+      av_push (dims   , newSViv (p->dims   [i]));
+      av_push (dimincs, newSViv (p->dimincs[i]));
+    }
 
-  return PDL->SvPDLV (sv);
+  sv_setiv (*av_fetch (dims, ndim, 0), newsize);
+
+  PDL->affine_new (p, r, 0, 
+                   sv_2mortal (newRV_noinc ((SV*)dims)),
+                   sv_2mortal (newRV_noinc ((SV*)dimincs)));
+
+  return r;
 }
 
 #endif
@@ -895,7 +903,7 @@ push_gimp_sv (GParam *arg, int array_as_ref)
   PUTBACK;
 }
 
-#define SvPv(sv) SvPV_nolen(sv)
+#define SvPv(sv) (SvOK(sv) ? SvPV_nolen(sv) : NULL)
 #define Sv32(sv) unbless ((sv), PKG_ANY, croak_str)
 
 #define av2gimp(arg,sv,datatype,type,svxv) { \
@@ -1612,14 +1620,14 @@ gimp_call_procedure (proc_name, ...)
 	}
 
 void
-gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, image_types, type, params, return_vals)
+gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path_sv, image_types, type, params, return_vals)
 	char *	name
 	char *	blurb
 	char *	help
 	char *	author
 	char *	copyright
 	char *	date
-	char *	menu_path
+	SV *	menu_path_sv
 	char *	image_types
 	int	type
 	SV *	params
@@ -1628,6 +1636,8 @@ gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, im
 		gimp_install_temp_proc = 1
 	CODE:
 	{
+         	char *menu_path = SvPv (menu_path_sv);
+
 		if (SvROK(params) && SvTYPE(SvRV(params)) == SVt_PVAV
 		    && SvROK(return_vals) && SvTYPE(SvRV(return_vals)) == SVt_PVAV)
 		  {
