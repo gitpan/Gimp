@@ -4,7 +4,7 @@
 #
 package Gimp::Net;
 
-use strict;
+use strict 'vars';
 use Carp;
 use vars qw(
    $VERSION
@@ -12,8 +12,7 @@ use vars qw(
    $server_fh $trace_level $trace_res $auth $gimp_pid
 );
 use subs qw(gimp_call_procedure);
-
-use IO::Socket;
+use Socket; # IO::Socket is _really_ slow
 
 $default_tcp_port  = 10009;
 $default_unix_dir  = "/tmp/gimp-perl-serv-uid-$>/";
@@ -22,8 +21,16 @@ $default_unix_sock = "gimp-perl-serv";
 $trace_res = *STDERR;
 $trace_level = 0;
 
+my $initialized = 0;
+my $new_handle = "HANDLE0000";
+
+sub initialized { $initialized }
+
 sub import {
+   my $pkg = shift;
+
    return if @_;
+
    *Gimp::Tile::DESTROY=
    *Gimp::PixelRgn::DESTROY=
    *Gimp::GDrawable::DESTROY=sub {
@@ -52,22 +59,22 @@ sub args2net {
          $res.="undef,";
       }
    }
-   $res;
+   substr($res,0,-1); # may not be worth the effort
 }
 
 sub _gimp_procedure_available {
    my $req="TEST".$_[0];
    print $server_fh pack("N",length($req)).$req;
-   $server_fh->read($req,1);
+   read($server_fh,$req,1);
    return $req;
 }
 
 # this is hardcoded into gimp_call_procedure!
 sub response {
    my($len,$req);
-   $server_fh->read($len,4) == 4 or die "protocol error";
+   read($server_fh,$len,4) == 4 or die "protocol error";
    $len=unpack("N",$len);
-   $server_fh->read($req,$len) == $len or die "protocol error";
+   read($server_fh,$req,$len) == $len or die "protocol error";
    net2args($req);
 }
 
@@ -84,9 +91,9 @@ sub gimp_call_procedure {
    if ($trace_level) {
       $req="TRCE".args2net($trace_level,@_);
       print $server_fh pack("N",length($req)).$req;
-      $server_fh->read($len,4) == 4 or die "protocol error";
+      read($server_fh,$len,4) == 4 or die "protocol error";
       $len=unpack("N",$len);
-      $server_fh->read($req,$len) == $len or die "protocol error";
+      read($server_fh,$req,$len) == $len or die "protocol error";
       ($trace,$req,@args)=net2args($req);
       if (ref $trace_res eq "SCALAR") {
          $$trace_res = $trace;
@@ -96,9 +103,9 @@ sub gimp_call_procedure {
    } else {
       $req="EXEC".args2net(@_);
       print $server_fh pack("N",length($req)).$req;
-      $server_fh->read($len,4) == 4 or die "protocol error";
+      read($server_fh,$len,4) == 4 or die "protocol error";
       $len=unpack("N",$len);
-      $server_fh->read($req,$len) == $len or die "protocol error";
+      read($server_fh,$req,$len) == $len or die "protocol error";
       ($req,@args)=net2args($req);
    }
    croak $req if $req;
@@ -120,17 +127,19 @@ sub unlock {
 
 sub set_trace {
    my($trace)=@_;
+   my $old_level = $trace_level;
    if(ref $trace) {
       $trace_res=$trace;
-   } else {
+   } elsif (defined $trace) {
       $trace_level=$trace;
    }
+   $old_level;
 }
 
 sub start_server {
    print "trying to start gimp\n" if $Gimp::verbose;
-   $server_fh=*SERVER_SOCKET;
-   socketpair $server_fh,GIMP_FH,AF_UNIX,SOCK_STREAM,PF_UNIX
+   $server_fh=*{$new_handle++};
+   socketpair $server_fh,GIMP_FH,PF_UNIX,SOCK_STREAM,AF_UNIX
       or croak "unable to create socketpair for gimp communications: $!";
    $gimp_pid = fork;
    if ($gimp_pid > 0) {
@@ -147,8 +156,10 @@ sub start_server {
       my $args = &Gimp::RUN_NONINTERACTIVE." ".
                  (&Gimp::_PS_FLAG_BATCH | &Gimp::_PS_FLAG_QUIET)." ".
                  fileno(GIMP_FH);
-      exec "gimp","-n","-b","(extension-perl-server $args)",
-                            "(extension_perl_server $args)";
+      { # block to suppress warning with broken perls (e.g. 5.004)
+         exec "gimp","-n","-b","(extension-perl-server $args)",
+                               "(extension_perl_server $args)"
+      }
       exit(255);
    } else {
       croak "unable to fork: $!";
@@ -163,16 +174,22 @@ sub try_connect {
       if (s{^spawn/}{}) {
          return start_server;
       } elsif (s{^unix/}{/}) {
-         return new IO::Socket::UNIX (Peer => $_);
+         my $server_fh=*{$new_handle++};
+         return socket($server_fh,PF_UNIX,SOCK_STREAM,AF_UNIX)
+                && connect($server_fh,sockaddr_un $_)
+                ? $server_fh : ();
       } else {
          s{^tcp/}{};
          my($host,$port)=split /:/,$_;
          $port=$default_tcp_port unless $port;
-         return new IO::Socket::INET (PeerAddr => $host, PeerPort => $port);
-      };
+         my $server_fh=*{$new_handle++};
+         return socket($server_fh,PF_INET,SOCK_STREAM,scalar getprotobyname('tcp') || 6)
+                && connect($server_fh,sockaddr_in $port,inet_aton $host)
+                ? $server_fh : ();
+      }
    } else {
       return $fh if $fh = try_connect ("$auth\@unix$default_unix_dir$default_unix_sock");
-      return $fh if $fh = try_connect ("$auth\@tcp/localhost:$default_tcp_port");
+      return $fh if $fh = try_connect ("$auth\@tcp/127.1:$default_tcp_port");
       return $fh if $fh = try_connect ("$auth\@spawn/");
    }
    undef $auth;
@@ -189,7 +206,7 @@ sub gimp_init {
       $server_fh = try_connect ("");
    }
    defined $server_fh or croak "could not connect to the gimp server server (make sure Net-Server is running)";
-   $server_fh->autoflush(1); # for compatibility with very old perls..
+   { my $fh = select $server_fh; $|=1; select $fh }
    
    my @r = response;
    
@@ -204,15 +221,21 @@ sub gimp_init {
       if($_ eq "AUTH") {
          die "server requests authorization, but no authorization available\n"
             unless $auth;
-         command "AUTH",$auth;
+         my $req = "AUTH".$auth;
+         print $server_fh pack("N",length($req)).$req;
          my @r = response;
          die "authorization failed: $r[1]\n" unless $r[0];
          print "authorization ok, but: $r[1]\n" if $Gimp::verbose and $r[1];
       }
    }
+
+   $initialized = 1;
+   Gimp::_initialized_callback;
 }
 
 sub gimp_end {
+   $initialized = 0;
+
    undef $server_fh;
    kill 'KILL',$gimp_pid if $gimp_pid;
    undef $gimp_pid;
@@ -221,7 +244,8 @@ sub gimp_end {
 sub gimp_main {
    gimp_init;
    no strict 'refs';
-   &{caller()."::net"};
+   eval { &{caller(1)."::net"} };
+   die $@ if $@ && $@ ne "BE QUIET ABOUT THIS DIE\n";
    gimp_end;
    return 0;
 }
@@ -236,16 +260,6 @@ sub set_connection($) {
 
 END {
    gimp_end;
-}
-
-# provide some functions for the Gimp::PDL module to override
-# this is yet another hack (YAH)
-for my $f (qw(gimp_pixel_rgn_get_pixel gimp_pixel_rgn_get_row gimp_pixel_rgn_get_col gimp_pixel_rgn_get_rect
-              gimp_pixel_rgn_set_pixel gimp_pixel_rgn_set_row gimp_pixel_rgn_set_col gimp_pixel_rgn_set_rect)) {
-   no strict;
-   *{$f} = sub {
-      gimp_call_procedure $f,@_;
-   };
 }
 
 1;

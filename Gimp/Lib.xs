@@ -72,6 +72,9 @@ static char pkg_anyable[] = PKG_DRAWABLE ", " PKG_LAYER " or " PKG_CHANNEL;
 
 static int trace = TRACE_NONE;
 
+/* set when its safe to call gimp functions.  */
+static int gimp_is_initialized = 0;
+
 typedef gint32 IMAGE;
 typedef gint32 LAYER;
 typedef gint32 CHANNEL;
@@ -145,7 +148,7 @@ GPixelRgn *old_pixelrgn (SV *sv)
   STRLEN dc;
   dTHR;
   
-  if (!sv_derived_from (sv, PKG_PIXELRGN))
+  if (!sv_derived_from (sv, PKG_PIXELRGN) && !SvTYPE (sv) != SVt_PVHV)
     croak ("argument is not of type " PKG_PIXELRGN);
   
   /* the next line lacks any type of checking.  */
@@ -777,11 +780,13 @@ destroy_paramdefs (GParamDef *arg, int count)
 /* first check wether the procedure exists at all.  */
 static void try_call (char *name, int req)
 {
+  dSP;
   CV *cv = perl_get_cv (name, 0);
+
+  PUSHMARK(sp); perl_call_pv ("Gimp::_initialized_callback", G_DISCARD | G_NOARGS);
   
   /* it's not an error if the callback doesn't exist.  */
   if (cv) {
-    dSP;
     PUSHMARK(sp);
     perl_call_sv ((SV *)cv, G_DISCARD | G_NOARGS);
   } else if (req)
@@ -812,6 +817,8 @@ static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, 
   int _nparams;
   GParamDef *params;
   
+  PUSHMARK(sp); perl_call_pv ("Gimp::_initialized_callback", G_DISCARD | G_NOARGS);
+
   if (return_vals) /* the libgimp is soooooooo braindamaged. */
     {
       destroy_params (return_vals, nreturn_vals);
@@ -862,7 +869,19 @@ static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, 
         }
       
       if (SvTRUE (ERRSV))
-        err_msg = g_strdup (SvPV (ERRSV, dc));
+        {
+           if (strEQ ("BE QUIET ABOUT THIS DIE\n", SvPV (ERRSV, dc)))
+             {
+               nreturn_vals = 1;
+               return_vals = g_new (GParam, 1);
+               return_vals->type = PARAM_STATUS;
+               return_vals->data.d_status = STATUS_SUCCESS;
+               *xnreturn_vals = nreturn_vals;
+               *xreturn_vals = return_vals;
+             }
+           else
+             err_msg = g_strdup (SvPV (ERRSV, dc));
+        }
       else
         {
           int i;
@@ -1015,12 +1034,21 @@ gimp_main(...)
 		    else
 		      croak ("arguments to main not yet supported!");
 		    
+                    gimp_is_initialized = 1;
 		    RETVAL = gimp_main (argc, argv);
+                    gimp_is_initialized = 0;
 		  }
 	OUTPUT:
 	RETVAL
 
 PROTOTYPES: ENABLE
+
+int
+initialized()
+	CODE:
+        RETVAL = gimp_is_initialized;
+	OUTPUT:
+	RETVAL
 
 int
 gimp_major_version()
@@ -1503,7 +1531,6 @@ gimp_pixel_rgn_init(gdrawable, x, y, width, height, dirty, shadow)
 		hv_store (hv, "_h"	, 2, newSViv (pr->h)		, 0);
 		hv_store (hv, "_rowstride",10, newSViv (pr->rowstride)	, 0);
 		hv_store (hv, "_bpp"	, 4, newSViv (pr->bpp)		, 0);
-		hv_store (hv, "_dirty"	, 6, newSViv (pr->dirty)	, 0);
 		hv_store (hv, "_shadow"	, 7, newSViv (pr->shadow)	, 0);
 		hv_store (hv, "_drawable",9, newSVsv (gdrawable)	, 0);
 		
@@ -1512,6 +1539,14 @@ gimp_pixel_rgn_init(gdrawable, x, y, width, height, dirty, shadow)
 		
 		RETVAL = sv_bless (newRV_noinc ((SV*)hv), stash);
 	}
+	OUTPUT:
+	RETVAL
+
+guint
+gimp_pixel_rgn_dirty(pr)
+	GPixelRgn *	pr
+        CODE:
+        RETVAL = pr->dirty;
 	OUTPUT:
 	RETVAL
 
@@ -1537,7 +1572,7 @@ gimp_pixel_rgn_resize(sv, x, y, width, height)
 	}
 
 SV *
-_gimp_pixel_rgn_get_pixel(pr, x, y)
+gimp_pixel_rgn__get_pixel(pr, x, y)
 	GPixelRgn *	pr
 	int	x
 	int	y
@@ -1550,7 +1585,7 @@ _gimp_pixel_rgn_get_pixel(pr, x, y)
 	RETVAL
 
 SV *
-_gimp_pixel_rgn_get_row(pr, x, y, width)
+gimp_pixel_rgn__get_row(pr, x, y, width)
 	GPixelRgn *	pr
 	int	x
 	int	y
@@ -1564,7 +1599,7 @@ _gimp_pixel_rgn_get_row(pr, x, y, width)
 	RETVAL
 
 SV *
-_gimp_pixel_rgn_get_col(pr, x, y, height)
+gimp_pixel_rgn__get_col(pr, x, y, height)
 	GPixelRgn *	pr
 	int	x
 	int	y
@@ -1578,7 +1613,7 @@ _gimp_pixel_rgn_get_col(pr, x, y, height)
 	RETVAL
 
 SV *
-_gimp_pixel_rgn_get_rect(pr, x, y, width, height)
+gimp_pixel_rgn__get_rect(pr, x, y, width, height)
 	GPixelRgn *	pr
 	int	x
 	int	y
@@ -1593,7 +1628,7 @@ _gimp_pixel_rgn_get_rect(pr, x, y, width, height)
 	RETVAL
 
 void
-_gimp_pixel_rgn_set_pixel(pr, data, x, y)
+gimp_pixel_rgn__set_pixel(pr, data, x, y)
 	GPixelRgn *	pr
 	SV *	data
 	int	x
@@ -1606,7 +1641,7 @@ _gimp_pixel_rgn_set_pixel(pr, data, x, y)
 	gimp_pixel_rgn_set_pixel (pr, SvPV(data, dc), x, y);
 
 void
-_gimp_pixel_rgn_set_row(pr, data, x, y)
+gimp_pixel_rgn__set_row(pr, data, x, y)
 	GPixelRgn *	pr
 	SV *		data
 	int	x
@@ -1619,7 +1654,7 @@ _gimp_pixel_rgn_set_row(pr, data, x, y)
 	gimp_pixel_rgn_set_row (pr, SvPV(data, dc), x, y, SvCUR (data) / pr->bpp);
 
 void
-_gimp_pixel_rgn_set_col(pr, data, x, y)
+gimp_pixel_rgn__set_col(pr, data, x, y)
 	GPixelRgn *	pr
 	SV *		data
 	int	x
@@ -1632,7 +1667,7 @@ _gimp_pixel_rgn_set_col(pr, data, x, y)
 	gimp_pixel_rgn_set_col (pr, SvPV(data, dc), x, y, SvCUR (data) / pr->bpp);
 
 void
-_gimp_pixel_rgn_set_rect(pr, data, x, y, width)
+gimp_pixel_rgn__set_rect(pr, data, x, y, width)
 	GPixelRgn *	pr
 	SV *		data
 	int	x
@@ -1661,7 +1696,7 @@ PROTOTYPES: DISABLE
 # construction/destruction.
 
 SV *
-_get_data(tile)
+gimp_tile__get_data(tile)
 	GTile *	tile
 	CODE:
 	gimp_tile_ref (tile);
@@ -1671,7 +1706,7 @@ _get_data(tile)
 	RETVAL
 
 void
-_set_data(tile, data)
+gimp_tile__set_data(tile, data)
 	GTile *	tile
 	SV *	data
 	CODE:

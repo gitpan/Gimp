@@ -12,6 +12,7 @@ $VERSION = $Gimp::VERSION;
 use subs qw(
 	gimp_call_procedure		gimp_main	gimp_init
 	_gimp_procedure_available	set_trace	gimp_end
+        initialized
 );
 
 sub gimp_init {
@@ -62,7 +63,6 @@ sub gimp_pixel_rgn_w		{ $_[0]->{_w}		}
 sub gimp_pixel_rgn_h		{ $_[0]->{_h}		}
 sub gimp_pixel_rgn_rowstride	{ $_[0]->{_rowstride}	}
 sub gimp_pixel_rgn_bpp		{ $_[0]->{_bpp}		}
-sub gimp_pixel_rgn_dirty	{ $_[0]->{_dirty}	}
 sub gimp_pixel_rgn_shadow	{ $_[0]->{_shadow}	}
 sub gimp_pixel_rgn_drawable	{ $_[0]->{_drawable}	}
 
@@ -71,6 +71,18 @@ sub gimp_tile_eheight		{ $_[0]->{_eheight}	}
 sub gimp_tile_bpp		{ $_[0]->{_bpp}		}
 sub gimp_tile_shadow		{ $_[0]->{_shadow}	}
 sub gimp_tile_gdrawable		{ $_[0]->{_gdrawable}	}
+
+sub Gimp::PixelRgn::DESTROY {
+   my $self = shift;
+   return unless $self =~ /=HASH/;
+   $self->{_drawable}->{_id}->update($self->{_x},$self->{_y},$self->{_w},$self->{_h})
+      if $self->dirty;
+};
+
+# this is here to be atomic over the perl-server
+sub _gimp_append_data($$) {
+   gimp_set_data ($_[0], gimp_get_data ($_[0]) . $_[1]);
+}
 
 1;
 __END__

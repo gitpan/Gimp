@@ -7,12 +7,19 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK @EXPORT_FAIL %EXPORT_TAGS
 use Gimp qw(:param);
 use Gimp::Data;
 use File::Basename;
-use Data::Dumper;
 use base qw(Exporter);
 
 require Exporter;
-require DynaLoader;
-require AutoLoader;
+
+eval {
+   require Data::Dumper;
+   import Data::Dumper;
+};
+if ($@) {
+   *Dumper = sub {
+      "()";
+   };
+}
 
 =cut
 
@@ -130,12 +137,6 @@ sub import {
 # the old value of the trace flag
 my $old_trace;
 
-sub wrap_text {
-   my $x=$_[0];
-   $x=~s/(\G.{$_[1]}\S*)\s+/$1\n/g;
-   $x;
-}
-
 sub _new_adjustment {
    my @adj = eval { @{$_[1]} };
 
@@ -155,6 +156,7 @@ sub _find_digits {
 
 sub interact($$$@) {
    local $^W=0;
+   my($function)=shift;
    my($blurb)=shift;
    my($help)=shift;
    my(@types)=@{shift()};
@@ -164,8 +166,15 @@ sub interact($$$@) {
 
    # only pull these in if _really_ required
    # gets us some speed we really need
-   require Gtk; import Gtk;
-   init Gtk; # gross hack...
+   eval {
+      require Gtk; import Gtk;
+      init Gtk; # gross hack...
+   };
+   if ($@) {
+      Gimp::logger(message => 'the gtk perl module is required to run in interactive mode', function => $function);
+      die "The Gtk perl module is required to run this function ($function) in interactive mode!\n";
+   }
+
    parse Gtk::Rc Gimp->gtkrc;
 
    require Gimp::UI; import Gimp::UI;
@@ -179,7 +188,7 @@ sub interact($$$@) {
      set_title $w $0;
      
      my $h = new Gtk::HBox 0,2;
-     $h->add(new Gtk::Label wrap_text($blurb,40));
+     $h->add(new Gtk::Label Gimp::wrap_text($blurb,40));
      $w->vbox->pack_start($h,1,1,0);
      realize $w;
      my $l = logo($w);
@@ -220,33 +229,37 @@ sub interact($$$@) {
            &new_PF_STRING;
            
         } elsif($type == PF_FONT) {
-           my $fs=new Gtk::FontSelectionDialog "Font Selection Dialog ($desc)";
-           my $def = "-*-helvetica-medium-r-normal-*-*-240-*-*-p-*-iso8859-1";
-           my $val;
-           
-           my $l=new Gtk::Label "!error!";
-           my $setval = sub {
-              $val=$_[0];
-              unless (defined $val && $fs->set_font_name ($val)) {
-                 warn "illegal default font description: $val" if defined $val;
-                 $val=$def;
-                 $fs->set_font_name ($val);
-              }
+           if ($Gimp::UI::gtk_10) {
+              &new_PF_STRING;
+           } else {
+              my $fs=new Gtk::FontSelectionDialog "Font Selection Dialog ($desc)";
+              my $def = "-*-helvetica-medium-r-normal-*-*-240-*-*-p-*-iso8859-1";
+              my $val;
               
-              my($n,$t)=Gimp::xlfd_size($val);
-              $l->set((split(/-/,$val))[2]."\@$n".($t ? "p" : ""));
-           };
-           
-           $fs->ok_button->signal_connect("clicked",sub {$setval->($fs->get_font_name); $fs->hide});
-           $fs->cancel_button->signal_connect("clicked",sub {$fs->hide});
-           
-           push(@setvals,$setval);
-           push(@getvals,sub { $val });
-           
-           $a=new Gtk::Button;
-           $a->add($l);
-           $a->signal_connect("clicked", sub { show $fs });
-           
+              my $l=new Gtk::Label "!error!";
+              my $setval = sub {
+                 $val=$_[0];
+                 unless (defined $val && $fs->set_font_name ($val)) {
+                    warn "illegal default font description: $val" if defined $val;
+                    $val=$def;
+                    $fs->set_font_name ($val);
+                 }
+                 
+                 my($n,$t)=Gimp::xlfd_size($val);
+                 $l->set((split(/-/,$val))[2]."\@$n".($t ? "p" : ""));
+              };
+              
+              $fs->ok_button->signal_connect("clicked",sub {$setval->($fs->get_font_name); $fs->hide});
+              $fs->cancel_button->signal_connect("clicked",sub {$fs->hide});
+              
+              push(@setvals,$setval);
+              push(@getvals,sub { $val });
+              
+              $a=new Gtk::Button;
+              $a->add($l);
+              $a->signal_connect("clicked", sub { show $fs });
+           }
+              
         } elsif($type == PF_SPINNER) {
            my $adj = _new_adjustment ($value,$extra);
            $a=new Gtk::SpinButton $adj,1,0;
@@ -404,8 +417,8 @@ sub interact($$$@) {
      signal_connect $button "clicked", sub {
         my $helpwin = new Gtk::Dialog;
         set_title $helpwin $0;
-        $helpwin->vbox->add(new Gtk::Label "Blurb:\n".wrap_text($blurb,40)
-                                          ."\n\nHelp:\n".wrap_text($help,40));
+        $helpwin->vbox->add(new Gtk::Label "Blurb:\n".Gimp::wrap_text($blurb,40)
+                                          ."\n\nHelp:\n".Gimp::wrap_text($help,40));
         my $button = new Gtk::Button "Close";
         signal_connect $button "clicked",sub { hide $helpwin };
         $helpwin->action_area->add($button);
@@ -456,6 +469,17 @@ sub interact($$$@) {
      @_ = map {&$_} @getvals;
      return (1,@_) if $res == 1;
 #     Gimp->file_load(&Gimp::RUN_INTERACTIVE,"","");
+   }
+}
+
+sub fu_feature_present($$) {
+   my ($feature,$function)=@_;
+   require Gimp::Feature;
+   if (Gimp::Feature::present($feature)) {
+      1;
+   } else {
+      Gimp::Feature::missing(Gimp::Feature::describe($feature),$function);
+      0;
    }
 }
 
@@ -520,6 +544,10 @@ sub net {
    my($interact)=1;
    my $params = $this->[8];
    
+   for(@{$this->[10]}) {
+      return unless fu_feature_present($_,$this->[0]);
+   }
+
    # %map is a hash that associates (mangled) parameter names to parameter index
    @map{map mangle_key($_->[1]), @{$params}} = (0..$#{$params});
    
@@ -566,9 +594,14 @@ sub net {
 
 sub query {
    my($type);
+   script:
    for(@scripts) {
       my($function,$blurb,$help,$author,$copyright,$date,
-         $menupath,$imagetypes,$params,$results,$code)=@$_;
+         $menupath,$imagetypes,$params,$results,$features,$code)=@$_;
+
+      for(@$features) {
+         next script unless fu_feature_present($_,$function);
+      }
       
       if ($menupath=~/^<Image>\//) {
          $type=&Gimp::PROC_PLUG_IN;
@@ -599,6 +632,8 @@ sub query {
                                       $_;
                                    } @$params],
                                    $results);
+
+      Gimp::logger(message => 'OK', function => $function, fatal => 0);
    }
 }
 
@@ -616,11 +651,12 @@ sub query {
      [
        [PF_TYPE,name,desc,optional-default,optional-extra-args],
        [PF_TYPE,name,desc,optional-default,optional-extra-args],
-       etc...
+       # etc...
      ],
      [
-       like above, but for return values
+       # like above, but for return values (optional)
      ],
+     ['feature1', 'feature2'...], # optionally check for features
      sub { code };
 
 =over 2
@@ -684,7 +720,13 @@ See the section PARAMETER TYPES for the supported types.
 
 This is just like the parameter array, just that it describes the return
 values. Of course, default values don't make much sense here. (Even if they
-did, it's not implemented anyway..)
+did, it's not implemented anyway..). This argument is optional.
+
+=item the features requirements
+
+See L<Gimp::Features> for a description of which features can be checked
+for. This argument is optional (but remember to specify an empty return
+value array, C<[]>, if you want to specify it).
 
 =item the code
 
@@ -795,10 +837,15 @@ commandline.
 sub register($$$$$$$$$;@) {
    no strict 'refs';
    my($function,$blurb,$help,$author,$copyright,$date,
-      $menupath,$imagetypes,$params,$results,$code)=@_;
+      $menupath,$imagetypes,$params)=splice(@_,0,9);
+   my($results,$features,$code);
    
-   $code or ($results,$code)=([],$results);
+   $results  = (ref $_[0] eq "ARRAY") ? shift : [];
+   $features = (ref $_[0] eq "ARRAY") ? shift : [];
+   $code = shift;
 
+   @_==0 or die "register called with too many or wrong arguments\n";
+   
    for my $p (@$params,@$results) {
       int($p->[0]) eq $p->[0] or croak "Argument/return value '$p->[1]' has illegal type '$p->[0]'";
    }
@@ -834,12 +881,12 @@ sub register($$$$$$$$$;@) {
             local $^W=0; # perl -w is braindamaged
             my $VAR1; # Data::Dumper is braindamaged
             # gimp is braindamaged, is doesn't deliver useful values!!
-            ($res,@_)=interact($blurb,$help,$params,@{eval $Gimp::Data{"$function/_fu_data"}});
+            ($res,@_)=interact($function,$blurb,$help,$params,@{eval $Gimp::Data{"$function/_fu_data"}});
             return unless $res;
          }
       } elsif ($run_mode == &Gimp::RUN_FULLINTERACTIVE) {
          my($res);
-         ($res,@_)=interact($blurb,$help,[@image_params,@{$params}],[@pre,@_]);
+         ($res,@_)=interact($function,$blurb,$help,[@image_params,@{$params}],[@pre,@_]);
          undef @pre;
          return unless $res;
       } elsif ($run_mode == &Gimp::RUN_NONINTERACTIVE) {
@@ -886,7 +933,7 @@ sub register($$$$$$$$$;@) {
       wantarray ? @imgs : $imgs[0];
    };
    push(@scripts,[$function,$blurb,$help,$author,$copyright,$date,
-                  $menupath,$imagetypes,$params,$results,$code]);
+                  $menupath,$imagetypes,$params,$results,$features,$code]);
 }
 
 =cut

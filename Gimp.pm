@@ -8,11 +8,10 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
             @gimp_gui_functions
             $help $verbose $host);
 
-use base qw(DynaLoader);
-
 require DynaLoader;
 
-$VERSION = 1.06;
+@ISA=qw(DynaLoader);
+$VERSION = 1.061;
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -145,14 +144,14 @@ sub VERTICAL		(){ 1 };
 sub _PS_FLAG_QUIET	{ 0000000001 };	# do not output messages
 sub _PS_FLAG_BATCH	{ 0000000002 }; # started via Gimp::Net, extra = filehandle
 
-$_PROT_VERSION	= "1";			# protocol version
+$_PROT_VERSION	= "2";			# protocol version
 
 # we really abuse the import facility..
 sub import($;@) {
    my $pkg = shift;
    my $up = caller();
    my @export;
-   
+
    # make a quick but dirty guess ;)
    
    @_=qw(main xlfd_size :auto) unless @_;
@@ -190,6 +189,13 @@ sub xlfd_size($) {
   my ($px,$pt)=(split(/-/,$_[0]))[7,8];
   $px>0 ? ($px    ,&Gimp::PIXELS)
         : ($pt*0.1,&Gimp::POINTS);
+}
+
+# internal utility function for Gimp::Fu and others
+sub wrap_text {
+   my $x=$_[0];
+   $x=~s/(\G.{1,$_[1]})(\s+|$)/$1\n/g;
+   $x;
 }
 
 my %rgb_db;
@@ -261,6 +267,54 @@ EOF
    }
 }
 
+my @log;
+
+sub _initialized_callback {
+   if (@log) {
+      Gimp->_gimp_append_data ('gimp-perl-log', map join("\1",@$_)."\0",@log);
+      @log=();
+   }
+}
+
+# message
+# function
+# fatal
+sub logger {
+   my %args = @_;
+   my $file=$0;
+   $file=~s/^.*[\\\/]//;
+   $args{message}  = "unknown message"    unless defined $args{message};
+   $args{function} = ""                   unless defined $args{function};
+   $args{fatal}    = 1                    unless defined $args{fatal};
+   print STDERR "$file: $args{message} ",($args{function} ? "(for function $args{function})":""),"\n" if $verbose || $interface_type eq 'net';
+   push(@log,[$file,@args{'function','message','fatal'}]);
+   _initialized_callback if initialized();
+}
+
+# calm down the gimp module
+sub net {}
+sub query {}
+
+sub normal_context {
+   !$^S && defined $^S;
+}
+
+$SIG{__DIE__} = sub {
+   if (normal_context) {
+      logger(message => substr($_[0],0,-1), fatal => 1, function => 'DIE');
+      initialized() ? die "BE QUIET ABOUT THIS DIE\n" : exit main();
+   }
+   die $_[0];
+};
+
+$SIG{__WARN__} = sub {
+   if (normal_context) {
+      logger(message => substr($_[0],0,-1), fatal => 0, function => 'WARN');
+   } else {
+      warn $_[0];
+   }
+};
+
 if ($interface_type=~/^lib$/i) {
    $interface_pkg="Gimp::Lib";
 } elsif ($interface_type=~/^net$/i) {
@@ -273,7 +327,7 @@ eval "require $interface_pkg" or croak "$@";
 $interface_pkg->import;
 
 # create some common aliases
-for(qw(_gimp_procedure_available gimp_call_procedure set_trace)) {
+for(qw(_gimp_procedure_available gimp_call_procedure set_trace initialized)) {
    *$_ = \&{"${interface_pkg}::$_"};
 }
 
@@ -412,12 +466,6 @@ sub new($$$$$$$$) {
    init Gimp::PixelRgn(@_);
 }
 
-sub DESTROY {
-   my $self = shift;
-   $self->{_drawable}->{_id}->update($self->{_x},$self->{_y},$self->{_w},$self->{_h})
-     if $self->{_dirty};
-};
-
 package Gimp::Parasite;
 
 sub is_type($$)		{ $_[0]->[0] eq $_[1] }
@@ -436,7 +484,9 @@ package Gimp; # for __DATA__
 
 Gimp - Perl extension for writing Gimp Extensions/Plug-ins/Load & Save-Handlers
 
-This is mostly a reference manual. For a quick intro, look at L<Gimp::Fu>.
+This is mostly a reference manual. For a quick intro, look at
+L<Gimp::Fu>. For more information, including tutorials, look at the
+Gimp-Perl pages at http://gimp.pages.de.
 
 =head1 RATIONALE
 
@@ -797,6 +847,11 @@ invocation.
 
 write trace to FILEHANDLE instead of STDERR.
 
+=item initialized ()
+
+this function returns true whenever it is safe to clal gimp functions. This is
+usually only the case after gimp_main or gimp_init have been called.
+
 =back
 
 =head1 SUPPORTED GIMP DATA TYPES
@@ -845,12 +900,12 @@ Marc Lehmann <pcg@goof.com>
 
 =head1 SEE ALSO
 
-perl(1), gimp(1), L<Gimp::OO>, L<Gimp::Data>, L<Gimp::Pixel>, L<Gimp::PDL>, L<Gimp::UI>, L<Gimp::Net> and L<Gimp::Lib>.
+perl(1), gimp(1), L<Gimp::OO>, L<Gimp::Data>, L<Gimp::Pixel>, L<Gimp::PDL>, L<Gimp::Util>, L<Gimp::UI>, L<Gimp::Feature>, L<Gimp::Net>,
+L<Gimp::Lib>, L<scm2perl> and L<scm2scm>.
 
 =cut
 
 __DATA__
-! $XConsortium: rgb.txt,v 10.41 94/02/20 18:39:36 rws Exp $
 255 250 250		snow
 248 248 255		ghost white
 248 248 255		GhostWhite
