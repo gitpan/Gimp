@@ -16,6 +16,8 @@
 
 #include <libgimp/gimpmodule.h>
 
+#include "../perl-intl.h"
+
 MODULE = Gimp::Module	PACKAGE = Gimp::Module
 
 VERSIONCHECK: DISABLE

@@ -1,4 +1,7 @@
-#!/usr/bin/perl
+#!/usr/app/bin/perl
+
+eval 'exec /usr/app/bin/perl  -S $0 ${1+"$@"}'
+    if 0; # not running under some shell
 #
 # A plug-in for GIMP which animates a series of layers as if
 # they were animation cells (different from the normal gimp animation,
@@ -12,7 +15,7 @@
 
 require 5.004;
 
-use Gimp qw(:auto);
+use Gimp qw(:auto __ N_);
 use Gimp::Fu;
 use Gimp::Util;
 
@@ -26,7 +29,7 @@ sub perl_fu_animate_cells {
   my $drawable = shift; # Unused
   my $makecopy = shift;
   $image = gimp_channel_ops_duplicate($image) if $makecopy;
-  gimp_image_disable_undo($image);
+  gimp_image_undo_disable($image);
   gimp_progress_init("Animating cell layers...",MESSAGE_BOX);
 
   my @ids = reverse gimp_image_get_layers($image);
@@ -54,7 +57,7 @@ sub perl_fu_animate_cells {
 
   gimp_display_new($image) if $makecopy;
   gimp_selection_none($image);
-  gimp_image_enable_undo($image);
+  gimp_image_undo_enable($image);
   gimp_displays_flush();
 }
 
@@ -82,7 +85,7 @@ register
   "Use this plugin to animate a series of layers in the same way that\
 	a physical animation process would use cells.",
   "Aaron Sherman", "Aaron Sherman (c)", "1999-03-15",
-  "<Image>/Filters/Animation/Animate Cells",
+  N_"<Image>/Filters/Animation/Animate Cells",
   "*",
   [
    [PF_TOGGLE, "work_on_copy", "", 1]

@@ -1,4 +1,7 @@
-#!/usr/bin/perl
+#!/usr/app/bin/perl
+
+eval 'exec /usr/app/bin/perl  -S $0 ${1+"$@"}'
+    if 0; # not running under some shell
 
 use Gimp;
 use Gimp::Fu;
@@ -12,8 +15,8 @@ register "random_art_1",			# Funktionsname
          					# Hilfetext
          "Marc Lehmann",			# Autor
          "Marc Lehmann <pcg\@goof.com",		# Copyright
-         "0.3",					# Version/Datum
-         "<Toolbox>/Xtns/Render/Random Art #1",	# Menüpfad
+         "0.3a",				# Version/Datum
+         N_"<Toolbox>/Xtns/Render/Random Art #1",	# Menüpfad
          "",					# Bildtypen
          # Eingabeparameter
          # Typ		Name		Beschreibung		Wert
@@ -26,16 +29,14 @@ register "random_art_1",			# Funktionsname
           [PF_SLIDER,	'feather',	'Feather Radius',	30, [1, 100]],
           [PF_BOOL,	'supersample',	'Adaptive Supersampling?', 0],
          ],
-         [
-          [PF_IMAGE,	'image',	'the resulting image'],
-         ],
+         [PF_IMAGE],
          sub {					# Perl-Code
    # Die Parameter werden ganz "normal" übergeben:
    my ($w,$h,$num_poly,$edges,$revolutions,$feather,$super)=@_;
 
    # Erzeuge ein neues Bild
    my $image = new Image($w,$h,RGB);
-   $image->disable_undo;
+   $image->undo_disable;
 
    # Erzeuge die erste Ebene für das Bild
    my $layer = $image->layer_new($w,$h,RGB_IMAGE,
@@ -81,7 +82,7 @@ register "random_art_1",			# Funktionsname
       $layer->channel_ops_offset (1,0,(rand(0.8)+0.1)*$w,(rand(0.8)+0.1)*$h);
    }
 
-   $image->enable_undo;
+   $image->undo_enable;
 
    # Gib das neu erzeugte Bild zurück, damit es angezeigt wird.
    $image;

@@ -3,7 +3,6 @@
 use Gimp::Feature 'pdl';
 use Gimp 1.091;
 use Gimp::Fu;
-use Gimp::Util;
 use PDL::LiteF;
 
 register "colour_to_alpha",
@@ -13,7 +12,7 @@ register "colour_to_alpha",
          "Marc Lehmann",
          "Marc Lehmann <pcg\@goof.com>",
          "19990729",
-         "<Image>/Filters/Colors/Colour To Alpha",
+         N_"<Image>/Filters/Colors/Colour To Alpha",
          "RGB*",	
          [
            [PF_COLOR,		"colour",	"The colour to replace"],
@@ -21,7 +20,7 @@ register "colour_to_alpha",
          sub {					# es folgt das eigentliche Skript...
    my($image,$drawable,$colour)=@_;
 
-   $drawable->layer or die "colour_to_alpha only works with layers\n";
+   $drawable->is_layer or die "colour_to_alpha only works with layers\n";
    $drawable->add_alpha unless $drawable->has_alpha;
 
    Gimp->progress_init ("Replacing colour...");

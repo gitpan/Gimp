@@ -1,6 +1,9 @@
-#!/usr/bin/perl
+#!/usr/app/bin/perl
 
-use Gimp qw( :auto );
+eval 'exec /usr/app/bin/perl  -S $0 ${1+"$@"}'
+    if 0; # not running under some shell
+
+use Gimp qw(:auto __ N_);
 use Gimp::Fu;
 
 register	"triangle",
@@ -9,7 +12,7 @@ register	"triangle",
 		"Claes G Lindblad <claesg\@algonet.se>",
 		"Claes G Lindblad <claesg\@algonet.se>",
 		"990328",
-		"<Image>/Select/Triangle",
+		N_"<Image>/Select/Triangle",
 		"*",
 		[
 		[PF_RADIO, "type", "Select position", 0,

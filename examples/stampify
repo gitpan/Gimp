@@ -1,6 +1,9 @@
-#!/usr/bin/perl
+#!/usr/app/bin/perl
 
-use Gimp qw( :auto );
+eval 'exec /usr/app/bin/perl  -S $0 ${1+"$@"}'
+    if 0; # not running under some shell
+
+use Gimp qw(:auto __ N_);
 use Gimp::Fu;
 
 #Gimp::set_trace(TRACE_ALL);
@@ -11,7 +14,7 @@ register	"stampify",
 		"Claes G Lindblad <claesg\@algonet.se>",
 		"Claes G Lindblad <claesg\@algonet.se>",
 		"990328",
-		"<Image>/Script-Fu/Decor/Stampify",
+		N_"<Image>/Filters/Render/Stampify",
 		"*",
 		[
 	[PF_COLOR, "paper", "Paper colour", [242, 242, 242]],
@@ -25,7 +28,7 @@ register	"stampify",
 		$nw = int(gimp_image_width($img) + 2 * $marg + $diameter);
 		$nh = int(gimp_image_height($img) + 2 * $marg + $diameter);
 		my $img2 = gimp_image_new($nw, $nh, RGB);
-		my $layer1 = gimp_layer_new($img2, $nw, $nh, RGBA, "Layer 1", 100, NORMAL_MODE);
+		my $layer1 = gimp_layer_new($img2, $nw, $nh, RGBA_IMAGE, "Layer 1", 100, NORMAL_MODE);
 		gimp_image_add_layer($img2, $layer1, 0);
 		gimp_image_set_active_layer($img2, $layer1);
 		gimp_palette_set_background($paper);
@@ -52,7 +55,7 @@ register	"stampify",
 			$pos = $pos + $diameter + $gap;
 		}
 		gimp_palette_set_background($hole);
-		gimp_edit_fill($layer1);
+		gimp_edit_fill($layer1, BG_IMAGE_FILL);
 		gimp_selection_none($img2);
 # here comes the clever part! :-)
 # offset horis and vert holes by half the diameter

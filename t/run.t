@@ -6,9 +6,15 @@ use vars qw($EXTENSIVE_TESTS $GIMPTOOL);
 
 BEGIN {
   $|=1;
-  print "1..26\n";
-  $count=0;
-  $Gimp::host = "spawn/";
+
+  if ($ENV{DISPLAY}) {
+     print "1..26\n";
+     $count=0;
+     $Gimp::host = "spawn/";
+  } else {
+     print "1..0\n";
+     exit;
+  }
 }
 
 sub ok($;$) {
@@ -50,7 +56,7 @@ sub tests {
    skip($n,1,sub{0 != ($l=$i->layer_new(10,10,RGBA_IMAGE,"new layer",100,VALUE_MODE))});
    skip($n,1,sub {!!ref $l});
    
-   skip($n,1,sub{gimp_image_add_layer($l,0) || 1});
+   skip($n,1,sub{Gimp->image_add_layer($l,0) || 1});
    skip($n,"new layer",sub{$l->get_name()});
    
    skip($n,1,sub{$l->paintbrush(50,[1,1,2,2,5,3,7,4,2,8],CONTINUOUS,0) || 1});
@@ -58,7 +64,7 @@ sub tests {
    
    skip($n,1,sub{Plugin->sharpen(RUN_NONINTERACTIVE,$i,$l,10) || 1});
    skip($n,1,sub{$l->sharpen(10) || 1});
-   skip($n,1,sub{plug_in_sharpen($i,$l,10) || 1});
+   skip($n,1,sub{Gimp->plug_in_sharpen($i,$l,10) || 1});
    
    skip($n,1,sub{$i->delete || 1});
 }

@@ -1,5 +1,190 @@
 Revision history for Gimp-Perl extension.
 
+1.20  Thu May 11 18:55:13 CEST 2000
+	- image types updated to reflect gimp's reality.
+        - updated perlotine.
+        - fixed logulator (bugs are actually in the script-fu parts).
+        - moved gimp_drawable_bounds from Gimp::Util to Gimp.
+        - applied patch to logulator by <mikem@enet.it>.
+        - added examples/giflogo.
+        - do not install examples/gap-vcr.
+        - added new sethspin, with slight changes.
+        - do not install "feedback".
+        - updated examples/xachlego.
+        - added examples/blended2, examples/translogo.
+        - removed examples/giflogo.
+        - applied libintl fix by yasuhiro@awa.tohoku.ac.jp.
+        - applied save_image/PNG-noextra switch patch by pkaempf@box.echo.ch.
+        - applied Perl-Server reuseaddress fix by gphan@webjuice.com.
+        - corrected the libintl fix to really work.
+        - added fr and ru translations.
+        - experimental 5.6 thread compatibility improvements.
+        - corrected menu hiliting problem in firetext and glowing_steel.
+        - add a call to gimp_plugin_add_domain to Lib.xs.
+        - fix some of the bugs Raphael "reported" (missing Gtk makde Gimp::UI
+          crash).
+        - fix pxgettext call in po/update.sh to use the correct "perl".
+        - fix po/Makefile.PL to not barf on multiply defined "translation"
+          target.
+        - do not install scripts depending on Gtk.
+        - do not register menus when Gtk is needed for dialogs.
+        - updated examples/burst.
+        - fixed various old-syntax leftovers in Gimp::Util.
+        - modernized examples/example-fu.
+        - added examples/dust.
+        - updated po/Makefile.PL to find the scripts again.
+        - applied edit_fill change. Boy we need default agruments soon!
+	- pxgettext exits with success instead of error on version check,
+	  so the build doesn't completely die. (Yosh)
+        - fixed examples/image_tile to use die instead of exit.
+        - improved croak behaviour.
+        - new plug-in: clear alpha.
+        - fix the "manpages installed twice under different names" bug that
+          nobody had noticed.
+        - do no longer install roundrectsel and map_to_gradient plug-ins, since
+          (almost) equivalent c versions exist. If you need these plug-ins you
+          have to install them manually.
+        - changed logulator to use an imagetype of "RGBA,GRAYA,INDEXEDA" for all
+          script-fu's.
+        - added warning when using known-to-be-broken experimental threading
+          feature. Maybe gimp-perl should refuse to build instead?
+        - added examples/warp-sharp.
+        - more $(CC) != perl's $(CC) fixes in configure.frag.
+        - Makefile.PL now uses $bindir to install programs. This is not optimal
+          for standalone installations, but gimp has priority ;)
+
+1.19  Thu Jan  6 00:21:58 CET 2000
+        - used N_ to mark all the menu paths, since gimp now tries to
+          do the translation.
+        - patch by Frank Loemker <floemker@TechFak.Uni-Bielefeld.DE> to fix
+          many missing :auto tags.
+        - I removed the "old prefix" check that I was almost forced to
+          implement. This was not a good idea, is not a good idea, and
+          completely breaks on many occasions. Just do not do that. If
+          only people would trust me sometimes :(
+        - enabled gdrawable_id caching again.
+        - some minor Gimp::UI streamlining & bugfixes.
+        - more (undocumented) on_xxx hooks.
+        - got rid of the old & crufty callback system (who uses it anyways?).
+        - added Gimp::basewidget "pragma" and made Gimp::UI use it. Also
+          sent a bugreport to the Gtk maintainer who will hopefully make
+          a gtk-perl release soon.
+        - the :auto import tag is no longer the default. neither with nor without
+          warning.
+        - sdf'ified pod documentation. more to come.
+        - move perl-intl.h include below the other includes. William Sebok
+          finally came up with a nice problem analysis.
+        - try to get rid of -Wall, if possible.
+        - shield more sections against -w dumbness.
+        - updated many of seth's scripts.
+        - added cs and no translations.
+        - skip t/run when no DISPLAY set.
+        - modernize parasite-editor to use Gimp::basewidget.
+        - modified all custom widgets to work with the next Gtk release.
+        - added examples/gap-vcr
+        - applied Kevon Cozens patch to scm2scm. That's a great start, I
+          should really add the rest of the function names.
+        - use XSLoader instead of DynaLoader where available.
+        - use perl_require_pv instead of perl_eval_pv.
+        - updated COPYING.GNU to version 2.
+        - removed .pl suffix from all examples.
+        - deprecate use of included scripts with gimp-1.0 in configure.in.
+        - fix the ColorSelectButton ro work with newer versions of Gtk.
+        - updated logulator from scheme sources. oh yeah :(
+        - Net.xs didn't compile without PDL.
+        - applied (but did not test) UI patch by Sven.
+        - fixed stupid non-ansi errors in Gimp/Lib.xs.
+        - make raw pixel data functions accessible over the network by
+          fixing the remaining bugs in Gimp::Net. PDL's still don't work.
+
+1.17  Wed Nov 24 21:25:19 CET 1999
+        - re-fitted i18n translation for most plug-ins.
+        - intllibs linking bugfix.
+        - half-hearted attempt to i18nize logulator.
+        - preliminary support for N_ (this function should
+          not be necessary in perl).
+
+1.16  Sun Nov 21 02:37:16 CET 1999
+	- removed sethspin.pl & billboard, they are no longer maintained :(
+        - *sigh* removed some debugging code.
+        - new save-filter "dataurl" (more a joke, but it does work).
+        - new save filter colorhtml.
+        - implemented gimp_pixel_rgn_get_row2 (others still unimplemented).
+        - updated enums.pl.
+
+1.15  Fri Nov 19 19:12:16 CET 1999
+	- added italian translations by Daniele Medri (madrid@kjws.com).
+        - POINTS really are decipoints: correct xlfd_size to create
+          larger (& more correct) fonts.
+        - small api changes for 1.2.
+        - (some) changes for the gimp api renaming.
+        - added export capabilities to miff/avi.
+        - fixed "dirty" identifier clash with <= 5.005_03 && PERL_POLLUTE.
+        - updated seth's scripts.
+        - improved avi hunk skipping and 24 bit handling.
+        - realclean now also removes the Makefile (just to be sure)
+	- only install pdl plug-ins when pdl is available.
+        - gimp_directory is 1.1-only.
+        - more warnings on people insisting on using broken perls.
+        - renamed init_gtk to gtk_init, asdded gtk_init_hook function to
+          work around the horrible initialization problems in Gtk.
+        - goto &name is horribly broken somewhere. going back to eval _again_.
+
+1.14  Mon Oct 11 03:23:13 CEST 1999
+	- set the version of all modules explicitly (for the benefit of CPAN).
+	- added examples/avi (avi load/save plug-in, uncompressed 24 bit).
+	- possible fix for another installation horror problem.
+        - fixed a longstanding bug (?): not every class had a DESTROY, so
+          the AUTOLOAD tried to resolve DESTROY after gimp_close had been
+          called.
+        - did the DESTROY catch differently...
+        - fixed the testsuite.
+        - started to revamp the extra argument handling.
+        - updated PDB Explorer a bit, still broken.
+        - almost full i18n of gimp-perl. A de translation is available.
+        - save_image was kinda broken for jpeg and gif at least.
+        - implemented more robust DESTROY and Lib:: connection handling.
+        - put help window into a scrolledwindow, as to a suggestion by Jens
+          Lauterbach. Karlsruhe rules!
+
+1.13  Wed Sep  8 02:55:43 CEST 1999
+	- removed some glib-1.1 compatibility cruft.
+        - gimpdocs troff output did not include the description.
+        - allow NULL strings in arrays to be returned as undef.
+        - gimpdoc now outputs the menupath and other info as well.
+        
+1.12  Tue Aug 24 19:30:29 CEST 1999
+	- do not emit warning for function names prefixed with "+".
+        - removed non-c89 ansi'isms from Lib.xs.
+
+1.11  Tue Aug  3 03:23:23 CEST 1999
+	- EXPERIMENTALLY re-enabled the return path from main. It works
+          with perl 5.005_60, but I remember problems with other versions.
+          This re-enables END handlers etc.
+	- updated seths scripts, added remove_guides...
+        - examples/glowing_steel was missing from the MANIFEST!!
+        - data types for RADIO, SPINNER etc.. are guessed better now.
+        - added examples/guides_to_selection.
+        - added examples/burst, without even looking at it ;)
+        - warn about deprecated :auto behaviour, remove in next version.
+        - call displays_flush in more cases now.
+        - always leave a dummy dimension of 1 into the pdl, for gray and
+          indexed drawables. down the other road lies madness.
+        - implemented & added examples/map_to_gradient, needed for my next
+          plug-in ;)
+        - implemented & added examples/fire. I gained a bit of understanding
+          now.
+        - fixed a few bugs in Gimp::Fu. PF_PATTERN & friends confused the
+          current with the default value and didn't restore it properly.
+        - gimpdoc can now output a html file tree.
+        - moved the Perl-Server and Perl Control Center into the Perl submenu.
+        - Gimp::Parasite no longer has a search path.
+        - Gimp::Data now handles data persistency.
+        - Gimp::Fu augments (some) return value specifications.
+        - fixed a "Attempt to free unreferenced scalar" bug that was caused
+          by passing undef for strings.
+        - moved interact & friends into Gimp::UI.
+        
 1.1   Fri Jul 30 07:37:30 CEST 1999
 	- one of the most successful releases, in terms of features & bugfixes.
         - it was also a long night. And expensive (irc).

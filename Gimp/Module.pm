@@ -19,7 +19,7 @@ package Gimp::Module;
 use base qw(DynaLoader);
 require DynaLoader;
 
-$VERSION=0.00;
+$VERSION=1.20;
 
 bootstrap Gimp::Module;
 

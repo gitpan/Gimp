@@ -4,22 +4,6 @@ use Config;
 
 $|=1;
 
-@examples =
-   # not yet: magick
-   qw(windy.pl prep4gif.pl webify.pl PDB alpha2color.pl tex-to-float ditherize.pl
-      border.pl view3d.pl feedback.pl xachlego.pl xachshadow.pl parasite-editor
-      scratches.pl blowinout.pl terral_text xachvision.pl perlcc gouge
-      sethspin.pl animate_cells image_tile yinyang stamps font_table
-      perlotine randomblends innerbevel fit-text guidegrid roundrectsel
-      repdup centerguide stampify goldenmean triangle billboard mirrorsplit
-      oneliners randomart1 pixelmap glowing_steel frame_reshuffle frame_filter
-      logulator miff magick
-   );
-@shebang = (map("examples/$_",@examples),
-   qw(Perl-Server examples/example-net.pl examples/homepage-logo.pl
-      examples/example-fu.pl examples/example-oo.pl
-   ));
-
 if ($ARGV[0] ne "--writemakefile") {
    for(@ARGV) {
       s/^prefix=/--prefix=/i;
@@ -35,17 +19,112 @@ if ($ARGV[0] ne "--writemakefile") {
    $ENV{PERL}=$Config{perlpath};
    $ENV{MAKEFILE_PL}=$0;
    $ENV{IN_GIMP}=0;
-   exit system("./etc/configure",@ARGV)>>8;
+   exit system("./configure",@ARGV)>>8;
 } else {
    shift;
    local $do_config_msg = 1;
    do './config.pl'; die $@ if $@;
 }
 
+@otherdeps = qw(
+      povray imagemagick
+);
+@gtk_pins =
+   qw(
+     dataurl colorhtml avi PDB parasite-editor
+   ); # miff should be in @pins(!) but detection of non-default arguments is broken
+@pins =
+   qw(
+      windify prep4gif webify tex-to-float ditherize
+      xachlego xachshadow roundsel blended2 warp-sharp
+      scratches blowinout terral_text xachvision perlcc translogo
+      animate_cells image_tile yinyang stamps font_table sethspin
+      perlotine randomblends innerbevel fit-text guidegrid
+      repdup centerguide stampify goldenmean triangle mirrorsplit
+      layerfuncs randomart1 glowing_steel frame_reshuffle frame_filter
+      logulator guide_remove guides_to_selection burst
+      layerfuncs bricks miff dust
+   );
+@pdl_pins =
+   qw(
+      border gouge pixelmap view3d clear_alpha
+
+      fire
+   ); # fire should use nmormal gradient map!
+
+eval "use Gtk;"; $GTK = $@ eq "";
+eval "use Parse::RecDescent;"; $PRD = $@ eq "";
+
+$] >= 5.005 or print <<EOF;
+
+NOTICE:  You are using a version of perl older than 5.005. This will slightly
+         reduce the features available to the Gimp-Perl extension.
+
+EOF
+
+$GTK or print <<EOF;
+
+NOTICE:  unable to use the Perl-Gtk interface. Many features (like
+         Gimp::Fu) rely on this extension. You can build without it (and
+         many scripts will be disabled or run with reduced functionality
+         only), but it's better to install it (version 0.6123 or higher is
+         required, you can get it from ftp://ftp.gimp.org/pub/gtk/perl/ or
+         any CPAN mirror.
+
+EOF
+
+$PRD or print <<EOF;
+
+NOTICE: Parse::RecDescent not found, scm2perl, the Scheme->Perl
+        translator, will not work. This is normally not a problem, since
+        it is quite unimportant for most people.
+
+EOF
+
+($major,$minor,$patch)=split /[._]/,$Gtk::VERSION;
+
 require ExtUtils::MakeMaker;
 import ExtUtils::MakeMaker;
 
-@INC = grep /^\//,@INC;
+$MICRO = int ($] * 100000 % 100);
+
+if ($MICRO > 49) {
+   print <<EOF;
+
+WARNING: You are using perl version $]. This is an *ALPHA* version that is
+         very likely to have serious bugs that keep gimp-perl from working
+         properly. Please upgrade/downgrade to a stable release.
+
+EOF
+}
+
+if ($Config{usethreads} or $Config{use5005threads}) {
+   print <<EOF;
+
+WARNING: Your perl has been built with multithreading enabled. The 5.005
+         threading model is utterly broken (and about to be removed),
+         while the 5.6 threading model is about to change very soon.
+         Since I suppose you know how to fix perl since you enabled
+         threading, I'll proceed with building gimp-perl.
+
+EOF
+}
+
+if ($] < 5.006 && $Config{usethreads}) {
+   print <<EOF;
+
+WARNING: You are using the experimental (and very broken) multithread support.
+         While gimp-perl might seem to work, it is very likely to not work
+         properly (or at all). Please use a *stable* version of perl.
+            
+EOF
+}
+
+push @pins, @pdl_pins if $PDL;
+push @pins, @gtk_pins if $GTK;
+
+@INC = grep /^\//,@INC; # comment out as well?
+if (0) {		# comment out because it breaks
 eval { $Gimp::no_SIG=1; require Gimp };
 unless($@) {
    eval { require Gimp::Config };
@@ -84,45 +163,15 @@ EOF
       }
    }
 }
-
-eval "use Gtk;"; $GTK = $@ eq "";
-eval "use Parse::RecDescent;"; $PRD = $@ eq "";
-
-$] >= 5.005 or print <<EOF;
-
-NOTICE:  You are using a version of perl older than 5.005. This will slightly
-         reduce the features available to the Gimp-Perl extension.
-
-EOF
-
-$GTK or print <<EOF;
-
-NOTICE:  unable to use the Perl-Gtk interface. Many features (like
-         Gimp::Fu) rely on this extension. You can build without it (and
-         many scripts will be disabled or run with reduced functionality
-         only), but it's better to install it (version 0.5120 or higher is
-         required, you can get it from ftp://ftp.gimp.org/pub/gtk/perl/ or
-         any CPAN mirror.
-
-EOF
-
-$PRD or print <<EOF;
-
-WARNING: Parse::RecDescent not found, scm2perl, the Scheme->Perl
-         translator, will not work. Should the need arise you can install
-         Parse::RecDescent later; it is available from any CPAN mirror.
-
-EOF
-
-($major,$minor,$patch)=split /[._]/,$Gtk::VERSION;
+}
 
 sub MY::install {
    my $self=shift;
    package MY;
    my $install = $self->SUPER::install(@_);
-   ($install =~ s/^(un)?install\b/really-$1install/gm) or return $install;
+   ($install =~ s/\b(un)?install\b/really-$1install/g) or return $install;
    '
-install ::
+install :: install-po
 	@for dir in \
 	   $(INSTALLPRIVLIB) \
 	   $(INSTALLARCHLIB) \
@@ -138,17 +187,22 @@ install ::
 	      echo "       is not writable, not installing gimp-perl" ; \
 	      echo ; \
 	      exit ; \
-	   fi \
+	   fi ; \
 	done ; \
-	$(MAKE) UNINST=1 really-install install-plugins'."
+	$(MAKE) really-install install-plugins'."
 	$main::dont_embed || (cd embed && \$(MAKE) install)
 
+install-po:
+	cd po && \$(MAKE) install-po
+        
 ".$install;
 }
 
 sub MY::postamble {
    my $self=shift;
-   my $GT = $IN_GIMP ? '$(INSTALL_PROGRAM)' : "$GIMPTOOL --install-admin-bin";
+   my $install_program = $cfg{INSTALL};
+   $install_program =~ s{^\.\./}{../../};
+   my $GT = $IN_GIMP ? $install_program : "$GIMPTOOL --install-admin-bin";
    my $UT = $IN_GIMP ? '$(RM_F)' : "$GIMPTOOL --uninstall-admin-bin";
    my $GT2 = $IN_GIMP ? '$(gimpplugindir)/plug-ins/' : '';
    my $postamble="
@@ -173,7 +227,7 @@ install-plugins ::
 	\$(MKPATH) inst-temp
 	cd inst-temp ; \\
 	\$(UMASK_NULL) ; \\
-	\$(CP) ".join(' ',map("'../examples/$_'",@examples))." ../Perl-Server . ; \\
+	\$(CP) ".join(' ',map("'../examples/$_'",sort @pins))." ../Perl-Server . ; \\
 	\$(CHMOD) 755 * ; \\
 	\$(MY_FIXIN) * ; \\
 	for plugin in * ; do \\
@@ -182,7 +236,7 @@ install-plugins ::
 	\$(RM_RF) inst-temp
 
 uninstall :: force_uninstall_from_\$(INSTALLDIRS)dirs
-	for plugin in Perl-Server @examples; do \\
+	for plugin in Perl-Server @pins; do \\
            $UT $GT2\$\$plugin; \\
         done
 
@@ -192,11 +246,25 @@ force_uninstall_from_perldirs ::
 force_uninstall_from_sitedirs ::
 	\$(PERL) -MExtUtils::Install -e 'uninstall(\$\$ARGV[0],1,0)' ".$self->catfile('$(SITEARCHEXP)','auto','$(FULLEXT)','.packlist')."
 
+# generate tags file
+tags: .
+	ctags --lang=c `find . -name '*.xs' -print`
+
+# run autoconf (&c)
+autoconf:
+	aclocal; autoheader; autoconf
+        
+# set \$VERSION in all modules
+setver:
+	\$(PERL) -pi -e 's/^(\\s*\\\$\$VERSION\\s*=\\s*).*\$\$/\$\${1}\$(VERSION);/' *.pm Gimp/*.pm UI/*.pm Net/*.pm
+
 ";
+
+   $postamble;
 }
 
 $GIMP_INC_NOUI = "-I../../ $GIMP_INC_NOUI" if $IN_GIMP;
-@DIRS= qw/Gimp Net/;
+@DIRS= qw/Gimp Net UI po/;
 
 $build_module = $IN_GIMP || $ENV{GIMP_PERL_MODULE_INC};
 # temporarily disabled because of politics
@@ -232,9 +300,12 @@ print "writing Gimp/Config.pm... ";
 }
 print "ok\n";
 
+@EXE_FILES = qw(gimpdoc xcftopnm embedxpm);
+push @EXE_FILES, qw(scm2perl scm2scm) if $PRD;
+
 WriteMakefile(
     'dist'	=> {
-	            PREOP	=> 'chmod -R u=rwX,go=rX . ;',
+	            PREOP	=> 'make setver && chmod -R u=rwX,go=rX . ;',
 	            COMPRESS	=> 'gzip -9v',
 	            SUFFIX	=> '.gz',
 	           },
@@ -247,25 +318,24 @@ WriteMakefile(
     'DIR'	=> [@DIRS],
     'NAME'	=> 'Gimp',
     'VERSION_FROM' => 'Gimp.pm',
+    'INSTALLBIN'=> $bindir,
     'PM'	=> {
     		    'Gimp.pm'		=> '$(INST_LIBDIR)/Gimp.pm',
     		    'Gimp/Data.pm'	=> '$(INST_LIBDIR)/Gimp/Data.pm',
     		    'Gimp/Fu.pm'	=> '$(INST_LIBDIR)/Gimp/Fu.pm',
     		    'Gimp/Lib.pm'	=> '$(INST_LIBDIR)/Gimp/Lib.pm',
-    		    'Gimp/UI.pm'	=> '$(INST_LIBDIR)/Gimp/UI.pm',
-    		    'Gimp/Net.pm'	=> '$(INST_LIBDIR)/Gimp/Net.pm',
     		    'Gimp/PDL.pm'	=> '$(INST_LIBDIR)/Gimp/PDL.pm',
     		    'Gimp/Util.pm'	=> '$(INST_LIBDIR)/Gimp/Util.pm',
     		    'Gimp/Feature.pm'	=> '$(INST_LIBDIR)/Gimp/Feature.pm',
     		    'Gimp/Module.pm'	=> '$(INST_LIBDIR)/Gimp/Module.pm',
     		    'Gimp/Config.pm'	=> '$(INST_LIBDIR)/Gimp/Config.pm',
     		   },
-    'LIBS'	=> [''],
+    'LDFROM'	=> expand("\$(OBJECT) $LIBS $INTLLIBS"),
     'INC'	=> "$INC1 $GIMP_INC_NOUI $CPPFLAGS $CFLAGS",
     'DEFINE'	=> "$DEFINE1 $DEFS",
-    'EXE_FILES'	=> [qw(scm2perl scm2scm gimpdoc xcftopnm embedxpm)],
+    'EXE_FILES'	=> \@EXE_FILES,
     'macro'	=> \%cfg,
-    'realclean'	=> { FILES => "config.status config.cache config.pl config.log config.h Gimp/Config.pm" },
+    'realclean'	=> { FILES => "config.status config.cache config.pl config.log config.h Gimp/Config.pm Makefile" },
     'clean'	=> { FILES => "Makefile.old stamp-h" },
 );
 

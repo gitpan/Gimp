@@ -1,6 +1,9 @@
-#!/usr/bin/perl
+#!/usr/app/bin/perl
 
-use Gimp qw(:auto);
+eval 'exec /usr/app/bin/perl  -S $0 ${1+"$@"}'
+    if 0; # not running under some shell
+
+use Gimp qw(:auto __ N_);
 use Gimp::Fu;
 
 register	"layer_apply",
@@ -9,11 +12,11 @@ register	"layer_apply",
 		"Marc Lehmann <pcg\@goof.com>",
 		"Marc Lehmann <pcg\@goof.com>",
 		"19990708",
-		"<Image>/Filters/Animation/Apply Perl Expression",
+		N_"<Image>/Filters/Apply Perl Expression...",
 		"*",
 		[
                  [PF_TEXT,	"expr",	"the perl expression to run for each layer",
-                                '$d->gauss_rle($P*100,1,1)'],
+                                '$d->gauss_rle($P*100+1,1,1)'],
                  [PF_DRAWABLE,	"drawable2", "an optional extra drawable for use by the code"],
 		],
                 [],

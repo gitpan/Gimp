@@ -1,6 +1,9 @@
-#!/usr/bin/perl
+#!/usr/app/bin/perl
 
-use Gimp qw( :auto );
+eval 'exec /usr/app/bin/perl  -S $0 ${1+"$@"}'
+    if 0; # not running under some shell
+
+use Gimp qw(:auto __ N_);
 use Gimp::Fu;
 
 sub goldenmean {
@@ -21,7 +24,7 @@ sub goldenmean {
 
 	gimp_image_add_layer($layer, -1);
 	gimp_palette_set_background([255, 255, 255]);
-	$layer->gimp_edit_fill;
+	$layer->gimp_edit_fill(BG_IMAGE_FILL);
 
 	return $img;
 }
@@ -32,8 +35,8 @@ register	"golden_mean",
 		"Claes G Lindblad <claesg\@algonet.se>",
 		"Claes G Lindblad <claesg\@algonet.se>",
 		"990328",
-		"<Toolbox>/Xtns/Render/Golden Mean",
-		"*",
+		N_"<Toolbox>/Xtns/Render/Golden Mean",
+		undef,
 	[
 	[PF_INT32, "short", "Shortest side", 233],
 	[PF_RADIO, "type", "Orientation", 0, [Portrait => 0, Landscape => 1]]

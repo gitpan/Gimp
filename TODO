@@ -8,62 +8,62 @@ gimp ~/pix/ka001.jpg -b "(extension-perl-server 0 0 0)"
 file:///usr/app/lib/perl5/site_perl/i686-linux/PDL/HtmlDocs/PDL/
 make test TEST_VERBOSE=1
 
-aaron sherman email schicken(!!!!) wegen logulator
+put under LGPL:
 
-paint_funcs.h convolve.h gimpdrawable.h gimpimage.h lut_funcs.h paint_core.h plug_in.h flip_tool.h
+/usr/app/lib/perl5/Gtk.pm:107 (method call -> goto)
 
-script-fu 4.9 vs. 3.3
+gimpenv.c, gimpmodule.h, color_selector.h, color_display.h
+
+po/Makefile
+<Sven> schmorp: I think the makefile should have all (builds the pot-file and
+      calls msgfmt if po-files have changed),
++update-po (merges all po-files), install, uninstall eventually
+
+API generalization
+   guide ->
+   gimp_desaturate -> drawable
 
 bugs
-
-  * /root/gimprelease && TODO -> publish!
-  * perl_require_pv with _59?
-  * scroll behaviour, use clist instead of list?
-[DONE]  * can_Default for oter OK-buttons
+  * try to work around the redhat-undef $fh => no close problem.
+  * .pot file -> add to dist.
+  * damnit libintl crazy shit
+  * font_text with negative size? bug report #5523
+  * gimp-perl list archives.. where and add this to the gimp.html page!
+  * g_direct_equal and glin hash, kill in favour of way nicer perl hashes.
+  * ping-funktion für JENS.
+  * gtview_log (perlcc & helpfenster) erste zeile anzeigen + scrollbar
+  * document on_xxx functions and register_callback
+  * fix Gimp::Feature::missing => on_query-dir!
+  * on-query => remove gimp::fu parasite(?)
+[????]  * bricks requires disable for pattern(?)
+  * installation & Feature system (?)
+  * map_to_gradient does not work on GRAYA thingies. Argh.
   * document Gimp::PDL and rect2, ...2 functions!
-[DONE]  * MJH: glib-config(!!!)
-[KILL]  * empty desfiption -> no display in PDB?`
-  * podestions are not expanded in dialog help strings etc..
-  * Kommandozeilenmodus(!).
-  * don't start gimp in cmdline mode and error.
-  * KILL :auto from default(!)
-  * auto-flush of gdrawable when merge_shadow(?)
+  * Kommandozeilenmodus(!). (???)
   * gimp-piddle must be written back automatically on destroy, if changed
-  * possibly rename "Brush Selection" to "Paint Settings"
   * gimp-tile set dirty automatically(!)
-  * perl module install dependency
-  * $Config{cc} might not understand Gimps CFLAGS (-mpentium).
-  * wait for working gimp_file_load (or do it myself?)
-  * get rid of xs_exit. please please fuck me plenty.
   * create gimpstyle.pod
   
 important issues
 
-  * gimpdoc with caching & exampling ;--->
+  * gimp_default_display -> undef when not available.
+  * find_next_guide is a lousy interface. => just do num_guides
+  * constant names (RADIO) automatically into help strings!
   * migrate BOOT: into INIT() (forgot why but important for B)
   * gimp_progress_done, gimp_progress_close
-  * maybe implement --enable-perl=runtime-only?
-  * pdb_proc_renameto
   * gimp_default_display (...) for libgimp
   * Gimp::Module for modules (!)
+  * gimp for dummies (you don't understand this, harharhar!)
   * PerlCC configurable options for Perl-Server startup, Gipm_host etc.
   * implement CALLBACKS via the Perl-Server
   * PF_COORDS (just as Light Effects/FlareFX)
   * PF_PREVIEW(!)
-  * change set_usize to something else..
   * Gimp::IO (?)
   * install scripts in share/
-  * register dummy function to calm gimp down (really??)
-  * gimp->object_id, drawable_object_id remove!
   * vamp up homepage
   * Gimp::ping
   * allow plug-ins to register with only a drawable argument(!)
   * gradient button
-  * implement Perl-Server RSET and shared lock(!)
-  * weighted movement in drawing tools
-  * --function localfunc to select one of the registered scripts
-  * create working progress when Net and $verbose
-  * Gimp::Fu::command(?)
   * default parameters at end(!)
   * try to deduce default parameters
 

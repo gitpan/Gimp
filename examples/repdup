@@ -1,6 +1,9 @@
-#!/usr/bin/perl
+#!/usr/app/bin/perl
 
-use Gimp qw( :auto );
+eval 'exec /usr/app/bin/perl  -S $0 ${1+"$@"}'
+    if 0; # not running under some shell
+
+use Gimp qw(:auto __ N_);
 use Gimp::Fu;
 
 #Gimp::set_trace(TRACE_ALL);
@@ -11,7 +14,7 @@ register	"repdup",
 		"Claes G Lindblad <claesg\@algonet.se>",
 		"Claes G Lindblad <claesg\@algonet.se>",
 		"990328",
-		"<Image>/Edit/Repeat & Duplicate",
+		N_"<Image>/Edit/Repeat & Duplicate",
 		"*",
 		[
 		[PF_SPINNER, "repeats", "Number of repeats",

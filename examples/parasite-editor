@@ -1,15 +1,16 @@
-#!/usr/bin/perl
+#!/usr/app/bin/perl
+
+eval 'exec /usr/app/bin/perl  -S $0 ${1+"$@"}'
+    if 0; # not running under some shell
 
 #BEGIN {$^W=1};
 
 use Gimp::Feature qw(perl-5.005 gtk-1.2);
-use Gimp ();
+use Gimp ('__','N_');
 use Gimp::Fu;
 use Gtk;
 
-Gtk->init;
-
-$VERSION=0.9;
+$VERSION=0.91;
 
 #Gimp::set_trace(TRACE_ALL);
 
@@ -111,21 +112,14 @@ sub refresh_names {
    $name->set_text ("");
    $flags->set_text ("");
    $data->set_text ("");
-   $clist->clear_items(0,99999);
-   my @list = &$list_func($current);
-   for my $para (@list) {
-      my $item = new Gtk::ListItem $para;
-      $item->signal_connect ("select" => sub {
-         my ($par) = &$find_func($current,$para);
-         $name->set_text ($par->[0]);
-         $flags->set_text (sprintf "0x%08x", $par->[1]);
-         $data->set_text (escape $par->[2]);
-         $parasite = $para;
-      });
-      $clist->add($item);
+   $clist->freeze;
+   $clist->clear;
+   my @list = sort &$list_func($current);
+   for (@list) {
+      $clist->append($_);
    }
-   #$clist->select_item(0);
    $clist->show_all;
+   $clist->thaw;
 }
 
 sub new_Entry {
@@ -147,8 +141,6 @@ sub new_Entry {
 sub create_main {
    my $b;
    my $t;
-
-   parse Gtk::Rc Gimp->gtkrc;
 
    $t = new Gtk::Tooltips;
    my $w = new Gtk::Dialog;
@@ -177,11 +169,19 @@ sub create_main {
 
    $top->set_usize (-1, $eX+5);
 
-   $clist = new Gtk::List;
+   $clist = new Gtk::CList (1);
+   $clist->set_selection_mode (-single);
+   $clist->signal_connect ("select_row" => sub {
+      $parasite = $_[0]->get_text($_[1],$_[2]);
+      my ($par) = &$find_func($current,$parasite);
+      $name->set_text ($par->[0]);
+      $flags->set_text (sprintf "0x%08x", $par->[1]);
+      $data->set_text (escape $par->[2]);
+   });
 
    my $cs = new Gtk::ScrolledWindow undef,undef;
    $cs->set_policy(-automatic,-automatic);
-   $cs->add_with_viewport ($clist);
+   $cs->add ($clist);
    $bot->add ($cs);
 
    my $parbox = new Gtk::VBox (0,5);
@@ -218,9 +218,9 @@ sub create_main {
       $item = new Gtk::MenuItem "Global";
       my $act_global = sub {
          $list_func   = sub { Gimp->parasite_list   };
-         $find_func   = sub { shift; Gimp->find_parasite   (shift) };
-         $attach_func = sub { shift; Gimp->attach_parasite (shift) };
-         $detach_func = sub { shift; Gimp->detach_parasite (shift) };
+         $find_func   = sub { shift; Gimp->parasite_find   (shift) };
+         $attach_func = sub { shift; Gimp->parasite_attach (shift) };
+         $detach_func = sub { shift; Gimp->parasite_detach (shift) };
          &$set_submenu();
       };
       $item->signal_connect("activate", $act_global);
@@ -229,22 +229,22 @@ sub create_main {
       $item = new Gtk::MenuItem "Image";
       $item->signal_connect("activate", sub {
          $list_func   = sub { $_[0] ? shift->parasite_list : () };
-         $find_func   = sub { shift->find_parasite   (shift) };
-         $attach_func = sub { shift->attach_parasite (shift) };
-         $detach_func = sub { shift->detach_parasite (shift) };
-         &$set_submenu(map [$_,"$$_: ".$_->get_filename],Gimp->list_images);
+         $find_func   = sub { shift->parasite_find   (shift) };
+         $attach_func = sub { shift->parasite_attach (shift) };
+         $detach_func = sub { shift->parasite_detach (shift) };
+         &$set_submenu(map [$_,"$$_: ".$_->get_filename],Gimp->image_list);
       });
       $menu->append($item);
 
       $item = new Gtk::MenuItem "Drawable";
       $item->signal_connect("activate", sub {
          $list_func   = sub { $_[0] ? shift->parasite_list : () };
-         $find_func   = sub { shift->find_parasite   (shift) };
-         $attach_func = sub { shift->attach_parasite (shift) };
-         $detach_func = sub { shift->detach_parasite (shift) };
+         $find_func   = sub { shift->parasite_find   (shift) };
+         $attach_func = sub { shift->parasite_attach (shift) };
+         $detach_func = sub { shift->parasite_detach (shift) };
          &$set_submenu(map [$_,$_->image->get_filename." / "
-                               .($_->layer ? $_->layer_get_name : $_->channel_get_name)],
-                           map (($_->get_layers,$_->get_channels),Gimp->list_images));
+                               .($_->is_layer ? $_->layer_get_name : $_->channel_get_name)],
+                           map (($_->get_layers,$_->get_channels),Gimp->image_list));
       });
       $menu->append($item);
 
@@ -279,14 +279,14 @@ register "extension_parasite_editor",
          "Marc Lehmann",
          "Marc Lehmann",
          $VERSION,
-         "<Toolbox>/Xtns/Parasite Editor",
+         N_"<Toolbox>/Xtns/Parasite Editor",
          "",
          [],
          [],
          ['gimp-1.1'],
          sub {
 
-   Gimp::init_gtk;
+   Gimp::gtk_init;
    create_main;
    main Gtk;
 
@@ -296,13 +296,9 @@ register "extension_parasite_editor",
 package ParasiteEditor;
 
 use Gtk;
-use base Gtk::Dialog;
+use Gimp::basewidget Gtk::Dialog;
 
 my $init;
-
-Gtk::Dialog->register_subtype(ParasiteEditor);
-
-sub GTK_CLASS_INIT { };
 
 sub unformat {
    my $self=shift;
@@ -329,6 +325,7 @@ sub undirty {
 }
 
 sub GTK_OBJECT_INIT {
+   shift unless ref $self; # care for "old" Gtk modules
    my $self = shift;
    @{$self}{qw(find_func attach_func detach_func current parasite)}=@$init;
    @{$self}{qw(name  flags  data)}=
@@ -398,7 +395,7 @@ sub GTK_OBJECT_INIT {
 
 sub new {
    $init=\@_;
-   new Gtk::Widget shift;
+   Gtk::Object::new shift;
 }
 
 package main;

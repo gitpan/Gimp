@@ -13,11 +13,15 @@
 # undef printf
 #endif
 
+#if 0 /* optimized away ;) */
 #include <glib.h>
+#endif
 
 #if !defined(PERLIO_IS_STDIO) && defined(HASATTRIBUTE)
 # define printf PerlIO_stdoutf
 #endif
+
+#include "../perl-intl.h"
 
 #if HAVE_PDL
 
@@ -25,6 +29,7 @@
 # undef croak
 # define croak Perl_croak
 
+#if 0
 /* hack, undocumented, argh! */
 static Core* PDL; /* Structure hold core C functions */
 
@@ -37,11 +42,12 @@ static void need_pdl (void)
     {
       /* Get pointer to structure of core shared C routines */
       if (!(CoreSV = perl_get_sv("PDL::SHARE",FALSE)))
-        Perl_croak("gimp-perl-pixel functions require the PDL::Core module");
+        Perl_croak(__("gimp-perl-pixel functions require the PDL::Core module"));
 
       PDL = (Core*) SvIV(CoreSV);
     }
 }
+#endif
 
 #endif
 
@@ -50,10 +56,10 @@ static void need_pdl (void)
          || strEQ ((sv), "Gimp::PixelRgn")	\
          || strEQ ((sv), "Gimp::GDrawable"))
 
-static GHashTable *object_cache;
-static gint object_id = 1000;
+static HV *object_cache;
+static int object_id = 100;
 
-#define init_object_cache	if (!object_cache) object_cache = g_hash_table_new (g_int_hash, g_int_equal)
+#define init_object_cache	if (!object_cache) object_cache = newHV()
 
 static void destroy_object (SV *sv)
 {
@@ -61,13 +67,8 @@ static void destroy_object (SV *sv)
     {
       if (is_dynamic (HvNAME(SvSTASH(SvRV(sv)))))
         {
-          gint id = SvIV(SvRV(sv));
-          SV *cv = (SV*)g_hash_table_lookup (object_cache, &id);
-          if (cv)
-            {
-              SvREFCNT_dec (cv);
-              g_hash_table_remove (object_cache, &id);
-            }
+          int id = SvIV(SvRV(sv));
+          hv_delete (object_cache, (char *)&id, sizeof(id), G_DISCARD);
         }
       else
         croak ("Internal error: Gimp::Net #101, please report!");
@@ -113,7 +114,7 @@ static void sv2net (int deobjectify, SV *s, SV *sv)
               object_id++;
 
               SvREFCNT_inc(sv);
-              g_hash_table_insert (object_cache, &object_id, (gpointer)sv);
+              hv_store (object_cache, (char *)&object_id, sizeof(object_id), sv, 0);
               
               sv_catpvf (s, "i%d:", object_id);
               return; /* well... */
@@ -161,7 +162,7 @@ static SV *net2sv (int objectify, char **_s)
   SV *sv;
   AV *av;
   unsigned int ui, n;
-  I32 i32,i33;
+  int i, j;
   long l;
   char str[64];
 
@@ -196,27 +197,29 @@ static SV *net2sv (int objectify, char **_s)
 
         if (objectify && is_dynamic (str))
           {
-            gint id;
+            SV **cv;
+            int id;
 
             sscanf (s, "i%ld:%n", &l, &n); s += n;
 
-            sv = (SV*)g_hash_table_lookup (object_cache, (id=l,&id));
-            if (!sv)
+            cv = hv_fetch (object_cache, (char *)(id=l,&id), sizeof(id), 0);
+            if (!cv)
               croak ("Internal error: asked to deobjectify an object not in the cache, please report!");
+
+            sv = *cv;
+            SvREFCNT_inc (sv);
           }
         else
-          sv = net2sv (objectify, &s);
-
-        sv = sv_bless (newRV_noinc (sv), gv_stashpv (str, 1));
+          sv = sv_bless (newRV_noinc (net2sv (objectify, &s)), gv_stashpv (str, 1));
 
         break;
 
       case 'a':
-        sscanf (s, "%x:%n", &i32, &n); s += n;
+        sscanf (s, "%x:%n", &i, &n); s += n;
         av = newAV ();
-        av_extend (av, i32);
-        for (i33 = 0; i33 <= i32; i33++)
-          av_store (av, i33, net2sv (objectify, &s));
+        av_extend (av, (I32)i);
+        for (j = 0; j <= i; j++)
+          av_store (av, (I32)j, net2sv (objectify, &s));
 
         sv = (SV*)av;
         break;
@@ -248,7 +251,6 @@ args2net(deobjectify,...)
 	for (index = 1; index < items; index++)
           sv2net (deobjectify, RETVAL, ST(index));
 
-        /*printf (">>>>%s\n",SvPV_nolen(RETVAL));*//*D*/
         OUTPUT:
         RETVAL
 
@@ -258,7 +260,6 @@ net2args(objectify,s)
 	char *	s
         PPCODE:
 
-        /*printf ("<<<<%s\n",s);*//*D*/
         if (objectify) init_object_cache;
 
         /* this depends on a trailing zero! */

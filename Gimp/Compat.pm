@@ -43,9 +43,9 @@ Gimp-Perl extension (contact him to include new functions) is Marc Lehmann
 
 package      Gimp::Compat;
 
-$VERSION=$Gimp::VERSION;
+$VERSION=1.20;
 
-use Gimp 'croak';
+use Gimp ('croak', '__');
 
 # as a failsafe check, lowest version NOT requiring this module
 @max_gimp_version = (1,1);
@@ -85,7 +85,7 @@ sub xlfd_unpack {
        -$p
        -($p)     (?# rgstry )
        -($p)     (?# encdng )
-     /x or die "xlfd_unpack: unmatched XLFD '$fontname'\n";
+     /x or die __"xlfd_unpack: unmatched XLFD '$fontname'\n";
 
     my $size;
     if ($pixelsize && $pixelsize ne "*") {
@@ -140,7 +140,9 @@ fun 1,1,gimp_paintbrush,sub {
    Gimp::gimp_call_procedure('gimp_paintbrush',$drawable,$fade_out,$strokes);
 };
 
+fun 1,1,gimp_image_list,sub {
+   Gimp::gimp_call_procedure('gimp_list_images');
+};
+
 1;
-
-
 

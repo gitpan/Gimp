@@ -2,11 +2,18 @@ package Gimp::Lib;
 
 use strict;
 use vars qw($VERSION @ISA);
-use base qw(DynaLoader);
 
-require DynaLoader;
-
-$VERSION = $Gimp::VERSION;
+BEGIN {
+   $VERSION = 1.20;
+   eval {
+      require XSLoader;
+      XSLoader::load Gimp::Lib $VERSION;
+   } or do {
+      require DynaLoader;
+      @ISA=qw(DynaLoader);
+      bootstrap Gimp::Lib $VERSION;
+   }
+}
 
 use subs qw(
 	gimp_call_procedure		gimp_main	gimp_init
@@ -15,11 +22,11 @@ use subs qw(
 );
 
 sub gimp_init {
-   Gimp::croak "gimp_init not implemented for the Lib interface";
+   Gimp::croak Gimp::_("gimp_init not implemented for the Lib interface");
 }
 
 sub gimp_end {
-   Gimp::croak "gimp_end not implemented for in the Lib interface";
+   Gimp::croak Gimp::_("gimp_end not implemented for in the Lib interface");
 }
 
 sub lock {
@@ -32,13 +39,11 @@ sub unlock {
 
 sub import {}
 
-bootstrap Gimp::Lib $VERSION;
-
 # functions to "autobless" where the autobless mechanism
 # does not work.
 
-sub gimp_list_images {
-   map _autobless($_,&Gimp::PARAM_IMAGE),gimp_call_procedure "gimp_list_images";
+sub gimp_image_list {
+   map _autobless($_,&Gimp::PARAM_IMAGE),gimp_call_procedure "gimp_image_list";
 }
 
 sub gimp_image_get_layers {
@@ -73,6 +78,11 @@ sub gimp_progress_init {
       eval { gimp_call_procedure "gimp_progress_init",@_ };
       gimp_call_procedure "gimp_progress_init",shift if $@;
    }
+}
+
+sub gimp_drawable_bounds {
+   my @b = (shift->mask_bounds)[1..4];
+   (@b[0,1],$b[2]-$b[0],$b[3]-$b[1]);
 }
 
 1;

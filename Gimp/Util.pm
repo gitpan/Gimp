@@ -26,7 +26,7 @@ and debugging times.
 These functions try to preserve the current settings like colors, but not
 all do.
 
-Also: these functions are handled in exactly the same way as
+These functions can also be handled in exactly the same way as
 PDB-Functions, i.e. the (hypothetical) function C<gimp_image_xyzzy> can be
 called as $image->xyzzy, if the module is available.
 
@@ -51,7 +51,7 @@ require      Exporter;
 
 use Gimp;
 
-$VERSION=$Gimp::VERSION;
+$VERSION=1.20;
 
 ##############################################################################
 =pod
@@ -101,14 +101,14 @@ sub layer_create {
   my $tcol; # scratch color
 
   # create a colored layer
-  $layer = gimp_layer_new ($image,gimp_image_width($image),
-                           gimp_image_height($image),
+  $layer = Gimp->layer_new ($image,Gimp->image_width($image),
+                           Gimp->image_height($image),
                            RGB_IMAGE,$name,100,NORMAL_MODE);
-  $tcol = gimp_palette_get_background ();
-  gimp_palette_set_background ($color);
-  gimp_drawable_fill ($layer,BG_IMAGE_FILL);
-  gimp_image_add_layer($image, $layer, $pos);
-  gimp_palette_set_background ($tcol); # reset
+  $tcol = Gimp->palette_get_background ();
+  Gimp->palette_set_background ($color);
+  Gimp->drawable_fill ($layer,BG_IMAGE_FILL);
+  Gimp->image_add_layer($image, $layer, $pos);
+  Gimp->palette_set_background ($tcol); # reset
   $layer;  
   }
 
@@ -127,24 +127,24 @@ sub text_draw {
   my ($bg_layer,$text_layer);
   my $tcol; # temp. color
 
-  warn ("text string is empty") if ($text eq "");
-  warn ("no font specified, using default") if ($font eq "");
+  warn __"text string is empty" if $text eq "";
+  warn __"no font specified, using default" if $font eq "";
   $font = "Helvetica" if ($font eq "");
 
-  $tcol = gimp_palette_get_foreground ();
-  gimp_palette_set_foreground ($fgcolor);
+  $tcol = Gimp->palette_get_foreground ();
+  Gimp->palette_set_foreground ($fgcolor);
   # Create a layer for the text.
-  $text_layer = gimp_text($image,-1,0,0,$text,10,1,$size,
+  $text_layer = Gimp->text($image,-1,0,0,$text,10,1,$size,
 			    PIXELS,"*",$font,"*","*","*","*"); 
     
   # Do the fun stuff with the text.
-  gimp_layer_set_preserve_trans($text_layer, FALSE);
+  Gimp->layer_set_preserve_trans($text_layer, FALSE);
 
   if ($resize == 0)
     {
     # Now figure out the size of $image
-    $width = gimp_image_width($text_layer);
-    $height = gimp_image_height($text_layer);
+    $width = Gimp->image_width($text_layer);
+    $height = Gimp->image_height($text_layer);
     # and cut text layer
     }
   else
@@ -152,11 +152,11 @@ sub text_draw {
     }
 					  
   # add text to image
-  gimp_image_add_layer($image, $text_layer, $pos);
+  Gimp->image_add_layer($image, $text_layer, $pos);
   # merge white and text
-  gimp_image_merge_visible_layers ($image,1);
+  Gimp->image_merge_visible_layers ($image,1);
   # cleanup the left over layer (!) 
-  gimp_layer_delete($text_layer);
+  Gimp->layer_delete($text_layer);
   $layer;
 }
     
@@ -177,29 +177,29 @@ sub image_create_text {
   my $bg_layer;
   my $image;
 
-  warn ("text string is empty") if ($text eq "");
-  warn ("no font specified, using default") if ($font eq "");
+  warn (__"text string is empty") if ($text eq "");
+  warn (__"no font specified, using default") if ($font eq "");
   $font = "Helvetica" if ($font eq "");
   # create an image. We'll just set whatever size here because we want
   # to resize the image when we figure out how big the text is.
-  $image = gimp_image_new(64,64,RGB); # don't waste too much  resources ;-/
+  $image = Gimp->image_new(64,64,RGB); # don't waste too much  resources ;-/
     
-  $tcol = gimp_palette_get_foreground ();
-  gimp_palette_set_foreground ($fgcolor);
+  $tcol = Gimp->palette_get_foreground ();
+  Gimp->palette_set_foreground ($fgcolor);
   # Create a layer for the text.
-  $text_layer = gimp_text($image,-1,0,0,$text,10,1,$size,
+  $text_layer = Gimp->text($image,-1,0,0,$text,10,1,$size,
                           PIXELS,"*",$font,"*","*","*","*"); 
-  gimp_palette_set_foreground ($tcol);
+  Gimp->palette_set_foreground ($tcol);
     
-  gimp_layer_set_preserve_trans($text_layer, FALSE);
+  Gimp->layer_set_preserve_trans($text_layer, FALSE);
 
   # Resize the image based on size of text.
-  gimp_image_resize($image,gimp_drawable_width($text_layer),
-                    gimp_drawable_height($text_layer),0,0);
+  Gimp->image_resize($image,Gimp->drawable_width($text_layer),
+                    Gimp->drawable_height($text_layer),0,0);
 
   # create background and merge them
-  $bg_layer = layer_create ($image,"text",$bgcolor,1);
-  gimp_image_merge_visible_layers ($image,1);
+  $bg_layer = Gimp->layer_create ($image,"text",$bgcolor,1);
+  Gimp->image_merge_visible_layers ($image,1);
 
   # return
   $image;
@@ -219,21 +219,15 @@ sub layer_add_layer_as_mask {
   my ($image,$layer,$layer_mask) = @_;
   my $mask;
 
-  gimp_selection_all ($image);  
+  Gimp->selection_all ($image);  
   $layer_mask->edit_copy ();  
-  gimp_layer_add_alpha ($layer); 
-  $mask = gimp_layer_create_mask ($layer,0);
+  Gimp->layer_add_alpha ($layer); 
+  $mask = Gimp->layer_create_mask ($layer,0);
   $mask->edit_paste (0);
-  gimp_floating_sel_anchor(gimp_image_floating_selection($image));
-  gimp_image_add_layer_mask ($image,$layer,$mask);
+  Gimp->floating_sel_anchor(Gimp->image_floating_selection($image));
+  Gimp->image_add_layer_mask ($image,$layer,$mask);
   $mask;
   }
-
-# EOF, needed for package?
-
-# Sure, consider a package just another kind of function, and
-# require/use etc. check for a true return value
-1;
 
 ##############################################################################
 # all functions below are by Marc Lehmann
@@ -246,19 +240,6 @@ returns the width and height of the "$text" of the given font (XLFD format)
 =cut
 sub gimp_text_wh {
    (Gimp->text_get_extents_fontname($_[0],xlfd_size $_[1],$_[1]))[0,1];
-}
-
-=pod
-
-=item C<gimp_drawable_bounds $drawable>
-
-returns an array (x,y,w,h) containing the upper left corner and the size of the
-current mask, just as needed by pixelrgn and similar functions.
-
-=cut
-sub gimp_drawable_bounds {
-   my @b = (shift->mask_bounds)[1..4];
-   (@b[0,1],$b[2]-$b[0],$b[3]-$b[1]);
 }
 
 =pod
@@ -322,8 +303,7 @@ sub gimp_image_add_new_layer {
 
 sub gimp_image_set_visible {
    my $image = shift;
-   my %layers;
-   @layers{map $$_,@_}=(1) x @_;
+   my %layers; @layers{map $$_,@_}=(1) x @_;
    for ($image->get_layers) {
       $_->set_visible ($layers{$$_});
    }
@@ -331,8 +311,7 @@ sub gimp_image_set_visible {
 
 sub gimp_image_set_invisible {
    my $image = shift;
-   my %layers;
-   @layers{map $$_,@_}=(1) x @_;
+   my %layers; @layers{map $$_,@_}=(1) x @_;
    for ($image->get_layers) {
       $_->set_visible (!$layers{$$_});
    }
@@ -371,6 +350,4 @@ sub gimp_layer_set_position {
 Various, version 1.000 written mainly by Tels (http://bloodgate.com/). The author
 of the Gimp-Perl extension (contact him to include new functions) is Marc
 Lehmann <pcg@goof.com>
-
-
 
