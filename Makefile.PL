@@ -10,15 +10,17 @@ if ($ARGV[0] ne "--writemakefile") {
    }
    
    do './config.pl';
-   $EXTENSIVE_TESTS = 1;
-   
-   $ENV{'EXTENSIVE_TESTS'} = $EXTENSIVE_TESTS;
-   $ENV{CC}=$Config{cc};
-   $ENV{LD}=$Config{ld};
-   $ENV{prefix}=$Config{prefix};
-   $ENV{PERL}=$Config{perlpath};
-   $ENV{MAKEFILE_PL}=$0;
-   $ENV{IN_GIMP}=0;
+   unless ($ENV{IN_GIMP}) { # for the release, take the medium conservative approach
+      $EXTENSIVE_TESTS = 1;
+      
+      $ENV{'EXTENSIVE_TESTS'} = $EXTENSIVE_TESTS;
+      $ENV{CC}=$Config{cc};
+      $ENV{LD}=$Config{ld};
+      $ENV{prefix}=$Config{prefix};
+      $ENV{PERL}=$Config{perlpath};
+      $ENV{MAKEFILE_PL}=$0;
+      $ENV{IN_GIMP}=0;
+   }
    exit system("./configure",@ARGV)>>8;
 } else {
    shift;
@@ -31,8 +33,8 @@ if ($ARGV[0] ne "--writemakefile") {
 );
 @gtk_pins =
    qw(
-     dataurl colorhtml avi PDB parasite-editor
-   ); # miff should be in @pins(!) but detection of non-default arguments is broken
+     dataurl colorhtml avi PDB parasite-editor fade-alpha
+   );
 @pins =
    qw(
       windify prep4gif webify tex-to-float ditherize
@@ -171,7 +173,7 @@ sub MY::install {
    my $install = $self->SUPER::install(@_);
    ($install =~ s/\b(un)?install\b/really-$1install/g) or return $install;
    '
-install :: install-po
+install ::
 	@for dir in \
 	   $(INSTALLPRIVLIB) \
 	   $(INSTALLARCHLIB) \
@@ -193,7 +195,7 @@ install :: install-po
 	$main::dont_embed || (cd embed && \$(MAKE) install)
 
 install-po:
-	cd po && \$(MAKE) install-po
+	cd po && \$(MAKE) install
         
 ".$install;
 }
@@ -264,7 +266,7 @@ setver:
 }
 
 $GIMP_INC_NOUI = "-I../../ $GIMP_INC_NOUI" if $IN_GIMP;
-@DIRS= qw/Gimp Net UI po/;
+@DIRS= qw/Gimp Net UI/;
 
 $build_module = $IN_GIMP || $ENV{GIMP_PERL_MODULE_INC};
 # temporarily disabled because of politics
@@ -350,7 +352,7 @@ EOF
 __END__
 # write an empty makefile (the last chance to stop)
 # and warn the user.
-sub not_halt {
+sub emergency_stop {
    print STDERR "WARNING: *** perl extension will not be built ($_[0]) ***\n\n";
    open MAKEFILE,">Makefile" or die "unable to create Makefile: $!";
    print MAKEFILE <<EOF;

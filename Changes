@@ -1,5 +1,34 @@
 Revision history for Gimp-Perl extension.
 
+1.21  Fri Mar  9 18:33:04 CET 2001
+        - this version will only compile with 1.1. versions of the
+          Gimp. If you need to compile gimp-perl with gimp-1.0 please use
+          version 1.201 from CPAN.
+        - first round of mega-api-change.
+        - dropped a few prefixes (PROC_ from RUN_INTERACTIVE etc.. where
+          the new names would have a GIMP_ prefix).
+        - updated to new commandline options.
+        - updated enums.pl (And therefore, enumerations).
+        - applied 5.004 compatibility patch by artie@kmfms.com.
+        - applied glow_steel gradient patch by Michael Fowler
+          <michael@shoebox.net>.
+        - removed gimp_proc_db_proc_info from xs code in favour
+          of the PDB call.
+        - fix the parasite-editor as much as possible.
+        - fixed bug reported by Andreas Jaekel (who chose not to accept
+          mail from me) regarding return values for register'ed scripts.
+        - fixed the make install-po problem that Sven fixed but dumb Marc
+          accidently reverted...
+        - added/updated examples/fade-alpha by Seth.
+        - re-apply patches to examples/xachshadow, xachlego after I nuked
+          them without knowing.
+        - updated examples/xachvision.
+        - make configuration more paranoid (break with standalone build rather
+          than inside the gimp).
+        - docfix by Alexander Kurz.
+        - save_image now saves png again (reported by Michael Guntsche).
+        - perlotine updated (patches by Michael Guntsche and Seth).
+
 1.201 Thu Aug 24 23:44:43 CEST 2000
 	** LAST VERSION THAT WORKS WITH 1.0 **
 	- s/gimp_plugin_domain_add/gimp_plugin_domain_register/

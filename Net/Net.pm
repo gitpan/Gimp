@@ -20,7 +20,7 @@ use Fcntl qw(F_SETFD);
 
 require DynaLoader;
 
-$VERSION = 1.201;
+$VERSION = 1.21;
 
 bootstrap Gimp::Net $VERSION;
 
@@ -171,15 +171,17 @@ sub start_server {
                  (&Gimp::_PS_FLAG_BATCH | &Gimp::_PS_FLAG_QUIET)." ".
                  fileno($gimp_fh);
       push(@args,"--no-data") if $opt=~s/(^|:)no-?data//;
-      push(@args,"-n") unless $opt=~s/(^|:)gui//;
+      push(@args,"-i") unless $opt=~s/(^|:)gui//;
       push(@args,"--verbose") if $Gimp::verbose;
       { # block to suppress warning with broken perls (e.g. 5.004)
          exec $Gimp::Config{GIMP},
               "--no-splash",
+              "--no-splash-image",
+              "--enable-stack-trace", "never",
+              "--console-messages",
               @args,
               "-b",
               "(extension-perl-server $args)",
-              "(gimp_quit 0)",
               "(gimp-quit 0)";
       }
       exit(255);
