@@ -5,12 +5,6 @@
 
 # it's really easy
 
-# these two lines are just to be able to quickly test this
-# plug-in without having to make install the Gimp module.
-# should be removed.
-use lib '/localvol/root/src/Gimp';
-use lib '/localvol/root/src/Gimp/blib/arch';
-
 use Gimp qw( :consts :procs );
 
 $blend1 = [0, 150, 255];
@@ -151,7 +145,7 @@ sub extension_perl_test {
 sub query {
   gimp_install_procedure("extension_perl_test", "a test extension in perl",
                         "try it out", "Marc Lehmann", "Marc Lehmann", "1997-02-06",
-                        "<Toolbox>/Xtns/Perl-Test", "*", PROC_EXTENSION,
+                        "<Toolbox>/Xtns/Homepage-Logo", "*", PROC_EXTENSION,
                         [[PARAM_INT32, "run_mode", "Interactive, [non-interactive]"]], []);
 }
 

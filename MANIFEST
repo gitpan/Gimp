@@ -6,6 +6,10 @@ TODO
 Makefile.PL
 test.pl
 typemap
-plugin.pl
 extradefs.h
-gimpenums
+Gimp/OO.pm
+Gimp/Util.pm
+examples/Create_Images
+examples/image_list
+examples/example-oo.pl
+examples/homepage-logo.pl

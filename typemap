@@ -37,3 +37,22 @@ GRunProc					T_PTROBJ
 GDrawable *					T_PTROBJ
 gulong *					T_PTROBJ
 char ***					T_PTROBJ
+IMAGE						T_PREF
+LAYER						T_PREF
+COLOR						T_PREF
+CHANNEL						T_PREF
+DRAWABLE					T_PREF
+DISPLAY						T_PREF
+REGION						T_PREF
+
+OUTPUT
+
+T_PREF
+	$arg = autobless (newSViv($var), PARAM_$ntype);
+
+INPUT
+
+T_PREF
+	$var = unbless ($arg)
+
+

@@ -23,4 +23,9 @@ Revision history for Perl extension Gimp.
 	- added set_trace and trace capabilities. helps to track down bugs in
 	  pdb calls
 
+0.06  Wed Feb 11 02:42:24 CET 1998
+	- the first user sent an example script ;)
+	- PARAM_STRING's are now correctly displayed in traces
+	- start of Gimp::Util, not very convincing
+	- pseudo-oo interface, see Gimp::OO
 

@@ -24,7 +24,27 @@ extern "C" {
 #define TRACE_DESC	0x41
 #define TRACE_ALL	0xff
 
+#define GIMP_PKG	"Gimp::"	/* the package name */
+
+#define PKG_COLOR	GIMP_PKG "Color"
+#define PKG_REGION	GIMP_PKG "Region"
+#define PKG_DISPLAY	GIMP_PKG "Display"
+#define PKG_IMAGE	GIMP_PKG "Image"
+#define PKG_LAYER	GIMP_PKG "Layer"
+#define PKG_CHANNEL	GIMP_PKG "Channel"
+#define PKG_DRAWABLE	GIMP_PKG "Drawable"
+#define PKG_SELECTION	GIMP_PKG "Selection"
+
 static int trace = TRACE_NONE;
+
+typedef guint32 IMAGE;
+typedef guint32 LAYER;
+typedef guint32 CHANNEL;
+typedef guint32 DRAWABLE;
+typedef guint32 SELECTION;
+typedef guint32 DISPLAY;
+typedef guint32 REGION;
+typedef guint32 COLOR;
 
 static int
 not_here(s)
@@ -299,6 +319,182 @@ not_there:
 }
 
 static void
+dump_params (int nparams, GParam *args, GParamDef *params)
+{
+  static char *ptype[22] = {
+    "INT32"      , "INT16"      , "INT8"      , "FLOAT"      , "STRING"     ,
+    "INT32ARRAY" , "INT16ARRAY" , "INT8ARRAY" , "FLOATARRAY" , "STRINGARRAY",
+    "COLOR"      , "REGION"     , "DISPLAY"   , "IMAGE"      , "LAYER"      ,
+    "CHANNEL"    , "DRAWABLE"   , "SELECTION" , "BOUNDARY"   , "PATH"       ,
+    "STATUS"     , "END"
+  };
+  int i;
+  
+  fprintf (stderr, "(");
+  
+  if ((trace & TRACE_DESC) == TRACE_DESC)
+    fprintf (stderr, "\n\t");
+  
+  for (i = 0; i < nparams; i++)
+    {
+      if ((trace & TRACE_TYPE) == TRACE_TYPE)
+        if (params[i].type >= 0 && params[i].type < 22)
+          fprintf (stderr, "%s ", ptype[params[i].type]);
+        else
+          fprintf (stderr, "T%d ", params[i].type);
+      
+      if ((trace & TRACE_NAME) == TRACE_NAME)
+        fprintf (stderr, "%s=", params[i].name);
+      
+      switch (args[i].type)
+        {
+          case PARAM_INT32:	fprintf (stderr, "%d", args[i].data.d_int32); break;
+          case PARAM_INT16:	fprintf (stderr, "%d", args[i].data.d_int16); break;
+          case PARAM_INT8:	fprintf (stderr, "%d", args[i].data.d_int8); break;
+          case PARAM_FLOAT:	fprintf (stderr, "%d", args[i].data.d_float); break;
+          case PARAM_STRING:	fprintf (stderr, "\"%s\"", args[i].data.d_string); break;
+          case PARAM_DISPLAY:	fprintf (stderr, "%d", args[i].data.d_display); break;
+          case PARAM_IMAGE:	fprintf (stderr, "%d", args[i].data.d_image); break;
+          case PARAM_LAYER:	fprintf (stderr, "%d", args[i].data.d_layer); break;
+          case PARAM_CHANNEL:	fprintf (stderr, "%d", args[i].data.d_channel); break;
+          case PARAM_DRAWABLE:	fprintf (stderr, "%d", args[i].data.d_drawable); break;
+          case PARAM_SELECTION:	fprintf (stderr, "%d", args[i].data.d_selection); break;
+          case PARAM_BOUNDARY:	fprintf (stderr, "%d", args[i].data.d_boundary); break;
+          case PARAM_PATH:	fprintf (stderr, "%d", args[i].data.d_path); break;
+          case PARAM_STATUS:	fprintf (stderr, "%d", args[i].data.d_status); break;
+          
+          case PARAM_COLOR:
+            fprintf (stderr, "[%d,%d,%d]",
+                     args[i].data.d_color.red, args[i].data.d_color.green, args[i].data.d_color.blue);
+            break;
+            
+          default:
+            fprintf (stderr, "(?)");
+        }
+      
+      if ((trace & TRACE_DESC) == TRACE_DESC)
+        fprintf (stderr, "\t\"%s\"\n\t", params[i].description);
+      else if (i < nparams - 1)
+        fprintf (stderr, ", ");
+      
+    }
+  
+  fprintf (stderr, ")");
+}
+
+static void
+convert_sv2paramdef (GParamDef *par, SV *sv)
+{
+  SV *type = 0;
+  SV *name = 0;
+  SV *help = 0;
+  
+  if (SvROK (sv) && SvTYPE (SvRV (sv)) == SVt_PVAV)
+    {
+      AV *av = (AV *)SvRV(sv);
+      SV **x;
+      
+      if ((x = av_fetch (av, 0, 0))) type = *x;
+      if ((x = av_fetch (av, 1, 0))) name = *x;
+      if ((x = av_fetch (av, 2, 0))) help = *x;
+    }
+  else if (SvIOK(sv))
+    type = sv;
+
+  if (type)
+    {
+      par->type = SvIV (type);
+      par->name = name ? SvPV (name, na) : 0;
+      par->description = help ? SvPV (help, na) : 0;
+    }
+  else
+    croak ("malformed paramdef, expected [PARAM_TYPE,\"NAME\",\"DESCRIPTION\"] or PARAM_TYPE");
+}
+
+/* automatically bless SV into PARAM_type.  */
+/* for what it's worth, we cache the stashes.  */
+static SV *
+autobless (SV *sv, int type)
+{
+  static HV *bless_hv[22]; /* initialized to zero */
+   static char *bless[22] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                             PKG_COLOR,
+                             PKG_REGION,
+                             PKG_DISPLAY,
+                             PKG_IMAGE,
+                             PKG_LAYER,
+                             PKG_CHANNEL,
+                             PKG_DRAWABLE,
+                             PKG_SELECTION,
+                             0, 0, 0, 0 };
+  
+  if (bless [type])
+    {
+      if (!bless_hv [type])
+        bless_hv [type] = gv_stashpv (bless [type], 1);
+      
+      sv = sv_bless (newRV_noinc (sv), bless_hv [type]);
+    }
+  
+  return sv;
+}
+
+/* return gint32 from object, wether iv or rv.  */
+static gint32
+unbless (SV *sv)
+{
+  if (SvROK (sv))
+    {
+      if (SvTYPE (SvRV (sv)) == SVt_PVMG)
+        return SvIV (SvRV (sv));
+      else
+        croak ("only blessed scalars accepted here");
+    }
+  else
+    return SvIV (sv);
+}
+
+static SV *
+convert_gimp2sv (GParam *arg)
+{
+  SV *sv;
+  AV *av;
+  
+  switch (arg->type)
+    {
+      case PARAM_INT32:		sv = newSViv(arg->data.d_int32	); break;
+      case PARAM_INT16:		sv = newSViv(arg->data.d_int16	); break;
+      case PARAM_INT8:		sv = newSViv(arg->data.d_int8	); break;
+      case PARAM_FLOAT:		sv = newSVnv(arg->data.d_float	); break;
+      case PARAM_STRING:	sv = newSVpv(arg->data.d_string, strlen(arg->data.d_string)); break;
+      case PARAM_DISPLAY:	sv = newSViv(arg->data.d_display); break;
+      case PARAM_IMAGE:		sv = newSViv(arg->data.d_image	); break;
+      case PARAM_LAYER:		sv = newSViv(arg->data.d_layer	); break;
+      case PARAM_CHANNEL:	sv = newSViv(arg->data.d_channel); break;
+      case PARAM_DRAWABLE:	sv = newSViv(arg->data.d_drawable); break;
+      case PARAM_SELECTION:	sv = newSViv(arg->data.d_selection); break;
+      case PARAM_BOUNDARY:	sv = newSViv(arg->data.d_boundary); break;
+      case PARAM_PATH:		sv = newSViv(arg->data.d_path	); break;
+      case PARAM_STATUS:	sv = newSViv(arg->data.d_status	); break;
+      case PARAM_COLOR:
+        /* difficult */
+        av = newAV ();
+        av_push (av, newSViv (arg->data.d_color.red));
+        av_push (av, newSViv (arg->data.d_color.green));
+        av_push (av, newSViv (arg->data.d_color.blue));
+        sv = newRV_inc ((SV *)av);
+        break;
+        
+      default:
+        fatal ("dunno how to return param type %d", arg->type);
+/*        sv = sv_newmortal ();*/
+        abort ();
+    }
+  
+  return autobless (sv, arg->type);
+}
+
+static void
 convert_sv2gimp (char *err, GParam *arg, SV *sv)
 {
   switch (arg->type)
@@ -308,12 +504,12 @@ convert_sv2gimp (char *err, GParam *arg, SV *sv)
       case PARAM_INT8:		arg->data.d_int8	= SvIV(sv); break;
       case PARAM_FLOAT:		arg->data.d_float	= SvNV(sv); break;
       case PARAM_STRING:	arg->data.d_string	= SvPV(sv, na); break;
-      case PARAM_DISPLAY:	arg->data.d_display	= SvIV(sv); break;
-      case PARAM_IMAGE:		arg->data.d_image	= SvIV(sv); break;
-      case PARAM_LAYER:		arg->data.d_layer	= SvIV(sv); break;
-      case PARAM_CHANNEL:	arg->data.d_channel	= SvIV(sv); break;
-      case PARAM_DRAWABLE:	arg->data.d_drawable	= SvIV(sv); break;
-      case PARAM_SELECTION:	arg->data.d_selection= SvIV(sv); break;
+      case PARAM_DISPLAY:	arg->data.d_display	= unbless(sv); break;
+      case PARAM_IMAGE:		arg->data.d_image	= unbless(sv); break;
+      case PARAM_LAYER:		arg->data.d_layer	= unbless(sv); break;
+      case PARAM_CHANNEL:	arg->data.d_channel	= unbless(sv); break;
+      case PARAM_DRAWABLE:	arg->data.d_drawable	= unbless(sv); break;
+      case PARAM_SELECTION:	arg->data.d_selection	= unbless(sv); break;
       case PARAM_BOUNDARY:	arg->data.d_boundary	= SvIV(sv); break;
       case PARAM_PATH:		arg->data.d_path	= SvIV(sv); break;
       case PARAM_STATUS:	arg->data.d_status	= SvIV(sv); break;
@@ -357,138 +553,6 @@ convert_sv2gimp (char *err, GParam *arg, SV *sv)
     }
 }
 
-static void
-convert_sv2paramdef (GParamDef *par, SV *sv)
-{
-  SV *type = 0;
-  SV *name = 0;
-  SV *help = 0;
-  
-  if (SvROK (sv) && SvTYPE(SvRV(sv)) == SVt_PVAV)
-    {
-      AV *av = (AV *)SvRV(sv);
-      SV **x;
-      
-      if ((x = av_fetch (av, 0, 0))) type = *x;
-      if ((x = av_fetch (av, 1, 0))) name = *x;
-      if ((x = av_fetch (av, 2, 0))) help = *x;
-    }
-  else if (SvIOK(sv))
-    type = sv;
-
-  if (type)
-    {
-      par->type = SvIV (type);
-      par->name = name ? SvPV (name, na) : 0;
-      par->description = help ? SvPV (help, na) : 0;
-    }
-  else
-    croak ("malformed paramdef, expected [PARAM_TYPE,\"NAME\",\"DESCRIPTION\"] or PARAM_TYPE");
-}
-
-static SV *
-convert_gimp2sv (GParam *arg)
-{
-  SV *sv;
-  AV *av;
-  
-  switch (arg->type)
-    {
-      case PARAM_INT32:		sv = newSViv(arg->data.d_int32	); break;
-      case PARAM_INT16:		sv = newSViv(arg->data.d_int16	); break;
-      case PARAM_INT8:		sv = newSViv(arg->data.d_int8	); break;
-      case PARAM_FLOAT:		sv = newSVnv(arg->data.d_float	); break;
-      case PARAM_STRING:	sv = newSVpv(arg->data.d_string, strlen(arg->data.d_string)); break;
-      case PARAM_DISPLAY:	sv = newSViv(arg->data.d_display); break;
-      case PARAM_IMAGE:		sv = newSViv(arg->data.d_image	); break;
-      case PARAM_LAYER:		sv = newSViv(arg->data.d_layer	); break;
-      case PARAM_CHANNEL:	sv = newSViv(arg->data.d_channel); break;
-      case PARAM_DRAWABLE:	sv = newSViv(arg->data.d_drawable); break;
-      case PARAM_SELECTION:	sv = newSViv(arg->data.d_selection); break;
-      case PARAM_BOUNDARY:	sv = newSViv(arg->data.d_boundary); break;
-      case PARAM_PATH:		sv = newSViv(arg->data.d_path	); break;
-      case PARAM_STATUS:	sv = newSViv(arg->data.d_status	); break;
-      case PARAM_COLOR:
-        /* difficult */
-        av = newAV ();
-        av_push (av, newSViv (arg->data.d_color.red));
-        av_push (av, newSViv (arg->data.d_color.green));
-        av_push (av, newSViv (arg->data.d_color.blue));
-        sv = newRV_inc ((SV *)av);
-        break;
-        
-      default:
-        fatal ("dunno how to return param type %d", arg->type);
-        sv = sv_newmortal ();
-    }
-  
-  return sv;
-}
-
-static void
-dump_params (int nparams, GParam *args, GParamDef *params)
-{
-  static char *ptype[22] = {
-    "INT32"      , "INT16"      , "INT8"      , "FLOAT"      , "STRING"     ,
-    "INT32ARRAY" , "INT16ARRAY" , "INT8ARRAY" , "FLOATARRAY" , "STRINGARRAY",
-    "COLOR"      , "REGION"     , "DISPLAY"   , "IMAGE"      , "LAYER"      ,
-    "CHANNEL"    , "DRAWABLE"   , "SELECTION" , "BOUNDARY"   , "PATH"       ,
-    "STATUS"     , "END"
-  };
-  int i;
-  
-  fprintf (stderr, "(");
-  
-  if ((trace & TRACE_DESC) == TRACE_DESC)
-    fprintf (stderr, "\n\t");
-  
-  for (i = 0; i < nparams; i++)
-    {
-      if ((trace & TRACE_TYPE) == TRACE_TYPE)
-        if (params[i].type >= 0 && params[i].type < 22)
-          fprintf (stderr, "%s ", ptype[params[i].type]);
-        else
-          fprintf (stderr, "T%d ", params[i].type);
-      
-      if ((trace & TRACE_NAME) == TRACE_NAME)
-        fprintf (stderr, "%s=", params[i].name);
-      
-      switch (args[i].type)
-        {
-          case PARAM_INT32:	fprintf (stderr, "%d", args[i].data.d_int32); break;
-          case PARAM_INT16:	fprintf (stderr, "%d", args[i].data.d_int16); break;
-          case PARAM_INT8:	fprintf (stderr, "%d", args[i].data.d_int8); break;
-          case PARAM_FLOAT:	fprintf (stderr, "%d", args[i].data.d_float); break;
-          case PARAM_STRING:	fprintf (stderr, "%d", args[i].data.d_string); break;
-          case PARAM_DISPLAY:	fprintf (stderr, "%d", args[i].data.d_display); break;
-          case PARAM_IMAGE:	fprintf (stderr, "%d", args[i].data.d_image); break;
-          case PARAM_LAYER:	fprintf (stderr, "%d", args[i].data.d_layer); break;
-          case PARAM_CHANNEL:	fprintf (stderr, "%d", args[i].data.d_channel); break;
-          case PARAM_DRAWABLE:	fprintf (stderr, "%d", args[i].data.d_drawable); break;
-          case PARAM_SELECTION:	fprintf (stderr, "%d", args[i].data.d_selection); break;
-          case PARAM_BOUNDARY:	fprintf (stderr, "%d", args[i].data.d_boundary); break;
-          case PARAM_PATH:	fprintf (stderr, "%d", args[i].data.d_path); break;
-          case PARAM_STATUS:	fprintf (stderr, "%d", args[i].data.d_status); break;
-          
-          case PARAM_COLOR:
-            fprintf (stderr, "[%d,%d,%d]",
-                     args[i].data.d_color.red, args[i].data.d_color.green, args[i].data.d_color.blue);
-            break;
-            
-          default:
-            fprintf (stderr, "(?)");
-        }
-      
-      if ((trace & TRACE_DESC) == TRACE_DESC)
-        fprintf (stderr, "\t\"%s\"\n\t", params[i].description);
-      else if (i < nparams - 1)
-        fprintf (stderr, ", ");
-      
-    }
-  
-  fprintf (stderr, ")");
-}
-
 static void pii_init(void)
 {
   dSP; PUSHMARK(sp); perl_call_pv ("init", G_DISCARD | G_NOARGS);
@@ -528,7 +592,6 @@ static void pii_run(char *name, int nparams, GParam *param, int *nreturn_vals, G
   
   SPAGAIN;
   
-  PUTBACK;
   FREETMPS;
   LEAVE;
   
@@ -871,7 +934,7 @@ gimp_color_cube()
 gchar *
 gimp_gtkrc()
 
-gint32
+IMAGE
 gimp_image_new(width, height, type)
 	guint	width
 	guint	height
@@ -879,134 +942,134 @@ gimp_image_new(width, height, type)
 
 void
 gimp_image_delete(image_ID)
-	gint32	image_ID
+	IMAGE	image_ID
 
 guint
 gimp_image_width(image_ID)
-	gint32	image_ID
+	IMAGE	image_ID
 
 guint
 gimp_image_height(image_ID)
-	gint32	image_ID
+	IMAGE	image_ID
 
 GImageType
 gimp_image_base_type(image_ID)
-	gint32	image_ID
+	IMAGE	image_ID
 
-gint32
+LAYER
 gimp_image_floating_selection(image_ID)
-	gint32	image_ID
+	IMAGE	image_ID
 
 void
 gimp_image_add_channel(image_ID, channel_ID, position)
-	gint32	image_ID
-	gint32	channel_ID
+	IMAGE	image_ID
+	CHANNEL	channel_ID
 	gint	position
 
 void
 gimp_image_add_layer(image_ID, layer_ID, position)
-	gint32	image_ID
-	gint32	layer_ID
+	IMAGE	image_ID
+	LAYER	layer_ID
 	gint	position
 
 void
 gimp_image_add_layer_mask(image_ID, layer_ID, mask_ID)
-	gint32	image_ID
-	gint32	layer_ID
-	gint32	mask_ID
+	IMAGE	image_ID
+	LAYER	layer_ID
+	LAYER	mask_ID
 
 void
 gimp_image_clean_all(image_ID)
-	gint32	image_ID
+	IMAGE	image_ID
 
 void
 gimp_image_disable_undo(image_ID)
-	gint32	image_ID
+	IMAGE	image_ID
 
 void
 gimp_image_enable_undo(image_ID)
-	gint32	image_ID
+	IMAGE	image_ID
 
 void
 gimp_image_flatten(image_ID)
-	gint32	image_ID
+	IMAGE	image_ID
 
 void
 gimp_image_lower_channel(image_ID, channel_ID)
-	gint32	image_ID
-	gint32	channel_ID
+	IMAGE	image_ID
+	CHANNEL	channel_ID
 
 void
 gimp_image_lower_layer(image_ID, layer_ID)
-	gint32	image_ID
-	gint32	layer_ID
+	IMAGE	image_ID
+	CHANNEL	layer_ID
 
-gint32
+LAYER
 gimp_image_merge_visible_layers(image_ID, merge_type)
-	gint32	image_ID
+	IMAGE	image_ID
 	gint	merge_type
 
-gint32
+LAYER
 gimp_image_pick_correlate_layer(image_ID, x, y)
-	gint32	image_ID
+	IMAGE	image_ID
 	gint	x
 	gint	y
 
 void
 gimp_image_raise_channel(image_ID, channel_ID)
-	gint32	image_ID
-	gint32	channel_ID
+	IMAGE	image_ID
+	CHANNEL	channel_ID
 
 void
 gimp_image_raise_layer(image_ID, layer_ID)
-	gint32	image_ID
-	gint32	layer_ID
+	IMAGE	image_ID
+	LAYER	layer_ID
 
 void
 gimp_image_remove_channel(image_ID, channel_ID)
-	gint32	image_ID
-	gint32	channel_ID
+	IMAGE	image_ID
+	CHANNEL	channel_ID
 
 void
 gimp_image_remove_layer(image_ID, layer_ID)
-	gint32	image_ID
-	gint32	layer_ID
+	IMAGE	image_ID
+	LAYER	layer_ID
 
 void
 gimp_image_remove_layer_mask(image_ID, layer_ID, mode)
-	gint32	image_ID
-	gint32	layer_ID
+	IMAGE	image_ID
+	LAYER	layer_ID
 	gint	mode
 
 void
 gimp_image_resize(image_ID, new_width, new_height, offset_x, offset_y)
-	gint32	image_ID
+	IMAGE	image_ID
 	guint	new_width
 	guint	new_height
 	gint	offset_x
 	gint	offset_y
 
-gint32
+CHANNEL
 gimp_image_get_active_channel(image_ID)
-	gint32	image_ID
+	IMAGE	image_ID
 
-gint32
+LAYER
 gimp_image_get_active_layer(image_ID)
-	gint32	image_ID
+	IMAGE	image_ID
 
 gint32 *
 gimp_image_get_channels(image_ID, nchannels)
-	gint32	image_ID
+	IMAGE	image_ID
 	gint *	nchannels
 
 guchar *
 gimp_image_get_cmap(image_ID, ncolors)
-	gint32	image_ID
+	IMAGE	image_ID
 	gint *	ncolors
 
 gint
 gimp_image_get_component_active(image_ID, component)
-	gint32	image_ID
+	IMAGE	image_ID
 	gint	component
 
 #
@@ -1020,42 +1083,42 @@ gimp_image_get_component_active(image_ID, component)
 
 char *
 gimp_image_get_filename(image_ID)
-	gint32	image_ID
+	IMAGE	image_ID
 
 gint32 *
 gimp_image_get_layers(image_ID, nlayers)
-	gint32	image_ID
+	IMAGE	image_ID
 	gint *	nlayers
 
 gint32
 gimp_image_get_selection(image_ID)
-	gint32	image_ID
+	IMAGE	image_ID
 
 void
 gimp_image_set_active_channel(image_ID, channel_ID)
-	gint32	image_ID
-	gint32	channel_ID
+	IMAGE	image_ID
+	IMAGE	channel_ID
 
 void
 gimp_image_set_active_layer(image_ID, layer_ID)
-	gint32	image_ID
-	gint32	layer_ID
+	IMAGE	image_ID
+	LAYER	layer_ID
 
 void
 gimp_image_set_cmap(image_ID, cmap, ncolors)
-	gint32	image_ID
-	guchar *	cmap
+	IMAGE	image_ID
+	guchar *cmap
 	gint	ncolors
 
 void
 gimp_image_set_component_active(image_ID, component, active)
-	gint32	image_ID
+	IMAGE	image_ID
 	gint	component
 	gint	active
 
 void
 gimp_image_set_component_visible(image_ID, component, visible)
-	gint32	image_ID
+	IMAGE	image_ID
 	gint	component
 	gint	visible
 
@@ -1064,13 +1127,13 @@ gimp_image_set_filename(image_ID, name)
 	gint32	image_ID
 	char *	name
 
-gint32
+DISPLAY
 gimp_display_new(image_ID)
-	gint32	image_ID
+	IMAGE	image_ID
 
 void
 gimp_display_delete(display_ID)
-	gint32	display_ID
+	DISPLAY	display_ID
 
 void
 gimp_displays_flush()
@@ -1092,36 +1155,36 @@ gimp_displays_flush()
 
 void
 gimp_layer_delete(layer_ID)
-	gint32	layer_ID
+	LAYER	layer_ID
 
 guint
 gimp_layer_width(layer_ID)
-	gint32	layer_ID
+	LAYER	layer_ID
 
 guint
 gimp_layer_height(layer_ID)
-	gint32	layer_ID
+	LAYER	layer_ID
 
 guint
 gimp_layer_bpp(layer_ID)
-	gint32	layer_ID
+	LAYER	layer_ID
 
 GDrawableType
 gimp_layer_type(layer_ID)
-	gint32	layer_ID
+	LAYER	layer_ID
 
 void
 gimp_layer_add_alpha(layer_ID)
-	gint32	layer_ID
+	LAYER	layer_ID
 
 gint32
 gimp_layer_create_mask(layer_ID, mask_type)
-	gint32	layer_ID
+	LAYER	layer_ID
 	gint	mask_type
 
 void
 gimp_layer_resize(layer_ID, new_width, new_height, offset_x, offset_y)
-	gint32	layer_ID
+	LAYER	layer_ID
 	guint	new_width
 	guint	new_height
 	gint	offset_x
@@ -1129,32 +1192,32 @@ gimp_layer_resize(layer_ID, new_width, new_height, offset_x, offset_y)
 
 void
 gimp_layer_scale(layer_ID, new_width, new_height, local_origin)
-	gint32	layer_ID
+	LAYER	layer_ID
 	guint	new_width
 	guint	new_height
 	gint	local_origin
 
 void
 gimp_layer_translate(layer_ID, offset_x, offset_y)
-	gint32	layer_ID
+	LAYER	layer_ID
 	gint	offset_x
 	gint	offset_y
 
 gint
 gimp_layer_is_floating_selection(layer_ID)
-	gint32	layer_ID
+	LAYER	layer_ID
 
-gint32
+IMAGE
 gimp_layer_get_image_id(layer_ID)
-	gint32	layer_ID
+	LAYER	layer_ID
 
-gint32
+LAYER
 gimp_layer_get_mask_id(layer_ID)
-	gint32	layer_ID
+	LAYER	layer_ID
 
 gint
 gimp_layer_get_apply_mask(layer_ID)
-	gint32	layer_ID
+	LAYER	layer_ID
 
 gint
 gimp_layer_get_edit_mask(layer_ID)
@@ -1162,23 +1225,23 @@ gimp_layer_get_edit_mask(layer_ID)
 
 GLayerMode
 gimp_layer_get_mode(layer_ID)
-	gint32	layer_ID
+	LAYER	layer_ID
 
 char *
 gimp_layer_get_name(layer_ID)
-	gint32	layer_ID
+	LAYER	layer_ID
 
 gdouble
 gimp_layer_get_opacity(layer_ID)
-	gint32	layer_ID
+	LAYER	layer_ID
 
 gint
 gimp_layer_get_preserve_transparency(layer_ID)
-	gint32	layer_ID
+	LAYER	layer_ID
 
 gint
 gimp_layer_get_show_mask(layer_ID)
-	gint32	layer_ID
+	LAYER	layer_ID
 
 gint
 gimp_layer_get_visible(layer_ID)
@@ -1186,97 +1249,97 @@ gimp_layer_get_visible(layer_ID)
 
 void
 gimp_layer_set_apply_mask(layer_ID, apply_mask)
-	gint32	layer_ID
+	LAYER	layer_ID
 	gint	apply_mask
 
 void
 gimp_layer_set_edit_mask(layer_ID, edit_mask)
-	gint32	layer_ID
+	LAYER	layer_ID
 	gint	edit_mask
 
 void
 gimp_layer_set_mode(layer_ID, mode)
-	gint32	layer_ID
+	LAYER	layer_ID
 	GLayerMode	mode
 
 void
 gimp_layer_set_name(layer_ID, name)
-	gint32	layer_ID
+	LAYER	layer_ID
 	char *	name
 
 void
 gimp_layer_set_offsets(layer_ID, offset_x, offset_y)
-	gint32	layer_ID
+	LAYER	layer_ID
 	gint	offset_x
 	gint	offset_y
 
 void
 gimp_layer_set_opacity(layer_ID, opacity)
-	gint32	layer_ID
+	LAYER	layer_ID
 	gdouble	opacity
 
 void
 gimp_layer_set_preserve_transparency(layer_ID, preserve_transparency)
-	gint32	layer_ID
+	LAYER	layer_ID
 	gint	preserve_transparency
 
 void
 gimp_layer_set_show_mask(layer_ID, show_mask)
-	gint32	layer_ID
+	LAYER	layer_ID
 	gint	show_mask
 
 void
 gimp_layer_set_visible(layer_ID, visible)
-	gint32	layer_ID
+	LAYER	layer_ID
 	gint	visible
 
-gint32
+CHANNEL
 gimp_channel_new(image_ID, name, width, height, opacity, color)
-	gint32	image_ID
+	IMAGE	image_ID
 	char *	name
 	guint	width
 	guint	height
 	gdouble	opacity
 	guchar *	color
 
-gint32
+CHANNEL
 gimp_channel_copy(channel_ID)
-	gint32	channel_ID
+	CHANNEL	channel_ID
 
 void
 gimp_channel_delete(channel_ID)
-	gint32	channel_ID
+	CHANNEL	channel_ID
 
 guint
 gimp_channel_width(channel_ID)
-	gint32	channel_ID
+	CHANNEL	channel_ID
 
 guint
 gimp_channel_height(channel_ID)
-	gint32	channel_ID
+	CHANNEL	channel_ID
 
-gint32
+IMAGE
 gimp_channel_get_image_id(channel_ID)
-	gint32	channel_ID
+	CHANNEL	channel_ID
 
-gint32
+LAYER
 gimp_channel_get_layer_id(channel_ID)
-	gint32	channel_ID
+	CHANNEL	channel_ID
 
 void
 gimp_channel_get_color(channel_ID, red, green, blue)
-	gint32	channel_ID
+	CHANNEL	channel_ID
 	guchar *	red
 	guchar *	green
 	guchar *	blue
 
 char *
 gimp_channel_get_name(channel_ID)
-	gint32	channel_ID
+	CHANNEL	channel_ID
 
 gdouble
 gimp_channel_get_opacity(channel_ID)
-	gint32	channel_ID
+	CHANNEL	channel_ID
 
 #
 # not implemented in libgimp!
@@ -1287,7 +1350,7 @@ gimp_channel_get_opacity(channel_ID)
 
 gint
 gimp_channel_get_visible(channel_ID)
-	gint32	channel_ID
+	CHANNEL	channel_ID
 
 #
 # more orthogonality: use pdb version instead,
@@ -1302,12 +1365,12 @@ gimp_channel_get_visible(channel_ID)
 
 void
 gimp_channel_set_name(channel_ID, name)
-	gint32	channel_ID
+	CHANNEL	channel_ID
 	char *	name
 
 void
 gimp_channel_set_opacity(channel_ID, opacity)
-	gint32	channel_ID
+	CHANNEL	channel_ID
 	gdouble	opacity
 
 #
@@ -1320,12 +1383,12 @@ gimp_channel_set_opacity(channel_ID, opacity)
 
 void
 gimp_channel_set_visible(channel_ID, visible)
-	gint32	channel_ID
+	CHANNEL	channel_ID
 	gint	visible
 
 GDrawable *
 gimp_drawable_get(drawable_ID)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 
 void
 gimp_drawable_detach(drawable)
@@ -1341,7 +1404,7 @@ gimp_drawable_delete(drawable)
 
 void
 gimp_drawable_update(drawable_ID, x, y, width, height)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 	gint	x
 	gint	y
 	guint	width
@@ -1349,68 +1412,68 @@ gimp_drawable_update(drawable_ID, x, y, width, height)
 
 void
 gimp_drawable_merge_shadow(drawable_ID, undoable)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 	gint	undoable
 
-gint32
+IMAGE
 gimp_drawable_image_id(drawable_ID)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 
 char *
 gimp_drawable_name(drawable_ID)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 
 guint
 gimp_drawable_width(drawable_ID)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 
 guint
 gimp_drawable_height(drawable_ID)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 
 guint
 gimp_drawable_bpp(drawable_ID)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 
 GDrawableType
 gimp_drawable_type(drawable_ID)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 
 gint
 gimp_drawable_visible(drawable_ID)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 
 gint
 gimp_drawable_channel(drawable_ID)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 
 gint
 gimp_drawable_color(drawable_ID)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 
 gint
 gimp_drawable_gray(drawable_ID)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 
 gint
 gimp_drawable_has_alpha(drawable_ID)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 
 gint
 gimp_drawable_indexed(drawable_ID)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 
 gint
 gimp_drawable_layer(drawable_ID)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 
 gint
 gimp_drawable_layer_mask(drawable_ID)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 
 gint
 gimp_drawable_mask_bounds(drawable_ID, x1, y1, x2, y2)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 	gint *	x1
 	gint *	y1
 	gint *	x2
@@ -1418,23 +1481,23 @@ gimp_drawable_mask_bounds(drawable_ID, x1, y1, x2, y2)
 
 void
 gimp_drawable_offsets(drawable_ID, offset_x, offset_y)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 	gint *	offset_x
 	gint *	offset_y
 
 void
 gimp_drawable_fill(drawable_ID, fill_type)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 	gint	fill_type
 
 void
 gimp_drawable_set_name(drawable_ID, name)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 	char *	name
 
 void
 gimp_drawable_set_visible(drawable_ID, visible)
-	gint32	drawable_ID
+	DRAWABLE	drawable_ID
 	gint	visible
 
 #GTile *

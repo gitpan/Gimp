@@ -8,6 +8,12 @@ gimp_gradients_get_list
 gimp_gradients_sample_uniform
 gimp_gradients_sample_custom
 
+* default function parameters (with hash %defaults?)
+
+gimp_text(text => "hallo", family => "engraver", size => 20);
+
+* Gimp:OO
+
 * function clash could be solved by adding namespace
 pdb_xxx and/or lib_xxx, i.e. pdb_gimp_palette_set_foreground and
 lib_gimp_palette_set_foreground.
