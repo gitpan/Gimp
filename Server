@@ -1,0 +1,147 @@
+#!/usr/bin/perl
+
+$use_unix	= 1;
+$use_tcp	= 0;	# don't enable tcp.  security...
+
+#ignore these three lines.
+#use lib '/root/src/Gimp';
+#use lib '/root/src/Gimp/blib/lib';
+#use lib '/root/src/Gimp/blib/arch';
+
+use Gimp;
+use Gimp::Net;
+use IO::Socket;
+
+#Gimp::set_trace(&Gimp::TRACE_NAME); #d#
+
+#
+# the protocol is quite easy ;)
+#
+# length_of_packet cmd
+#
+# cmd			response		description
+# QUIT						quit server
+# EXEC in-args		status out-args		run simple command
+#
+# args is "number of arguments" arguments preceded by length
+# type is first character
+# Sscalar-value
+# Aelem1\0elem2...
+# Rclass\0scalar-value
+#
+
+$server_quit = 0;
+
+$max_pkt = 1024*1024;
+
+sub slog {
+  print time(),": ",@_,"\n";
+}
+
+sub handle_request($) {
+  my($fh)=@_;
+  my($length,$req,$data,@args);
+  
+  $fh->timeout(4);
+  $fh->sysread($length,4) == 4 or return 0;
+  $length=unpack("N",$length);
+  $length>0 && $length<$max_pkt or return 0;
+  $fh->sysread($req,4) == 4 or return 0;
+  $fh->sysread($data,$length-4) == $length-4 or return 0;
+  
+  if ($req eq "QUIT") {
+    slog "received QUIT request";
+    $server_quit = 1;
+  } elsif($req eq "EXEC") {
+    ($req,@args)=Gimp::Net::net2args($data);
+    @args=eval { Gimp::gimp_call_procedure($req,@args) };
+    $data=Gimp::Net::args2net($@,@args);
+    print $fh pack("N",length($data)).$data;
+  }
+  return 1;
+}
+
+sub extension_gimp_perl_server {
+  slog "server started";
+  my($unix_path)=$Gimp::Net::default_unix_dir.$Gimp::Net::default_unix_sock;
+  my($rm,%handles,$r,$fh,$f);
+  
+  if ($use_unix) {
+    unlink $unix_path;
+    rmdir $Gimp::Net::default_unix_dir;
+    mkdir $Gimp::Net::default_unix_dir,0700 or die "$!";
+    $unix = new IO::Socket::UNIX (Local => $unix_path, Listen => 5) or die "$!";
+    slog "accepting connections on $unix_path";
+    vec($rm,$unix->fileno,1)=1;
+  }
+  if ($use_tcp) {
+    $tcp = new IO::Socket::INET (LocalPort => $Gimp::Net::default_tcp_port, Listen => 5,
+                                 Reuse => 1) or die "$!";
+    slog "accepting connections on port $Gimp::Net::default_tcp_port";
+    vec($rm,$tcp->fileno,1)=1;
+  }
+  
+  while(!$server_quit) {
+    if(select($r=$rm,undef,undef,undef)>0) {
+      if ($tcp && vec($r,$tcp->fileno,1)) {
+        my($h)=$tcp->accept;
+        $handles{fileno($h)}=$h;
+        vec($rm,$h->fileno,1)=1;
+        slog("accepted tcp connection from ",$h->peerhost);
+      }
+      if ($unix && vec($r,$unix->fileno,1)) {
+        my($h)=$unix->accept();
+        $handles{fileno($h)}=$h;
+        vec($rm,$h->fileno,1)=1;
+        slog("accepted unix connection");
+      }
+      for $f (keys(%handles)) {
+        if(vec($r,$f,1)) {
+          $fh=$handles{$f};
+          unless(handle_request($fh)) {
+            slog "closing connection ",$f;
+            vec($rm,$f,1)=0;
+            delete $handles{$f};
+            undef $fh;
+          }
+        }
+      }
+    }
+  }
+  
+  slog "server going down...";
+  if ($use_tcp) {
+    undef $tcp;
+  }
+  if ($use_unix) {
+    undef $unix;
+    unlink $unix_path;
+    rmdir $Gimp::Net::default_unix_dir;
+  }
+}
+
+sub query {
+  Gimp::gimp_install_procedure("extension_gimp_perl_server", "A Server for Gimp-Perl plug-ins",
+                               "This is the server for plug-ins written using the Gimp::Net module",
+                               "Marc Lehmann", "Marc Lehmann", "1997-02-12",
+                               "<Toolbox>/Xtns/Gimp-Perl-Server", "*",&Gimp::PROC_EXTENSION,
+                               [[&Gimp::PARAM_INT32, "run_mode", "Interactive, [non-interactive]"]],[]);
+}
+
+sub quit {
+}
+
+exit(Gimp::gimp_main());
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,3 +1,4 @@
+README
 Changes
 Gimp.pm
 Gimp.xs
@@ -9,6 +10,9 @@ typemap
 extradefs.h
 Gimp/OO.pm
 Gimp/Util.pm
+Gimp/Net.pm
+example-net.pl
+Server
 examples/Create_Images
 examples/image_list
 examples/example-oo.pl

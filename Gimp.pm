@@ -14,7 +14,7 @@ require AutoLoader;
 # Do not simply export all your public functions/methods/constants.
 @EXPORT = ();
 @EXPORT_OK = qw( AUTOLOAD );
-$VERSION = '0.06';
+$VERSION = '0.07';
 
 @_consts = qw(
 	ADDITION_MODE	ALPHA_MASK	APPLY		BEHIND_MODE	BG_BUCKET_FILL
@@ -179,6 +179,14 @@ too.
 =head1 SYNOPSIS
 
   use Gimp;
+  
+  also:
+  
+  use Gimp::Util;
+  use Gimp::OO;
+  use Gimp::Net;
+  
+  all these have their own manpage.
 
 =head2 IMPORT TAGS
 
@@ -219,29 +227,29 @@ Some noteworthy limitations (subject to be changed):
 
 =over 2
 
-=item -
+=item *
 main() doesn't take arguments, but instead relies on the global
 variables origargc and origargv to do it's job.
 
-=item -
+=item *
 callback procedures do not return anything to The Gimp, not even a status
 argument, which seems to be mandatory by the gimp protocol (which is
 nowhere standardized, though).
 
-=item -
+=item *
 possible memory leaks everywhere... this is my first perl extension ;) Have
 a look, correct it, send me patches!
 
-=item -
+=item *
 this extension may not be thread safe, but I think libgimp isn't
 either, so this is not much of a concern...
 
-=item -
+=item *
 I wrote this extension with 5.004_57 (thread support), so watch out!
 
 =back
 
-=head1 GIMP DATA TYPES
+=head1 SUPPORTED GIMP DATA TYPES
 
 Gimp supports different data types like colors, regions, strings. In
 perl, these are represented as:

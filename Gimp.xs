@@ -486,7 +486,7 @@ convert_gimp2sv (GParam *arg)
         break;
         
       default:
-        fatal ("dunno how to return param type %d", arg->type);
+        croak ("dunno how to return param type %d", arg->type);
 /*        sv = sv_newmortal ();*/
         abort ();
     }

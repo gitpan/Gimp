@@ -29,3 +29,6 @@ Revision history for Perl extension Gimp.
 	- start of Gimp::Util, not very convincing
 	- pseudo-oo interface, see Gimp::OO
 
+0.07  Thu Feb 12 06:51:56 CET 1998
+	- some bugfixes, and the addition of Gimp::Net and an accompanying
+	  server. See example-net.pl for a demo.

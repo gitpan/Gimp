@@ -1,0 +1,144 @@
+NAME
+    Gimp - Perl extension for writing Gimp Extensions/Plug-ins/Load
+    & Save-Handlers
+
+WHY
+    Well, scheme (which is used by script-fu), is IMnsHO the
+    crappiest language ever (well, the crappiest language that one
+    actually can use, so it's not _that_ bad). Scheme has the worst
+    of all languages, no data types, but still using variables. Look
+    at haskell to see how functional is done right.
+
+    I'd loved to write a haskell interface instead, but it was sooo
+    much easier in perl (at least for me..), so here's the Gimp <->
+    Perl interface, mostly a direct libgimp interface. Needless to
+    say, it was (is) very instructive, too.
+
+SYNOPSIS
+      use Gimp;
+      
+      also:
+      
+      use Gimp::Util;
+      use Gimp::OO;
+      use Gimp::Net;
+      
+      all these have their own manpage.
+
+  IMPORT TAGS
+
+    :consts
+        Export useful constants, like RGB, RUN_NONINTERACTIVE etc..
+
+    :procs
+        Export all functions (including all functions from the pdb).
+
+DESCRIPTION
+    Sorry, not much of a description yet. It took me exactly 9 hours
+    to get to version 0.02, so don't expect it to be perfect.
+
+    Look at the sample plug-ins (well, _the_ sample plug-in) that
+    comes with this module. If you write other plug-ins, send them
+    to me! If you have question on use, you might as well ask me
+    (although I'm a busy man, so be patient, or wait for the next
+    version ;)
+
+    It might also prove useful to know how a plug-in is written in
+    c, so have a look at some existing plug-ins in C!
+
+    Anyway, feedback is appreciated, otherwise, I won't publish
+    future version.
+
+    And have a look at the other modules, Gimp::Util and Gimp:OO.
+
+    Some noteworthy limitations (subject to be changed):
+
+    *
+    main() doesn't take arguments, but instead relies on the global
+    variables origargc and origargv to do it's job.
+    *
+    callback procedures do not return anything to The Gimp, not even a status
+    argument, which seems to be mandatory by the gimp protocol (which is
+    nowhere standardized, though).
+    *
+    possible memory leaks everywhere... this is my first perl extension ;) Have
+    a look, correct it, send me patches!
+    *
+    this extension may not be thread safe, but I think libgimp isn't
+    either, so this is not much of a concern...
+    *
+    I wrote this extension with 5.004_57 (thread support), so watch out!
+SUPPORTED GIMP DATA TYPES
+    Gimp supports different data types like colors, regions,
+    strings. In perl, these are represented as:
+
+    INT32, INT16, INT8, FLOAT, STRING
+        normal perl scalars. Anything except STRING will be mapped
+        to a perl-double.
+
+    INT32ARRAY, INT16ARRAY, INT8ARRAY, FLOATARRAY, STRINGARRAY
+        array refs containing scalars of the same type, i.e. [1, 2,
+        3, 4]. (not yet supported).
+
+    COLOR
+        on input, either an array ref with 3 elements (i.e.
+        [233,40,40]) or a X11-like string is accepted ("#rrggbb").
+
+    REGION
+        Not yet supported.
+
+    DISPLAY, IMAGE, LAYER, CHANNEL, DRAWABLE, SELECTION
+        These will be mapped to opaque scalars. In reality these are
+        small integers (like file descriptors).
+
+    BOUNDARY, PATH, STATUS
+        Not yet supported.
+
+Exported functions
+    set_trace (traceflags)
+        Tracking down bugs in gimp scripts is difficult: no sensible
+        error messages. If anything goes wrong, you only get an
+        execution failure. This function is never exported.
+
+        traceflags is any number of the following flags or'ed
+        together.
+
+    TRACE_NONE  nothing is printed.
+
+    TRACE_CALL  all pdb calls (and only podb calls!) are printed with
+                arguments and return values.
+
+    TRACE_TYPE  the parameter types are printed additionally.
+
+    TRACE_NAME  the parameter names are printed.
+
+    TRACE_DESC  the parameter descriptions.
+
+    TRACE_ALL   anything.
+
+    gimp_main ()
+        Should be called immediately when perl is initialized.
+        Arguments are not yet supported. Initializations can later
+        be done in the init function.
+
+    gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, image_types, type, [params], [return_vals])
+        Mostly same as gimp_install_procedure. The parameters and
+        return values for the functions are specified as an array
+        ref containing either integers or array-refs with three
+        elements, [PARAM_TYPE, \"NAME\", \"DESCRIPTION\"].
+
+    progress_init (message)
+        Initializes a progress bar.
+
+    progress_update (percentage)
+        Updates the progress bar.
+
+    Some functions that have a different calling convention than pdb
+    functions with the same name are not visible in the perl module.
+
+AUTHOR
+    Marc Lehmann, pcg@goof.com
+
+SEE ALSO
+    perl(1), gimp(1), Gimp::Util.
+
