@@ -120,6 +120,9 @@ sub Gimp::RUN_FULLINTERACTIVE { &Gimp::RUN_INTERACTIVE+100 };	# you don't want t
 @EXPORT_OK = qw(interact $run_mode save_image);
 %EXPORT_TAGS = (params => [@_params]);
 
+# the old value of the trace flag
+my $old_trace;
+
 sub import {
    undef *{caller()."::main"};
    undef *{caller()."::gimp_main"};
@@ -159,6 +162,7 @@ sub interact($$$@) {
    my($w,$t,$button,$box,$bot,$g);
    my $res=0;
    
+   init Gtk;
    parse Gtk::Rc Gimp->gtkrc;
    
    for(;;) {
@@ -407,9 +411,18 @@ sub this_script {
 
 sub string2pf($$) {
    my($s,$type,$name,$desc)=($_[0],@{$_[1]});
-   if($type==PF_STRING) {
+   if($type==PF_STRING
+      || $type==PF_FONT
+      || $type==PF_PATTERN
+      || $type==PF_BRUSH
+      || $type==PF_GRADIENT) {
       $s;
-   } elsif($type==PF_INT8 || $type==PF_INT16 || $type==PF_INT32) {
+   } elsif($type==PF_INT8
+           || $type==PF_INT16
+           || $type==PF_INT32
+           || $type==PF_SLIDER
+           || $type==PF_SPINNER
+           || $type==PF_ADJUSTMENT) {
       die "$s: not an integer\n" unless $s==int($s);
       $s*1;
    } elsif($type==PF_FLOAT) {
@@ -745,7 +758,9 @@ sub register($$$$$$$$$;@) {
       
       print $function,"(",join(",",(@pre,@_)),")\n" if $Gimp::verbose;
       
+      Gimp::set_trace ($old_trace);
       my @imgs = &$code(@pre,@_);
+      $old_trace = Gimp::set_trace (0);
       
       if (@imgs) {
          for my $i (0..$#imgs) {
@@ -896,6 +911,7 @@ sub print_switches {
 EOF
       print_switches ($this);
    } else {
+      $old_trace = Gimp::set_trace (0);
       Gimp::main;
    }
 };
@@ -909,6 +925,6 @@ Marc Lehmann <pcg@goof.com>
 
 =head1 SEE ALSO
 
-perl(1), L<Gimp>,
+perl(1), L<Gimp>.
 
 =cut

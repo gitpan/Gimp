@@ -130,6 +130,6 @@ Marc Lehmann <pcg@goof.com>
 
 =head1 SEE ALSO
 
-perl(1), Gimp(1),
+perl(1), Gimp(1).
 
 =cut

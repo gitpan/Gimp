@@ -1,5 +1,19 @@
 Revision history for Gimp-Perl extension.
 
+1.044 Sat Oct 24 03:54:47 CEST 1998
+	- allow PF_PATTERN etc. to be usable as commandline arguments
+	- added parasite support -> untested so far
+	- Gimp::Fu wasn't calling Gtk->init anymore
+	- Gimp/Lib.xs wasn't including config.h, and nobody ever noticed ;)
+	- we no longer link against ui-libraries, unless necessary.
+	- added <5.005 warning
+	- many, many configuration changes and hacks
+	- this is now part of the gimp cvs tree
+	- changed LIBS by LDLOADLIBS... hacky, but works
+	- Gimp::Fu will no longer be traced
+	- a run_mode argument at the beginning can now generally be left out
+	- re-enabled the testsuite
+
 1.0431 Thu Oct  8 20:01:32 CEST 1998
 	- compile fix for gimp-1.0
 
@@ -12,16 +26,16 @@ Revision history for Gimp-Perl extension.
 	  (rather than pointsize*10)
 	- added FG_IMAGE_FILL (and fixed the values of the other FILL
 	  constants, which were documented incorrectly)
-	- Please note that you can upload your perl-scripts to the
+	- please note that you can upload your perl-scripts to the
 	  Gimp-registry now(!!!!). Visit http://registry.gimp.org/
 	  and deposit your script ;)
 
 1.042 Mon Oct  5 00:50:04 CEST 1998
 	- implemented PF_ADJUSTMENT to aid scm2perl's job, its undocumented
 	  and should not be used by new code.
-	- Fixed a coredump problem when tracing.
-	- Removed debugging code I accidently left in. Yuck Yuck!
-	- An array size parameter in argument lists is now accepted and
+	- fixed a coredump problem when tracing.
+	- removed debugging code I accidently left in. Yuck Yuck!
+	- an array size parameter in argument lists is now accepted and
 	  silently ignored. This is for script-fu compatibility.
 	- better error handling (I'm on the right track!)
 	- added scm2perl (scheme to perl) to the distribution. Look at

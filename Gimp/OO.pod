@@ -63,6 +63,14 @@ confusing as well. In cases like this, Gimp allows you to write:
 
 And automatically infers the additional IMAGE-type argument.
 
+As the (currently) last goodie, if the first argument is of type INT32, its
+name is "run_mode" and there are no other ambiguties, you can omit it, i.e.
+these three calls are equivalent:
+
+ plug_in_gauss_rle (RUN_NONINTERACTIVE, $image, $layer, 8, 1, 1);
+ plug_in_gauss_rle ($image, $layer, 8, 1, 1);
+ plug_in_gauss_rle ($layer, 8, 1, 1);
+
 You can call all sorts of sensible and not-so-sensible functions,
 so this feature can be abused:
 
@@ -174,6 +182,10 @@ that are checked are shown as well (the null prefix "" is implicit).
 
  gimp_patterns_
 
+=item Parasite
+
+ parasite_
+
 =back
 
 =head1 AUTHOR
@@ -182,5 +194,5 @@ Marc Lehmann <pcg@goof.com>
 
 =head1 SEE ALSO
 
-perl(1), L<Gimp>,
+perl(1), L<Gimp>.
 

@@ -25,6 +25,11 @@ PREREQUISITES
        To install/use this perl extension, you need to have the
        following software packages installed installed:
        
+       Perl5.005_02 (or higher):
+       While this extension should run fine with older versions (it has been
+       tested with 5.004_04), I get many unreproducable bug reports with
+       5.004 that I don't get with 5.005. When in doubt, upgrade.
+       
        The GNU Image Manipulation Program, i.e. The GIMP:
        ftp://ftp.gimp.org/pub/gimp/
        
@@ -76,70 +81,6 @@ SUPPORT/MAILING LISTS/MORE INFO
        http://registry.gimp.org/, there is a special "version" available for
        gimp-perl.
        
-PLOP
        Scheme is the crappiest language ever. Have a look at Haskell
        (http://www.haskell.org) to see how functional is done right.
-
-       
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-22/May/98              perl 5.004, patch 65                     5
-
 

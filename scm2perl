@@ -16,6 +16,10 @@
 
 Watch out for these:
 
+=head1 NAME
+
+scm2perl - convert script-fu to perl
+
 =head1 SYNOPSIS
 
  scm2perl filename.scm...

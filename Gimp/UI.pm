@@ -195,7 +195,6 @@ sub GTK_OBJECT_INIT {
 }
 
 sub new {
-use Carp;   Carp::cluck;
    new Gtk::Widget @_;
 }
 

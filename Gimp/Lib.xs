@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <assert.h>
 #include <stdio.h>
 
@@ -10,6 +12,9 @@
 /* sys/param.h is redefining these! */
 #undef MIN
 #undef MAX
+
+/* dunno where this comes from */
+#undef VOIDUSED
 
 #include "EXTERN.h"
 #include "perl.h"
@@ -26,6 +31,11 @@
 
 #include "extradefs.h"
 
+#if GIMP_MAJOR_VERSION>1 || (GIMP_MAJOR_VERSION==1 && GIMP_MINOR_VERSION>=1)
+#define GIMP11 1
+#define GIMP_PARASITE 1
+#endif
+
 #define GIMP_PKG	"Gimp::"	/* the package name */
 
 #define PKG_COLOR	GIMP_PKG "Color"
@@ -37,6 +47,9 @@
 #define PKG_DRAWABLE	GIMP_PKG "Drawable"
 #define PKG_SELECTION	GIMP_PKG "Selection"
 #define PKG_REGION	GIMP_PKG "Region"
+#if GIMP_PARASITE
+#define PKG_PARASITE	GIMP_PKG "Parasite"
+#endif
 
 #define PKG_GDRAWABLE	GIMP_PKG "GDrawable"
 #define PKG_TILE	GIMP_PKG "Tile"
@@ -227,11 +240,14 @@ perl_paramdef_count (GParamDef *arg, int count)
 static void
 dump_params (int nparams, GParam *args, GParamDef *params)
 {
-  static char *ptype[22] = {
+  static char *ptype[PARAM_END+1] = {
     "INT32"      , "INT16"      , "INT8"      , "FLOAT"      , "STRING"     ,
     "INT32ARRAY" , "INT16ARRAY" , "INT8ARRAY" , "FLOATARRAY" , "STRINGARRAY",
     "COLOR"      , "REGION"     , "DISPLAY"   , "IMAGE"      , "LAYER"      ,
     "CHANNEL"    , "DRAWABLE"   , "SELECTION" , "BOUNDARY"   , "PATH"       ,
+#if GIMP_PARASITE
+    "PARASITE"   ,
+#endif
     "STATUS"     , "END"
   };
   int i;
@@ -244,7 +260,7 @@ dump_params (int nparams, GParam *args, GParamDef *params)
   for (i = 0; i < nparams; i++)
     {
       if ((trace & TRACE_TYPE) == TRACE_TYPE)
-        if (params[i].type >= 0 && params[i].type < 22)
+        if (params[i].type >= 0 && params[i].type < PARAM_END+1)
           trace_printf ("%s ", ptype[params[i].type]);
         else
           trace_printf ("T%d ", params[i].type);
@@ -279,6 +295,28 @@ dump_params (int nparams, GParam *args, GParamDef *params)
                           args[i].data.d_color.red,
                           args[i].data.d_color.green,
                           args[i].data.d_color.blue);
+            break;
+          
+          case PARAM_PARASITE:
+            {
+              gint32 found = 0;
+              
+              trace_printf ("[%s, ", args[i].data.d_parasite.name);
+              if (args[i].data.d_parasite.flags & PARASITE_PERSISTANT)
+                {
+                  trace_printf ("PARASITE_PERSISTANT");
+                  found |= PARASITE_PERSISTANT;
+                }
+              
+              if (args[i].data.d_parasite.flags & ~found)
+                {
+                  if (found)
+                    trace_printf ("|");
+                  trace_printf ("%d", args[i].data.d_parasite.flags & ~found);
+                }
+              
+              trace_printf (", %d bytes data]", args[i].data.d_parasite.size);
+            }
             break;
             
           default:
@@ -369,6 +407,9 @@ param_stash (GParamType type)
                             0		, 0		, 0		, 0		, 0		,
                             PKG_COLOR	, PKG_REGION	, PKG_DISPLAY	, PKG_IMAGE	, PKG_LAYER	,
                             PKG_CHANNEL	, PKG_DRAWABLE	, PKG_SELECTION	, 0		, 0		,
+#if GIMP_PARASITE
+                            PKG_PARASITE,
+#endif
                             0
                            };
   
@@ -410,6 +451,8 @@ unbless (SV *sv, char *type, char *croak_str)
         croak ("argument type %s expected", type);
   else
     return SvIV (sv);
+  
+  abort (); /* calm down gcc */
 }
 
 static void
@@ -515,6 +558,18 @@ push_gimp_sv (GParam *arg, int array_as_ref)
           sv = (SV *)av; /* no newRV, since we're getting autoblessed! */
         }
         break;
+
+#if GIMP_PARASITE
+      case PARAM_PARASITE:
+        {
+          AV *av = newAV ();
+          av_push (av, neuSVpv (arg->data.d_parasite.name));
+          av_push (av, newSViv (arg->data.d_parasite.flags));
+          av_push (av, newSVpv (arg->data.d_parasite.data, arg->data.d_parasite.size));
+          sv = (SV *)av; /* no newRV, since we're getting autoblessed! */
+        }
+        break;
+#endif
       
       /* did I say difficult before????  */
       case PARAM_INT32ARRAY:	push_gimp_av (arg, d_int32array , newSViv, array_as_ref); break;
@@ -597,6 +652,31 @@ convert_sv2gimp (char *croak_str, GParam *arg, SV *sv)
       case PARAM_COLOR:
         canonicalize_colour (croak_str, sv, &arg->data.d_color);
         break;
+
+#if GIMP_PARASITE
+      case PARAM_PARASITE:
+        if (SvROK(sv))
+          {
+            if (SvTYPE(SvRV(sv)) == SVt_PVAV)
+              {
+                AV *av = (AV *)SvRV(sv);
+                if (av_len(av) == 2)
+                  {
+                    arg->data.d_parasite.name  = SvPv(*av_fetch(av, 0, 0));
+                    arg->data.d_parasite.flags = SvIV(*av_fetch(av, 1, 0));
+                    arg->data.d_parasite.data  = SvPV(*av_fetch(av, 2, 0), arg->data.d_parasite.size);
+                  }
+                else
+                  sprintf (croak_str, "illegal parasite specification, expected three array members");
+              }
+            else
+              sprintf (croak_str, "illegal parasite specification, arrayref expected");
+          }
+        else
+          sprintf (croak_str, "illegal parasite specification, reference expected");
+        
+        break;
+#endif
       
       case PARAM_INT32ARRAY:	av2gimp (arg, sv, d_int32array , gint32 , Sv32); break;
       case PARAM_INT16ARRAY:	av2gimp (arg, sv, d_int16array , gint16 , SvIV); break;
@@ -800,11 +880,13 @@ PROTOTYPES: ENABLE
 # set_trace (\$variable_to_trace_into);
 # set_trace (*STDOUT);
 #
-void
+I32
 set_trace (var)
 	CODE:
 	{
 		SV *sv = ST (0);
+		
+		RETVAL = trace;
 		
 		if (SvROK (sv) || SvTYPE (sv) == SVt_PVGV)
 		  {
@@ -825,6 +907,8 @@ set_trace (var)
 		else
 		  trace = SvIV (ST (0));
 	}
+	OUTPUT:
+	RETVAL
 
 SV *
 _autobless (sv,type)
@@ -917,7 +1001,6 @@ gimp_call_procedure (proc_name, ...)
 	PPCODE:
 	{
 		char croak_str[300] = "";
-		char *arg_name;
 		char *proc_blurb;	
 		char *proc_help;
 		char *proc_author;
@@ -943,6 +1026,10 @@ gimp_call_procedure (proc_name, ...)
 		    &proc_copyright, &proc_date, &proc_type, &nparams, &nreturn_vals,
 		    &params, &return_vals) == TRUE)
 		  {
+		    int no_runmode = !nparams
+		                     || params[0].type != PARAM_INT32
+		                     || strcmp (params[0].name, "run_mode");
+		    
 		    g_free (proc_blurb);
 		    g_free (proc_help);
 		    g_free (proc_author);
@@ -952,23 +1039,45 @@ gimp_call_procedure (proc_name, ...)
 		    if (nparams)
 		      args = (GParam *) g_new (GParam, nparams);
     		    
-    		    for (i = j = 0; i < nparams && j < items; i++)
+		    for(;items;)
 		      {
-		        args[i].type = params[i].type;
-		        if ((!SvROK (ST(j+1)) || i >= nparams-1 || !is_array (params[i+1].type))
-		            && convert_sv2gimp (croak_str, &args[i], ST(j+1)))
-		          j++;
+		        j = 0;
 		        
-		        if (croak_str [0])
-		          {
-		            if (trace & TRACE_CALL)
-		              {
-		                dump_params (i, args, params);
-		                trace_printf (" = [argument error]\n");
-		              }
-		            
-		            goto error;
-		          }
+		        if (no_runmode || !SvROK (ST(1)))
+    		          for (i = 0; i < nparams && j < items; i++)
+		            {
+		              args[i].type = params[i].type;
+		              if (!i && no_runmode == 2)
+		                args->data.d_int32 = RUN_NONINTERACTIVE;
+		              else if ((!SvROK (ST(j+1)) || i >= nparams-1 || !is_array (params[i+1].type))
+		                  && convert_sv2gimp (croak_str, &args[i], ST(j+1)))
+		                j++;
+		          
+		              if (croak_str [0])
+		                {
+		                  if (!no_runmode)
+		                    {
+		                      croak_str [0]=0;
+		                      break;
+		                    }
+		                  
+		                  if (trace & TRACE_CALL)
+		                    {
+		                      dump_params (i, args, params);
+		                      trace_printf (" = [argument error]\n");
+		                    }
+		              
+		                  goto error;
+		                }
+		            }
+		          
+		        if (no_runmode || j >= items-1)
+		          break;
+		        
+		        /* very costly, do better! */
+		        no_runmode = 2;
+		        destroy_params (args, nparams);
+		        args = (GParam *) g_new (GParam, nparams);
 		      }
 		    
 		    if (trace & TRACE_CALL)
@@ -983,7 +1092,7 @@ gimp_call_procedure (proc_name, ...)
 		          trace_printf ("[unfinished]\n");
 		        
 		        sprintf (croak_str, "%s arguments (%d) for function '%s'",
-		                 j == items ? "not enough" : "too many", items-1, proc_name);
+		                 j == items ? "not enough" : "too many", (int)items-1, proc_name);
     		        
     		        if (nparams)
     		          destroy_params (args, nparams);
@@ -1477,7 +1586,7 @@ BOOT:
 	trace_file = PerlIO_stderr ();
 
 #
-# this function exists to overwrite 
+# this function overrides a pdb function for speed
 #
 
 void
@@ -1569,7 +1678,7 @@ PROTOTYPES: ENABLE
 MODULE = Gimp::Lib	PACKAGE = Gimp::UI
 
 #if UI
-#if GIMP_MAJOR_VERSION > 1 || (GIMP_MAJOR_VERSION == 1 && GIMP_MINOR_VERSION == 1)
+#if GIMP11
 
 GtkWidget *
 _new_pattern_select(dname, ipattern, nameref)

@@ -1,8 +1,18 @@
+#include "config.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include <libgimp/gimp.h>
+
+/* FIXME */
+/* sys/param.h is redefining these! */
+#undef MIN
+#undef MAX
+
+/* dunno where this comes from */
+#undef VOIDUSED
 
 #include "EXTERN.h"
 #include "perl.h"
@@ -15,7 +25,11 @@ extern "C" {
 /* dirty is used in gimp.h.  */
 #undef dirty
 #include "extradefs.h"
-#include "config.h"
+
+#if GIMP_MAJOR_VERSION>1 || (GIMP_MAJOR_VERSION==1 && GIMP_MINOR_VERSION>=1)
+#define GIMP11 1
+#define GIMP_PARASITE 1
+#endif
 
 static double
 constant(name)
@@ -70,7 +84,7 @@ char *name;
 	    return DISCARD;
 	if (strEQ(name, "DISSOLVE_MODE"))
 	    return DISSOLVE_MODE;
-#if HAVE_DIVIDE_MODE
+#if HAVE_DIVIDE_MODE || IN_GIMP
 	if (strEQ(name, "DIVIDE_MODE"))
 	    return DIVIDE_MODE;
 #endif
@@ -80,7 +94,7 @@ char *name;
 	    return EXPAND_AS_NECESSARY;
 	break;
     case 'F':
-#ifdef GIMP_HAVE_GET_DATA_SIZE
+#if GIMP11
 	if (strEQ(name, "FG_IMAGE_FILL"))
 	    return FG_IMAGE_FILL;
 #endif
@@ -134,7 +148,7 @@ char *name;
     case 'N':
 	if (strEQ(name, "NORMAL_MODE"))
 	    return NORMAL_MODE;
-#ifdef GIMP_HAVE_GET_DATA_SIZE
+#if GIMP11
 	if (strEQ(name, "NO_IMAGE_FILL"))
 	    return NO_IMAGE_FILL;
 #endif
@@ -144,6 +158,12 @@ char *name;
 	    return OVERLAY_MODE;
 	break;
     case 'P':
+#if GIMP_PARASITE
+	if (strEQ(name, "PARAM_PARASITE"))
+	    return PARAM_PARASITE;
+	if (strEQ(name, "PARASITE_PERSISTANT"))
+	    return PARASITE_PERSISTANT;
+#endif
 	if (strEQ(name, "PARAM_BOUNDARY"))
 	    return PARAM_BOUNDARY;
 	if (strEQ(name, "PARAM_CHANNEL"))
@@ -283,10 +303,6 @@ char *name;
 	break;
     }
     errno = EINVAL;
-    return 0;
-
-not_there:
-    errno = ENOENT;
     return 0;
 }
 

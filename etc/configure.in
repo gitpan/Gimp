@@ -16,45 +16,21 @@ AC_ARG_WITH(includes,[  --with-includes=DIR     Additionally search for includes
 AC_ARG_WITH(libs,    [  --with-libs=DIR         Additionally search for libraries in dir in DIR (optional)],
    LIBS="$LIBS -L$with_libs")
 
-dnl AC_CHECK_PROGS(GTKCONFIG,gtk-config,gtk-config)
-dnl TK_CFLAGS="`$GTKCONFIG --cflags`"
-dnl GTK_LIBS="`$GTKCONFIG --libs`"
-
-dnl PERL is delivered by the caller
-dnl AC_CHECK_PROGS(PERL,perl5.004_04 perl5.004 perl5 perl,perl)
-AC_MSG_CHECKING(for perl)
-AC_MSG_RESULT($PERL)
-
 AC_CHECK_PROGS(GIMP,gimp,gimp)
-
-AC_CHECK_FUNCS(vsnprintf,,[
-   AC_MSG_WARN(vsnprintf not found.. I hope you are using gcc...)
-])
 
 AM_PATH_GIMP(1.0.0,, AC_MSG_ERROR(
 ** unable to find gimp, make sure it's in your path (version 1.0+ required!)
 ** You can get the Gimp from ftp://ftp.gimp.org/pub/gimp.
 ))
 
-AC_HEADER_STDC
-
 ac_save_CPPFLAGS="$CPPFLAGS"
 CPPFLAGS="$CPPFLAGS $GIMP_CFLAGS"
 AC_EGREP_CPP(DIVIDE_MODE,[#include <libgimp/gimp.h>],AC_DEFINE(HAVE_DIVIDE_MODE))
 CPPFLAGS="$ac_save_CPPFLAGS"
 
-AC_SUBST(EXTENSIVE_TESTS)dnl from Makefile.PL
+CONFIG_H="config.h"
 
-AC_SUBST(CPPFLAGS)
-AC_SUBST(CFLAGS)
-AC_SUBST(LDFLAGS)
-AC_SUBST(prefix)
-
-AC_SUBST(PERL)
-AC_SUBST(GIMP)
-AC_SUBST(GIMPTOOL)
-AC_SUBST(GIMP_CFLAGS)
-AC_SUBST(GIMP_LIBS)
+sinclude(configure.frag)
 
 AC_OUTPUT(config.pl)
 

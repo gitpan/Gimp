@@ -42,7 +42,7 @@ application.
 
 An example would be to save parameter values in Gimp, so that on subsequent
 invocations of your plug-in, the user does not have to set all parameter
-values again (L<Fu> does this already).
+values again (L<Gimp::Fu> does this already).
 
 =head1 %Gimp::Data
 
@@ -62,6 +62,6 @@ Marc Lehmann <pcg@goof.com>
 
 =head1 SEE ALSO
 
-perl(1), L<Gimp>,
+perl(1), L<Gimp>.
 
 =cut

@@ -1,6 +1,8 @@
 use ExtUtils::MakeMaker;
 use Config;
 
+$topdir=".";
+
 if ($ARGV[0] ne "--writemakefile") {
    for(@ARGV) {
       s/^prefix=/--prefix=/i;
@@ -34,6 +36,7 @@ Do you want me to make these tests [n]? ";
    $ENV{prefix}=$Config{prefix};
    $ENV{PERL}=$Config{perlpath};
    $ENV{MAKEFILE_PL}=$0;
+   $ENV{IN_GIMP}=0;
    exit system("./etc/configure",@ARGV)>>8;
 } else {
    shift @ARGV;
@@ -43,6 +46,16 @@ Do you want me to make these tests [n]? ";
 eval "use Gtk;"; $GTK = $@ eq "";
 eval "use PDL;"; $PDL = $@ eq "";
 eval "use Parse::RecDescent;"; $PRD = $@ eq "";
+
+$] >= 5.005 or print <<EOF;
+
+WARNING: you are using a version of perl older than 5.005. While this
+         extension should run on older versions (and I try to keep source
+         compatibility), some people get spurious errors that go away after
+         upgrading to 5.005. Since 5.005 is much better and has many many
+         bugs fixed, an upgrade wpuld come in handy...
+
+EOF
 
 $GTK or print <<EOF;
 
@@ -99,16 +112,21 @@ EOF
 }
 
 sub MY::postamble {
+   (my $GIMPTOOL2 = $GIMPTOOL) =~ s/^\.\./..\/../;
    <<"EOF";
+
+maintainer-clean :: realclean
+objclean :: realclean
+distclean :: realclean
 
 install :: install-plugins
 
 install-plugins:
 	$GIMPTOOL --install-admin-bin Perl-Server
-	-cd examples && $GIMPTOOL --install-admin-bin windy.pl
-	-cd examples && $GIMPTOOL --install-admin-bin prep4gif.pl
-	-cd examples && $GIMPTOOL --install-admin-bin webify.pl
-#	-cd examples && $GIMPTOOL --install-admin-bin border.pl
+	-cd examples && $GIMPTOOL2 --install-admin-bin windy.pl
+	-cd examples && $GIMPTOOL2 --install-admin-bin prep4gif.pl
+	-cd examples && $GIMPTOOL2 --install-admin-bin webify.pl
+#	-cd examples && $GIMPTOOL2 --install-admin-bin border.pl
 EOF
 }
 
@@ -117,7 +135,6 @@ EOF
 WriteMakefile(
     'dist'	=> {
                     'PREOP'     => 'chmod -R u=rwX,go=rX . ;',
-#                                   '&& pod2man Gimp.pm | groff -man -P-buo -Tascii > README',
                     'COMPRESS'	=> 'gzip -9v',
                     'SUFFIX'	=> '.gz',
                    },
@@ -138,14 +155,14 @@ WriteMakefile(
     		    'Gimp/PDL.pm'	=> '$(INST_LIBDIR)/Gimp/PDL.pm',
     		   },
     'LIBS'	=> [''],
-    'INC'	=> "$CPPFLAGS $GIMP_INC $CFLAGS $DEFS",
-    'DEFINE'	=> '',
+    'INC'	=> "$CPPFLAGS $CFLAGS $GIMP_INC_NOUI $DEFS",
+    'DEFINE'	=> ($IN_GIMP ? " -DIN_GIMP" : ""),
     'realclean'	=> { FILES => "config.status" },
-    'clean'	=> { FILES => "config.log config.h pcfg config.cache config.pl".
-                              "etc/{config.pl,config.status,config.cache,config.h,config.log}" },
+    'clean'	=> { FILES => "config.log config.h pcfg config.cache config.pl Makefile.old ".
+                              "etc/config.pl etc/config.status etc/config.cache etc/config.h etc/config.log" },
 );
 
-print <<EOF;
+$IN_GIMP or print <<EOF;
 
 
 Hopefully, Gimp is now correctly configured. you can now enter "make", "make

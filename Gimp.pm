@@ -11,14 +11,14 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '1.0431';
+$VERSION = 1.044;
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
-	PARAM_END	PARAM_FLOAT	PARAM_FLOATARRAY		PARAM_IMAGE
-	PARAM_INT16	PARAM_INT16ARRAY		PARAM_INT32	PARAM_INT32ARRAY
-	PARAM_INT8	PARAM_INT8ARRAY	PARAM_LAYER	PARAM_PATH	PARAM_REGION
-	PARAM_SELECTION	PARAM_STATUS	PARAM_STRING	PARAM_STRINGARRAY
+	PARAM_END	PARAM_FLOAT	PARAM_IMAGE	PARAM_INT32	PARAM_FLOATARRAY
+	PARAM_INT16	PARAM_PARASITE	PARAM_STRING	PARAM_PATH	PARAM_INT16ARRAY
+	PARAM_INT8	PARAM_INT8ARRAY	PARAM_LAYER	PARAM_REGION	PARAM_STRINGARRAY
+	PARAM_SELECTION	PARAM_STATUS	PARAM_INT32ARRAY
 );
 
 # constants to be autoloaded
@@ -41,7 +41,7 @@ $VERSION = '1.0431';
 	SHAPEBURST_ANGULAR		SHAPEBURST_DIMPLED		SHAPEBURST_SPHERICAL
 	SHARPEN		SQUARE		STATUS_CALLING_ERROR		STATUS_EXECUTION_ERROR
 	STATUS_PASS_THROUGH		STATUS_SUCCESS	SUBTRACT_MODE	TRANS_IMAGE_FILL
-	VALUE_MODE	DIVIDE_MODE	WHITE_IMAGE_FILL
+	VALUE_MODE	DIVIDE_MODE	PARASITE_PERSISTANT		WHITE_IMAGE_FILL
 	
 	TRACE_NONE	TRACE_CALL	TRACE_TYPE	TRACE_NAME	TRACE_DESC
 	TRACE_ALL
@@ -302,6 +302,7 @@ _pseudoclass qw(Gradients	gimp_gradients_);
 _pseudoclass qw(Edit		gimp_edit_);
 _pseudoclass qw(Progress	gimp_progress_);
 _pseudoclass qw(Region		);
+_pseudoclass qw(Parasite	parasite_);
 
 # "C"-Classes
 _pseudoclass qw(GDrawable	gimp_drawable_);
@@ -346,6 +347,16 @@ sub DESTROY {
      if $self->{_dirty};
 }
 
+package Gimp::Parasite;
+
+sub is_type($$)		{ $_[0]->[0] eq $_[1] }
+sub is_persistant($)	{ $_[0]->[1] & PARASITE_PERSISTANT }
+sub is_error($)		{ $_[0]->is_type("error") }
+sub error($)		{ ["error", 0, ""] }
+sub copy($)		{ [@{$_[0]}] }
+
+sub DESTROY		{}
+
 package Gimp; # for __DATA__
 
 1;
@@ -356,7 +367,7 @@ package Gimp; # for __DATA__
 
 Gimp - Perl extension for writing Gimp Extensions/Plug-ins/Load & Save-Handlers
 
-This is mostly a reference manual. For a quick intro, look at L<Fu>.
+This is mostly a reference manual. For a quick intro, look at L<Gimp::Fu>.
 
 =head1 RATIONALE
 
@@ -441,7 +452,7 @@ gimp process.
 
 =item *
 You can optionally overwrite the pixel-data functions by versions using piddles
-(see L<PDL>)
+(see L<Gimp::PDL>)
 
 =back
 
@@ -583,7 +594,7 @@ Updates the progress bar. No-op in networked modules.
 =item gimp_tile_*, gimp_pixel_rgn_*, gimp_drawable_get
 
 With these functions you can access the raw pixel data of drawables. They
-are documented in L<Pixel>, to keep this manual page short.
+are documented in L<Gimp::Pixel>, to keep this manual page short.
 
 =item gimp_call_procedure(procname, arguments...)
 
@@ -620,7 +631,7 @@ C<perldoc -m Gimp>, at the end of the file.
 In this manual, only the plain syntax (that lesser languages like C use) is
 described. Actually, the recommended way to write gimp scripts is to use the
 fancy OO-like syntax you are used to in perl (version 5 at least ;). As a
-fact, OO-syntax saves soooo much typing as well. See L<OO> for
+fact, OO-syntax saves soooo much typing as well. See L<Gimp::OO> for
 details.
 
 =head1 DEBUGGING AIDS
@@ -639,7 +650,6 @@ If anything goes wrong, you only get an execution failure. Switch on
 tracing to see which parameters are used to call pdb functions.
 
 This function is never exported, so you have to qualify it when calling.
-(not yet implemented for networked modules).
 
 tracemask is any number of the following flags or'ed together.
 
@@ -671,6 +681,8 @@ the parameter descriptions.
 all of the above.
 
 =back
+
+C<set_trace> returns the old tracemask.
 
 =item set_trace(\$tracevar)
 
@@ -708,8 +720,13 @@ string ("#rrggbb") or a colour name ("papayawhip") (see set_rgb_db).
 
 =item DISPLAY, IMAGE, LAYER, CHANNEL, DRAWABLE, SELECTION
 
-These will be mapped to corresponding objects (IMAGE => Gimp::Image). In trace
+these will be mapped to corresponding objects (IMAGE => Gimp::Image). In trace
 output you will see small integers (the image/layer/etc..-ID)
+
+=item PARASITE
+
+represented as an array ref [name, flags, data], where name and data should be perl strings
+and flags is the numerical flag value.
 
 =item REGION, BOUNDARY, PATH, STATUS
 
@@ -723,7 +740,7 @@ Marc Lehmann <pcg@goof.com>
 
 =head1 SEE ALSO
 
-perl(1), gimp(1), L<OO>, L<Data>, L<Pixel>, L<PDL>, L<UI>, L<Net> and L<Lib>.
+perl(1), gimp(1), L<Gimp::OO>, L<Gimp::Data>, L<Gimp::Pixel>, L<Gimp::PDL>, L<Gimp::UI>, L<Gimp::Net> and L<Gimp::Lib>.
 
 =cut
 
