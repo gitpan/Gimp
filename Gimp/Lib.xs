@@ -468,17 +468,29 @@ unbless (SV *sv, char *type, char *croak_str)
         if (SvTYPE (SvRV (sv)) == SVt_PVMG)
           return SvIV (SvRV (sv));
         else
-          croak ("only blessed scalars accepted here");
+          strcpy (croak_str, "only blessed scalars accepted here");
       }
     else
-      if (croak_str)
-        sprintf (croak_str, "argument type %s expected (not %s)", type, HvNAME(SvSTASH(sv)));
-      else
-        croak ("argument type %s expected", type);
+      sprintf (croak_str, "argument type %s expected (not %s)", type, HvNAME(SvSTASH(SvRV(sv))));
   else
     return SvIV (sv);
   
   return -1;
+}
+
+static gint32
+unbless_croak (SV *sv, char *type)
+{
+   char croak_str[320];
+   gint32 r;
+   croak_str[0] = 0;
+
+   r = unbless (sv, type, croak_str);
+
+   if (croak_str [0])
+      croak (croak_str);
+   
+   return r;
 }
 
 static void
@@ -1075,7 +1087,7 @@ gimp_call_procedure (proc_name, ...)
 	char *	proc_name
 	PPCODE:
 	{
-		char croak_str[300] = "";
+		char croak_str[320] = "";
 		char *proc_blurb;	
 		char *proc_help;
 		char *proc_author;

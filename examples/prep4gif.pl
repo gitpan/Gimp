@@ -1,4 +1,4 @@
-#!/tmp/bin/perl
+#!/usr/app/bin/perl
 
 use Gimp;
 use Gimp::Fu;
@@ -93,8 +93,8 @@ register
 	"Prep for gif",
 	"Make the image a small-cut-out of the intended background, so your transparent text doesn't look blocky.",
 	"Seth Burgess",
-	"Seth Burgess",
-	"1998-09-14",
+	"Seth Burgess <sjburges\@gimp.org>",
+	"2-15-98",
 	"<Image>/Filters/Misc/Prepare for GIF",
 	"RGB*",
 	[

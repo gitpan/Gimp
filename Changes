@@ -1,5 +1,12 @@
 Revision history for Gimp-Perl extension.
 
+1.055 Mon Feb 22 22:38:44 CET 1999
+	- applied seth's script changes.
+        - gimp11ified some plug-ins.
+        - removed debugging code in Gimp/Lib.xs.
+        - got rid of a perl5.004 warning.
+        - removed gimp_{main,init,end}.
+
 1.054 Mon Feb 22 15:23:41 CET 1999
 	- scm2scm and scm2perl will now be installed in INST_SCRIPT
         - fixed a bug in interact/PF_FONT.

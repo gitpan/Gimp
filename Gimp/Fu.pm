@@ -113,18 +113,18 @@ sub Gimp::RUN_FULLINTERACTIVE (){ Gimp::RUN_INTERACTIVE+100 };	# you don't want 
             PF_SLIDER PF_INT PF_SPINNER PF_ADJUSTMENT
             PF_BRUSH PF_PATTERN PF_GRADIENT);
 
-@EXPORT = (qw(register main gimp_main),@_params);
+@EXPORT = (qw(register main),@_params);
 @EXPORT_OK = qw(interact $run_mode save_image);
 %EXPORT_TAGS = (params => [@_params]);
 
+sub import {
+   local $^W=0;
+   shift @_ if $_[0] =~ /::/;
+   Gimp::Fu->export_to_level(1,@_);
+}
+
 # the old value of the trace flag
 my $old_trace;
-
-sub import {
-   undef *{caller()."::main"};
-   undef *{caller()."::gimp_main"};
-   goto &Exporter::import;
-}
 
 sub _default {
    my $d = shift;
@@ -917,12 +917,9 @@ sub print_switches {
    }
 }
 
-*main = *gimp_main = sub {
-   if (!@scripts) {
-      # it is now legal to register no scripts (i.e. when PDL is required but not found
-      #die "well, there are no scripts registered.. what do you expect?\n";
-      Gimp::main;
-   } elsif ($Gimp::help) {
+sub main {
+   $old_trace = Gimp::set_trace (0);
+   if ($Gimp::help) {
       my $this=this_script;
       print <<EOF;
        interface-arguments are
@@ -931,10 +928,8 @@ sub print_switches {
        script-arguments are
 EOF
       print_switches ($this);
-   } else {
-      $old_trace = Gimp::set_trace (0);
-      Gimp::main;
    }
+   Gimp::main;
 };
 
 sub logo {
