@@ -874,7 +874,6 @@ gimp_set_data(id, data)
 	{
 		STRLEN dlen;
 		STRLEN len;
-		char *str;
 		void *dta;
 		
 		dta = SvPV (data, dlen);
@@ -883,15 +882,14 @@ gimp_set_data(id, data)
 #ifdef HAVE_GET_DATA_SIZE
 		gimp_set_data (SvPV (id, na), dta, dlen);
 #else
-		len = SvCUR (id);
-		str = (char *)SvGROW (id, len + 2);
-		str[len+1] = 0;
-		/* nicht portabel wg. STRLEN!!! */
-		str[len] = 'S'; gimp_set_data (str, &dlen, sizeof (STRLEN));
-		str[len] = 'C'; gimp_set_data (str, dta, dlen);
-		
-		str[len] = 0;
-		SvCUR_set (id, len);
+		{
+		  char str[1024]; /* hack */
+		  len = SvCUR (id);
+		  Copy (SvPV (id, na), str, len, char);
+		  str[len+1] = 0;
+		  str[len] = 'S'; gimp_set_data (str, &dlen, sizeof (STRLEN));
+		  str[len] = 'C'; gimp_set_data (str, dta, dlen);
+		}
 #endif
 	}
 
@@ -903,7 +901,6 @@ gimp_get_data(id)
 		SV *data;
 		STRLEN dlen;
 		STRLEN len;
-		char *str;
 		
 		/* do not remove this comment */
 #ifdef HAVE_GET_DATA_SIZE
@@ -915,27 +912,26 @@ gimp_get_data(id)
 		*((char *)SvPV (data, na) + dlen) = 0;
 		RETVAL = data;
 #else
-		len = SvCUR (id);
-		str = (char *)SvGROW (id, len + 2);
-		str[len+1] = 0;
-		
-		dlen = (STRLEN) -1;
-		
-		str[len] = 'S'; gimp_get_data (str, &dlen);
-		
-		if (dlen != (STRLEN)-1)
-		  {
-		    data = newSVpv ("", 0);
-		    str[len] = 'C'; gimp_get_data (str, SvGROW (data, dlen+1));
-		    SvCUR_set (data, dlen);
-		    *((char *)SvPV (data, na) + dlen) = 0;
-		    RETVAL = data;
-		  }
-		else
-		  RETVAL = &sv_undef;
-		
-		str[len] = 0;
-		SvCUR_set (id, len);
+		{
+		  char str[1024]; /* hack */
+		  len = SvCUR (id);
+		  Copy (SvPV (id, na), str, len, char);
+		  
+		  str[len+1] = 0;
+		  dlen = (STRLEN) -1;
+		  str[len] = 'S'; gimp_get_data (str, &dlen);
+		  
+		  if (dlen != (STRLEN)-1)
+		    {
+		      data = newSVpv ("", 0);
+		      str[len] = 'C'; gimp_get_data (str, SvGROW (data, dlen+1));
+		      SvCUR_set (data, dlen);
+		      *((char *)SvPV (data, na) + dlen) = 0;
+		      RETVAL = data;
+		    }
+		  else
+		    RETVAL = &sv_undef;
+		}
 #endif
 	}
 	OUTPUT:

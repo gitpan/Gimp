@@ -1,4 +1,6 @@
-AC_INIT(pcfg.in)
+AC_INIT(config.pl.in)
+
+AC_PREFIX_DEFAULT($prefix)dnl from Makefile.PL
 
 AC_CONFIG_HEADER(config.h)
 
@@ -14,15 +16,16 @@ AC_ARG_WITH(includes,[  --with-includes=DIR     Additionally search for includes
 AC_ARG_WITH(libs,    [  --with-libs=DIR         Additionally search for libraries in dir in DIR (optional)],
    LIBS="$LIBS -L$with_libs")
 
-#AC_CHECK_PROGS(GTKCONFIG,gtk-config,gtk-config)
-#GTK_CFLAGS="`$GTKCONFIG --cflags`"
-#GTK_LIBS="`$GTKCONFIG --libs`"
+dnl AC_CHECK_PROGS(GTKCONFIG,gtk-config,gtk-config)
+dnl TK_CFLAGS="`$GTKCONFIG --cflags`"
+dnl GTK_LIBS="`$GTKCONFIG --libs`"
 
-AC_CHECK_PROGS(PERL,perl5.004_04 perl5.004 perl5 perl,perl)
+dnl PERL is delivered by the caller
+dnl AC_CHECK_PROGS(PERL,perl5.004_04 perl5.004 perl5 perl,perl)
+AC_MSG_CHECKING(for perl)
+AC_MSG_RESULT($PERL)
+
 AC_CHECK_PROGS(GIMP,gimp,gimp)
-
-eval `$PERL -V:cc`
-: ${CC=$cc}
 
 AC_CHECK_FUNCS(vsnprintf,,[
    AC_MSG_WARN(vsnprintf not found.. I hope you are using gcc...)
@@ -51,5 +54,7 @@ AC_SUBST(GIMPTOOL)
 AC_SUBST(GIMP_CFLAGS)
 AC_SUBST(GIMP_LIBS)
 
-AC_OUTPUT(pcfg)
+AC_OUTPUT(config.pl)
 
+echo "now invoking perl to complete the configuration..."
+exec $PERL $MAKEFILE_PL --writemakefile PREFIX="$prefix"

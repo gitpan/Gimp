@@ -1,18 +1,20 @@
 use ExtUtils::MakeMaker;
+use Config;
 
-if ($ARGV[0] eq "---called-after-configure") {
-   shift(@ARGV);
-} elsif (!(system("./etc/configure",@ARGV)>>8) && -f "./pcfg") {
-   do './pcfg';
-   exec $PERL,$0,"---called-after-configure",@ARGV;
+if ($ARGV[0] ne "--writemakefile") {
+   for(@ARGV) {
+      s/^prefix=/--prefix=/i;
+   }
+   $ENV{CC}=$Config{cc};
+   $ENV{LD}=$Config{ld};
+   $ENV{prefix}=$Config{prefix};
+   $ENV{PERL}=$Config{perlpath};
+   $ENV{MAKEFILE_PL}=$0;
+   exit system("./etc/configure",@ARGV)>>8;
 } else {
-   exit(1);
+   shift @ARGV;
+   do './config.pl';
 }
-
-do './pcfg';
-
-@ARGV=();
-unshift(@ARGV,"PREFIX=$prefix") if $prefix;
 
 eval "use Gtk;"; $GTK = $@ eq "";
 eval "use PDL;"; $PDL = $@ eq "";
@@ -101,16 +103,15 @@ WriteMakefile(
     'LIBS'	=> [''],
     'INC'	=> "$CPPFLAGS $GIMP_INC $CFLAGS $DEFS",
     'DEFINE'	=> '',
-    'clean'	=> { FILES => "config.log config.h pcfg config.status config.cache ".
-                              "etc/{pcfg,config.status,config.cache,config.h,config.log}" },
+    'clean'	=> { FILES => "config.log config.h pcfg config.status config.cache config.pl".
+                              "etc/{config.pl,config.status,config.cache,config.h,config.log}" },
 );
 
 print <<EOF;
 
 
 Hopefully, Gimp is now correctly configured. you can now enter "make", "make
-test" and "make install" and, to install the Perl-Server and various
-other plugins, "make install-plugins".
+test" and "make install".
 
 EOF
 

@@ -1,6 +1,6 @@
 use ExtUtils::MakeMaker;
 
-do '../pcfg';
+do '../config.pl';
 
 WriteMakefile(
     'NAME'	=> 'Gimp::Lib',

@@ -18,7 +18,7 @@ etc/configure
 etc/configure.in
 etc/aclocal.m4
 etc/config.h.in
-etc/pcfg.in
+etc/config.pl.in
 Gimp/Makefile.PL
 Gimp/Lib.xs
 Gimp/Lib.pm

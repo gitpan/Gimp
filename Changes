@@ -1,5 +1,10 @@
 Revision history for Gimp-Perl extension.
 
+1.0   Thu Jul 23 23:35:13 CEST 1998
+	- prefix wrongly defaulted to /usr/local
+	- other configuration changes
+	- fixed(?) mod. of read-only variable...
+
 0.996 Wed Jul 22 14:39:23 CEST 1998
 	- greatly reduced code bloat, almost all functions
 	  can be traced now, at expense of speed and possible
