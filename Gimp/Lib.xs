@@ -1980,8 +1980,6 @@ gimp_pixel_rgn_init(gdrawable, x, y, width, height, dirty, shadow)
 	OUTPUT:
 	RETVAL
 
-PROTOTYPES: DISABLE
-
 void
 gimp_pixel_rgn_resize(sv, x, y, width, height)
 	SV *	sv
@@ -2095,8 +2093,6 @@ gimp_pixel_rgn_set_rect(pr, data, x, y, width)
 	if (SvCUR (data) % (pr->bpp * width))
 	  croak ("gimp_pixel_rgn_set_rect called with incorrect datasize");
 	gimp_pixel_rgn_set_rect (pr, SvPV(data,na), x, y, width, SvCUR (data) / (pr->bpp * width));
-
-PROTOTYPES: ENABLE
 
 # ??? any possibility to implement these in perl? maybe replacement functions in Gimp.pm?
 

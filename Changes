@@ -1,11 +1,19 @@
 Revision history for Gimp-Perl extension.
 
+1.005 Mon Aug 24 23:09:17 CEST 1998
+1.004 (internal release for debian)
+	- requires Gtk-0.3 now... since this version finally works,
+	  I can code again:
+	- added "Defaults" button to Gimp::Fu
+	- prototypes enabled for pixel/region/pdl functions
+	- various bugfixes to PDL functions
+
 1.003 Sat Aug 15 21:06:41 CEST 1998
 	- gimp-1.1 removes some functions, so don't prototype them.
 	- a drawable first argument substitues for an image, i.e.
 	  you can omit the first IMAGE
 	- error reporting is now much better and reports the correct
-	  position, I hope ;)
+	  source position, I hope ;)
 
 1.002 Mon Jul 27 12:44:46 CEST 1998
 	- Patch by Dov Grobgeld (default values for arguments, bugfixes)

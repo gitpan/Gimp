@@ -11,7 +11,7 @@ use vars qw($help $verbose $host);
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '1.003';
+$VERSION = '1.005';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -304,15 +304,18 @@ sub AUTOLOAD {
          my $ref = \&{"Gimp::$sub"};
          *{$AUTOLOAD} = sub {
             shift if $_[0] eq $class;
-            eval { &$ref };
+#            goto &$ref;	# does not work always #FIXME
+            my @r = eval { &$ref };
             _croak $@ if $@;
+            wantarray ? @r : $r[0];
          };
          goto &$AUTOLOAD;
       } elsif (Gimp::_gimp_procedure_available ($_.$subname)) {
          *{$AUTOLOAD} = sub {
             shift if $_[0] eq $class;
-            eval { Gimp::gimp_call_procedure($sub,@_) };
+            my @r=eval { Gimp::gimp_call_procedure($sub,@_) };
             _croak $@ if $@;
+            wantarray ? @r : $r[0];
          };
          goto &$AUTOLOAD;
       }
@@ -374,12 +377,11 @@ sub new($$$$$$$$) {
    goto &Gimp::gimp_pixel_rgn_init;
 }
 
-#sub DESTROY {
-#   my $self = shift;
-## does not work as advertised (by me):
-##   $self->{drawable}->{id}->update($self->{x},$self->{y},$self->{w},$self->{h})
-##     if $self->{dirty};
-#}
+sub DESTROY {
+   my $self = shift;
+   $self->{_drawable}->{_id}->update($self->{_x},$self->{_y},$self->{_w},$self->{_h})
+     if $self->{_dirty};
+}
 
 package Gimp; # for __DATA__
 

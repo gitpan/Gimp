@@ -15,9 +15,8 @@ $old_w = $^W; $^W = 0;
 
 *old_set_data = \&Gimp::Tile::set_data;
 *Gimp::Tile::set_data = sub {
-   my($tile,$pdl)=@_;
-   $pdl->make_physical;
-   old_set_data($tile,${$pdl->get_dataref});
+   (my $p = byte $_[1])->make_physical;
+   old_set_data($_[0],${$p->get_dataref});
 };
 
 *old_get_data = \&Gimp::Tile::get_data;
@@ -36,11 +35,13 @@ $old_w = $^W; $^W = 0;
 sub rep ($&) {
    my($name,$sub)=@_;
    *{"old_$name"}=\&{"${interface_pkg}::gimp_pixel_rgn_$name"};
+   undef *{"${interface_pkg}::gimp_pixel_rgn_$name"};
+   undef *{"Gimp::gimp_pixel_rgn_$name"};
    *{"${interface_pkg}::gimp_pixel_rgn_$name"}=
    *{"Gimp::gimp_pixel_rgn_$name"}=$sub;
 }
 
-rep "get_pixel", sub {
+rep "get_pixel", sub($$$) {
    my($rgn)=@_;
    my($pdl)=new_from_specification PDL (byte,$_[0]->bpp);
    ${$pdl->get_dataref} = &old_get_pixel;
@@ -48,7 +49,7 @@ rep "get_pixel", sub {
    return $pdl;
 };
 
-rep "get_col", sub {
+rep "get_col", sub($$$$) {
    my($rgn)=@_;
    my($pdl)=new_from_specification PDL (byte,$_[0]->bpp,$_[3]);
    ${$pdl->get_dataref} = &old_get_col;
@@ -56,7 +57,7 @@ rep "get_col", sub {
    return $pdl;
 };
 
-rep "get_row", sub {
+rep "get_row", sub($$$$) {
    my($rgn)=@_;
    my($pdl)=new_from_specification PDL (byte,$_[0]->bpp,$_[3]);
    ${$pdl->get_dataref} = &old_get_row;
@@ -64,27 +65,31 @@ rep "get_row", sub {
    return $pdl;
 };
 
-rep "get_rect", sub {
+rep "get_rect", sub($$$$$) {
    my($pdl)=new_from_specification PDL (byte,$_[0]->bpp,$_[3],$_[4]);
    ${$pdl->get_dataref} = &old_get_rect;
    $pdl->upd_data;
    return $pdl;
 };
 
-rep "set_pixel", sub {
-   old_set_pixel($_[0],${$_[1]->get_dataref},$_[2]);
+rep "set_pixel", sub($$$$) {
+   (my $p = byte $_[1])->make_physical;
+   old_set_pixel($_[0],${$p->get_dataref},$_[2],$_[3]);
 };
 
-rep "set_col", sub {
-   old_set_col($_[0],${$_[1]->get_dataref},$_[2],$_[3]);
+rep "set_col", sub($$$$) {
+   (my $p = byte $_[1])->make_physical;
+   old_set_col($_[0],${$p->get_dataref},$_[2],$_[3]);
 };
 
-rep "set_row", sub {
-   old_set_row($_[0],${$_[1]->get_dataref},$_[2],$_[3]);
+rep "set_row", sub($$$$) {
+   (my $p = byte $_[1])->make_physical;
+   old_set_row($_[0],${$p->get_dataref},$_[2],$_[3]);
 };
 
-rep "set_rect", sub {
-   old_set_rect($_[0],${$_[1]->get_dataref},$_[2],$_[3],($_[1]->dims)[1]);
+rep "set_rect", sub($$$$) {
+   (my $p = byte $_[1])->make_physical;
+   old_set_rect($_[0],${$p->get_dataref},$_[2],$_[3],($_[1]->dims)[1]);
 };
 
 $^W = $old_w; undef $old_w;

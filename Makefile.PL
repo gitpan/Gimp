@@ -23,9 +23,9 @@ $GTK or print <<EOF;
 
 WARNING: unable to use the Perl-Gtk interface.  Some features (like
          Gimp::Fu) rely on this extension.  You can try to build without it,
-         but it's better to install it (version 0.2_03 or higher is
-         required, you can get it from ftp://ftp.gimp.org/pub/gtk/perl/ or
-         any CPAN mirror).
+         but it's better to install it (version 0.3 or higher is required,
+         you can get it from ftp://ftp.gimp.org/pub/gtk/perl/ or any
+         CPAN mirror).
 
 EOF
 
@@ -50,11 +50,11 @@ EOF
 print "using gtk version $Gtk::VERSION\n";
 
 unless ($major > 0
-        || ($major == 0 && $minor > 2)
-        || ($major == 0 && $minor == 2 && $patch > 1)) {
+        || ($major == 0 && $minor >  3)
+        || ($major == 0 && $minor == 3 && $patch >= -1)) {
    print <<EOF;
 
-WARNING: version 0.2_03 of Gtk is _required_ for this module to build
+WARNING: version 0.3 of Gtk is _required_ for this module to build
          properly.  You can get the newest version from
          ftp://ftp.gimp.org/pub/gtk/perl/ or any CPAN mirror.  Older
          versions may work, but I have warned you!
@@ -85,7 +85,7 @@ WriteMakefile(
                     'SUFFIX'	=> '.gz',
                    },
     'PREREQ_PM'	=> {
-#    		    "Gtk"		=> 0.2_03,
+    		    "Gtk"		=> 0.3,
     		    "Data::Dumper"	=> 2,
 		   },
     'DIR'	=> ['Gimp'],

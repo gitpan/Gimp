@@ -103,7 +103,7 @@ sub PF_TOGGLE	() { PARAM_END+1	};
 
 sub interact($@) {
    my(@types)=@{shift()};
-   my(@getres);
+   my(@getvals,@setvals,@defaults);
    my($w,$t,$button,$box,$bot,$g);
    my $res=0;
    
@@ -124,6 +124,7 @@ sub interact($@) {
       my($type,$name,$desc,$default)=@$_;
       my($value)=shift;
       $value=$default unless defined($value);
+      push(@defaults,$default);
       $label="$name: ";
       if($type == PF_INT8	# perl just maps
       || $type == PF_INT16	# all this crap
@@ -132,42 +133,49 @@ sub interact($@) {
       || $type == PF_STRING) {	# I love it
          $a=new Gtk::Entry;
          set_usize $a 0,25;
-         set_text $a $value if $value;
+         push(@setvals,sub{set_text $a $_[0]});
          #select_region $a 0,1;
-         push(@getres,,sub{get_text $a});
+         push(@getvals,sub{get_text $a});
       } elsif($type == PF_COLOR) {
          my $res;
          $a=new Gtk::ColorSelectButton (-width => 60, -height => 15);
-         $a->color(join " ",@{Gimp::canonicalize_color $value});
-         push(@getres,sub{[split ' ',$a->color]});
+         push(@setvals,sub{$a->color(join " ",@{Gimp::canonicalize_color $_[0]})});
+         push(@getvals,sub{[split ' ',$a->color]});
       } elsif($type == PF_TOGGLE) {
          $a=new Gtk::CheckButton $desc;
-         set_state $a ($value ? 1 : 0);
-         push(@getres,sub{state $a eq "active"});
+         push(@setvals,sub{set_state $a ($_[0] ? 1 : 0)});
+         push(@getvals,sub{state $a eq "active"});
       } elsif($type == PF_IMAGE) {
          my $res;
          $a=new Gtk::OptionMenu;
          $a->set_menu(new Gimp::UI::ImageMenu(sub {1},-1,$res));
-         push(@getres,sub{$res});
+         push(@setvals,sub{});
+         push(@getvals,sub{$res});
       } elsif($type == PF_LAYER) {
          my $res;
          $a=new Gtk::OptionMenu;
          $a->set_menu(new Gimp::UI::LayerMenu(sub {1},-1,$res));
-         push(@getres,sub{$res});
+         push(@setvals,sub{});
+         push(@getvals,sub{$res});
       } elsif($type == PF_CHANNEL) {
          my $res;
          $a=new Gtk::OptionMenu;
          $a->set_menu(new Gimp::UI::ChannelMenu(sub {1},-1,$res));
-         push(@getres,sub{$res});
+         push(@setvals,sub{});
+         push(@getvals,sub{$res});
       } elsif($type == PF_DRAWABLE) {
          my $res;
          $a=new Gtk::OptionMenu;
          $a->set_menu(new Gimp::UI::DrawableMenu(sub {1},-1,$res));
-         push(@getres,sub{$res});
+         push(@setvals,sub{});
+         push(@getvals,sub{$res});
       } else {
          $label="Unsupported argumenttype $type";
-         push(@getres,sub{$value});
+         push(@setvals,sub{});
+         push(@getvals,sub{$value});
       }
+      
+      $setvals[-1]->($value);
       
       $label=new Gtk::Label $label;
       $label->set_alignment(0,0.5);
@@ -180,6 +188,16 @@ sub interact($@) {
       };
       $res++;
    }
+   
+   $button = new Gtk::Button "Last Values";
+   signal_connect $button "clicked", sub {
+     for my $i (0..$#defaults) {
+       $setvals[$i]->($defaults[$i]);
+     }
+   };
+   $g->attach($button,0,2,$res,$res+1,{},{},4,2);
+   show $button;
+   
    $res=0;
    
    signal_connect $w "destroy", sub {main_quit Gtk};
@@ -200,7 +218,7 @@ sub interact($@) {
    show $w;
    main Gtk;
    
-   return map {&$_} @getres if $res;
+   return map {&$_} @getvals if $res;
    ();
 }
 
