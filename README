@@ -10,8 +10,8 @@ SYNOPSIS
        $img->display_new;
 
 HUH?
-       For a quick (but outdated) intro on the general
-       look & feel, go to
+       Manpages in html format, the newest version and other information
+       can be found on the Gimp-perl homepage:
        
        http://lehmann.home.ml.org/gimp.html
        
@@ -62,6 +62,14 @@ INSTALLATION
        
        If you don't have unix, you can install linux instead
        (http://www.linux.org)
+
+MAILING LIST
+       If you want to get notified of new versions automatically, send
+       a mail with the single line:
+       
+       subscribe notify-gimp
+       
+       to majordomo@gcc.ml.org.
        
 PLOP
        Scheme is the crappiest language ever. Have a look at Haskell

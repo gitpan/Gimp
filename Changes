@@ -1,5 +1,9 @@
 Revision history for Gimp-Perl extension.
 
+1.033 Tue Sep 15 17:53:50 CEST 1998
+	- added mailing list info to the README
+	- compatibility fix for 5.004
+
 1.032 Mon Sep 14 02:29:55 CEST 1998
 	- Gimp::Fu now has (some) support for return values. I told you to
 	  return undef ;)

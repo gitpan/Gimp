@@ -697,8 +697,8 @@ static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, 
           count = 0;
         }
       
-      if (SvTRUE (ERRSV))
-        err_msg = g_strdup (SvPV (ERRSV, PL_na));
+      if (SvTRUE (GvSV (errgv)))
+        err_msg = g_strdup (SvPV (GvSV (errgv), na));
       else
         {
           int i;
