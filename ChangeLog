@@ -1,3 +1,33 @@
+2004-03-28  Dov Grobgeld  <dov@imagic.weizmann.ac.il>
+
+	* examples/examples.TODO: Removed gimp-make-img-map, gallery,
+	and stampify and gallery from untested section
+	* examples/stamps: fixed
+	* examples/stampify: fixed
+	* examples/gallery: fixed
+	* examples/yinyang: fixed
+	* examples/gimp-make-img-map: fixed
+	* examples/tex-to-float: fixed, erased various debug output
+
+2004-3-28 Seth Burgess <sjburges@gimp.org>
+	* UI/Makefile.PL: removed pkg->add_define call, since its no longer in 
+	Extutils::Depends 0.20x.  Need to generate another release for this, 
+	since its a blocker for people installing (a somewhat-important step).   
+2004-3-27 Seth Burgess <sjburges@gimp.org>
+	* GIMP.pm: updated enums
+	
+	* examples/blended2: fixed, updated enums, removed 
+	extraneous 'exit main'.
+	* examples/tex-to-float: moved to Render
+	* examples/translogo: moved to Web
+	* examples/webify: s/push_group/push/
+
+	* examples/fade-alpha 
+	* examples/innerbevel 
+	* examples/randomart1: updated enums
+
+	* examples/examples.TODO: updated accordingly
+
 2004-3-22 Seth Burgess <sjburges@gimp.org>
 	* Makefile.PL: don't install known broken plugins
 	* TODO: split between Marc and Seth lists 
