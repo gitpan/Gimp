@@ -1,4 +1,5 @@
 use Test;
+use vars '$EXTENSIVE_TESTS';
 
 BEGIN {
   plan tests => 13;
@@ -20,6 +21,7 @@ do './config.pl';
 ok(1);
 
 $n=!$EXTENSIVE_TESTS;
+$n=1; # disable intensive testing for the moment
 
 use Gimp qw(:consts);
 $loaded = 1;
@@ -50,7 +52,7 @@ ok (
 $ENV{'GIMP_DIRECTORY'}=$dir;
 $Gimp::host = "spawn/";
 
-if($EXTENSIVE_TESTS) {
+if(!$n) {
    skip($n,1);
    Gimp->main;
 } else {

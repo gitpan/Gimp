@@ -89,12 +89,12 @@ sub prep {
 	}
 
 register
-	"plug_in_prep4gif",
+	"prep4gif",
 	"Prep for gif",
 	"Make the image a small-cut-out of the intended background, so your transparent text doesn't look blocky.",
 	"Seth Burgess",
 	"Seth Burgess",
-	"1998-06-23",
+	"1998-09-14",
 	"<Image>/Filters/Misc/Prepare for GIF",
 	"RGB*",
 	[

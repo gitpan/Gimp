@@ -5,19 +5,19 @@ use Gimp::Fu;
 
 Gimp::set_trace(TRACE_ALL);
 
-register "plug_in_webify",
-         "make an image suitable for the web",
-         "this plug-in converts the image to indexed, with some extra options",
+register "webify",
+         "Make an image suitable for the web",
+         "This plug-in converts the image to indexed, with some extra options",
          "Marc Lehmann",
          "Marc Lehmann",
          "19980911",
          "<Image>/Filters/Misc/Webify",
          "RGB*, GRAY*",
          [
-          [PF_BOOL,	"new",		"create a new image", 1],
-          [PF_BOOL,	"transparent",	"make transparent", 1],
+          [PF_BOOL,	"new",		"create a new image?", 1],
+          [PF_BOOL,	"transparent",	"make transparent?", 1],
           [PF_COLOUR,	"bg colour",	"the background colour to use for transparency", "white"],
-          [PF_INT32,	"threshold",	"the threshold to use for baxkground detection", 3],
+          [PF_INT32,	"threshold",	"the threshold to use for background detection", 3],
           [PF_INT32,	"colours",	"how many colours to use (0 = don't convert to indexed)", 32],
           [PF_BOOL,	"autocrop",	"autocrop at end?", 1],
          ],
@@ -32,7 +32,7 @@ register "plug_in_webify",
    if ($alpha) {
       $drawable->add_alpha;
       $drawable->by_color_select($bg,$thresh,SELECTION_REPLACE,1,0,0,0);
-      $drawable->edit_cut;
+      $drawable->edit_cut if $img->selection_bounds;
    }
    Plugin->autocrop(RUN_NONINTERACTIVE,$img,$drawable) if $autocrop;
    $img->convert_indexed (1, $colours) if $colours;

@@ -12,6 +12,12 @@ webify.pl
 	to the right size. Useful to save small & transparent gifs
 	from a higher-quality source.
 
+border.pl
+	a "port" of the similarly named plug-in written in C, to
+	demonstrate direct and fast pixel access. IT also differentiates
+	between interactive and nonineractive use, and returns a colour
+	value.
+
 windy.pl
 	this will windify your image. curious? well then ...
 

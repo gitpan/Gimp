@@ -1,5 +1,16 @@
 Revision history for Gimp-Perl extension.
 
+1.032 Mon Sep 14 02:29:55 CEST 1998
+	- Gimp::Fu now has (some) support for return values. I told you to
+	  return undef ;)
+	- fixed memory problem in Gimp::Lib when param array was empty.
+	- removed bogus plug_in_ name prefix form the examples
+	- don't install border.pl by default, gimp is just too buggy ;)
+	- webify.pl now doesn't cut the layer away if the selection is empty.
+	- added FG/BG buttons to fetch colours to Gimp::Fu (try Filters/Misc/Webify)
+	- disabled intensive tests (batch mode now requires script-fu...
+	  bleeech)
+
 1.031 Sun Sep 13 21:50:51 CEST 1998
 	- non-OO syntax works again (silly me) (and is no longer deprecated,
 	  but the default!)

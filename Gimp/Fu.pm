@@ -136,6 +136,7 @@ sub interact($@) {
         $value=$default unless defined $value;
         push(@defaults,$default);
         $label="$name: ";
+        
         if($type == PF_INT8	# perl just maps
         || $type == PF_INT16	# all this crap
         || $type == PF_INT32	# into the scalar
@@ -143,42 +144,66 @@ sub interact($@) {
         || $type == PF_STRING) {	# I love it
            $a=new Gtk::Entry;
            set_usize $a 0,25;
-           push(@setvals,sub{set_text $a $value ? $value : ""});
+           push(@setvals,sub{set_text $a defined $value ? $value : ""});
            #select_region $a 0,1;
            push(@getvals,sub{get_text $a});
+           
         } elsif($type == PF_COLOR) {
-           $a=new Gtk::ColorSelectButton (-width => 90, -height => 18);
+           $a=new Gtk::HBox (0,5);
+           my $b=new Gtk::ColorSelectButton (-width => 90, -height => 18);
+           show $b; $a->pack_start ($b,1,1,0);
            $value = [216, 152, 32] unless defined $value;
-           push(@setvals,sub{$a->color(join " ",@{Gimp::canonicalize_color $value})});
-           push(@getvals,sub{[split ' ',$a->color]});
+           push(@setvals,sub{$b->color(join " ",@{Gimp::canonicalize_color $value})});
+           push(@getvals,sub{[split ' ',$b->color]});
+           set_tip $t $b,$desc;
+           
+           my $c = new Gtk::Button "FG";
+           signal_connect $c "clicked", sub {
+             $b->color(join " ",@{Gimp::Palette->get_foreground});
+           };
+           set_tip $t $c,"get current foreground colour from the gimp";
+           show $c; $a->pack_start ($c,1,1,0);
+           
+           my $d = new Gtk::Button "BG";
+           signal_connect $d "clicked", sub {
+             $b->color(join " ",@{Gimp::Palette->get_background});
+           };
+           set_tip $t $d,"get current background colour from the gimp";
+           show $d; $a->pack_start ($d,1,1,0);
+           
         } elsif($type == PF_TOGGLE) {
            $a=new Gtk::CheckButton $desc;
            push(@setvals,sub{set_state $a ($value ? 1 : 0)});
            push(@getvals,sub{state $a eq "active"});
+           
         } elsif($type == PF_IMAGE) {
            my $res;
            $a=new Gtk::OptionMenu;
            $a->set_menu(new Gimp::UI::ImageMenu(sub {1},-1,$res));
            push(@setvals,sub{});
            push(@getvals,sub{$res});
+           
         } elsif($type == PF_LAYER) {
            my $res;
            $a=new Gtk::OptionMenu;
            $a->set_menu(new Gimp::UI::LayerMenu(sub {1},-1,$res));
            push(@setvals,sub{});
            push(@getvals,sub{$res});
+           
         } elsif($type == PF_CHANNEL) {
            my $res;
            $a=new Gtk::OptionMenu;
            $a->set_menu(new Gimp::UI::ChannelMenu(sub {1},-1,$res));
            push(@setvals,sub{});
            push(@getvals,sub{$res});
+           
         } elsif($type == PF_DRAWABLE) {
            my $res;
            $a=new Gtk::OptionMenu;
            $a->set_menu(new Gimp::UI::DrawableMenu(sub {1},-1,$res));
            push(@setvals,sub{});
            push(@getvals,sub{$res});
+           
         } else {
            $label="Unsupported argumenttype $type";
            push(@setvals,sub{});
@@ -216,7 +241,6 @@ sub interact($@) {
      $res=0;
      
      signal_connect $w "destroy", sub {main_quit Gtk};
-     signal_connect $w "delete_event", sub {main_quit Gtk};
 
      $button = new Gtk::Button "OK";
      signal_connect $button "clicked", sub {$res = 1; main_quit Gtk};
@@ -339,7 +363,7 @@ sub query {
    my($type);
    for(@scripts) {
       my($function,$blurb,$help,$author,$copyright,$date,
-         $menupath,$imagetypes,$params,$code)=@$_;
+         $menupath,$imagetypes,$params,$results,$code)=@$_;
       
       if ($menupath=~/^<Image>\//) {
          $type=&Gimp::PROC_PLUG_IN;
@@ -349,6 +373,7 @@ sub query {
       } else {
          die "menupath _must_ start with <Image> or <Toolbox>!";
       }
+      
       unshift(@$params,
               [&Gimp::PARAM_INT32,"run_mode","Interactive, [non-interactive]"]);
       Gimp->gimp_install_procedure($function,$blurb,$help,$author,$copyright,$date,
@@ -357,7 +382,8 @@ sub query {
                                       $_->[0]=PARAM_INT32	if $_->[0] == PF_TOGGLE;
                                       $_->[0]=PARAM_STRING	if $_->[0] == PF_FONT;
                                       $_;
-                                   } @$params],[]);
+                                   } @$params],
+                                   $results);
    }
 }
 
@@ -377,6 +403,9 @@ sub query {
        [PF_TYPE,name,desc,default],
        etc...
      ],
+     [
+       like above, but for return values
+     ],
      sub { code };
 
 =over 2
@@ -384,9 +413,10 @@ sub query {
 =item function name
 
 The pdb name of the function, i.e. the name under which is will be
-registered in the Gimp database. If it doesn't start with "perl_fu_", it
-will be prepended (so all function names registered via Gimp::Fu begin
-with "perl_fu_")
+registered in the Gimp database. If it doesn't start with "perl_fu_" it will
+be prepended. If you don't want this, prefix your fucntion name with a
+single "+". The idea here is that every Gimp::Fu plug-in will be found under
+the common C<perl_fu_>-prefix.
 
 =item blurb
 
@@ -432,6 +462,12 @@ accessed in the package-global C<$run_mode>. The B<name> is used in the
 dialog box as a hint, the B<description> will be used as a tooltip.
 
 See the section PARAMETER TYPES for the supported types.
+
+=item the return values
+
+This is just like the parameter array, just that it describes the return
+values. Of course, default values don't make much sense here. (Even if they
+did, it's not implemented anyway..)
 
 =item the code
 
@@ -489,11 +525,15 @@ will be used for the toggle-button label!
 
 =cut
 
-sub register($$$$$$$$$&) {
+sub register($$$$$$$$$;@) {
    no strict 'refs';
    my($function,$blurb,$help,$author,$copyright,$date,
-      $menupath,$imagetypes,$params,$code)=@_;
-   $function=~s/^perl_fu_|/perl_fu_/;
+      $menupath,$imagetypes,$params,$results,$code)=@_;
+   
+   $code or ($results,$code)=([],$results);
+   
+   $function="perl_fu_".$function unless $function=~/^perl_fu/ || $function=~s/^\+//;
+   
    *$function = sub {
       $run_mode=shift;	# global!
       my(@pre,@defaults);
@@ -558,18 +598,20 @@ sub register($$$$$$$$$&) {
                   print "saving image $path\n" if $Gimp::verbose;
                   save_image($img,$path);
                   $img->delete;
-               } else {
+               } elsif ($run_mode != &Gimp::RUN_NONINTERACTIVE) {
                   $img->display_new;
                }
-            } else {
+            } elsif (!@$results) {
                warn "WARNING: $function returned something that is not an image: \"$img\"\n";
             }
 	 }
       }
       Gimp->displays_flush;
+      
+      wantarray ? @imgs : $imgs[0];
    };
    push(@scripts,[$function,$blurb,$help,$author,$copyright,$date,
-                  $menupath,$imagetypes,$params,$code]);
+                  $menupath,$imagetypes,$params,$results,$code]);
 }
 
 =cut

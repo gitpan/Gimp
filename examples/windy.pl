@@ -45,12 +45,12 @@ sub windify {
 	}
 
 register
-	"plug_in_windify",
+	"windify",
 	"Add wind to an image",
 	"Blow your image all over :)",
 	"Seth Burgess",
 	"Seth Burgess (c)",
-	"1998-05-20",
+	"1998-09-14",
 	"<Image>/Filters/Artistic/Windify",
 	"*",
 	[

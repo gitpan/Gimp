@@ -97,6 +97,7 @@ install-plugins:
 	-cd examples && $GIMPTOOL --install-admin-bin windy.pl
 	-cd examples && $GIMPTOOL --install-admin-bin prep4gif.pl
 	-cd examples && $GIMPTOOL --install-admin-bin webify.pl
+#	-cd examples && $GIMPTOOL --install-admin-bin border.pl
 EOF
 }
 

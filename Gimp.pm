@@ -10,7 +10,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '1.031';
+$VERSION = '1.032';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -447,12 +447,25 @@ define certain call-backs in the same module you called C<Gimp::main>:
 
 =over 4
 
-=item init (), query (), quit (), <installed_procedure>()
+=item init (), query (), quit ()
 
 the standard libgimp callback functions. C<run>() is missing, because this
 module will directly call the function you registered with
 C<gimp_install_procedure>. Some only make sense for extensions, some
 only for normal plug-ins.
+
+=item <installed_procedure>()
+
+The callback for a registered function (C<gimp_install_procedure> and
+friends). The arguments from The Gimp are passed as normal arguments
+(with the exception of arrays being passed without a preceding count).
+
+The return values from <installed_procedure>() are checked against the
+specification, with the exception that a single C<undef> is treated like no
+arguments. you can return less, but not more results than specified.
+
+If you C<die> within the callback, the error will be reported to The Gimp
+(as soon as The Gimp implements such a functionality) as an execution error.
 
 =item net ()
 

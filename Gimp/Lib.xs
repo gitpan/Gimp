@@ -288,61 +288,63 @@ convert_array2paramdef (AV *av, GParamDef **res)
   int count = 0;
   GParamDef *def = 0;
   
-  if (av_len (av) < 0)
-    return 0;
-  
-  for(;;)
-    {
-      int idx;
-      
-      for (idx = 0; idx <= av_len (av); idx++)
-        {
-          SV *sv = *av_fetch (av, idx, 0);
-          SV *type = 0;
-          SV *name = 0;
-          SV *help = 0;
-      
-          if (SvROK (sv) && SvTYPE (SvRV (sv)) == SVt_PVAV)
-            {
-              AV *av = (AV *)SvRV(sv);
-              SV **x;
-              
-              if ((x = av_fetch (av, 0, 0))) type = *x;
-              if ((x = av_fetch (av, 1, 0))) name = *x;
-              if ((x = av_fetch (av, 2, 0))) help = *x;
-            }
-          else if (SvIOK(sv))
-            type = sv;
+  if (av_len (av) >= 0)
+    for(;;)
+      {
+        int idx;
+        
+        for (idx = 0; idx <= av_len (av); idx++)
+          {
+            SV *sv = *av_fetch (av, idx, 0);
+            SV *type = 0;
+            SV *name = 0;
+            SV *help = 0;
+        
+            if (SvROK (sv) && SvTYPE (SvRV (sv)) == SVt_PVAV)
+              {
+                AV *av = (AV *)SvRV(sv);
+                SV **x;
+                
+                if ((x = av_fetch (av, 0, 0))) type = *x;
+                if ((x = av_fetch (av, 1, 0))) name = *x;
+                if ((x = av_fetch (av, 2, 0))) help = *x;
+              }
+            else if (SvIOK(sv))
+              type = sv;
 
-          if (type)
-            {
-              if (def)
-                {
-                  if (is_array (SvIV (type)))
-                    {
-                      def->type = PARAM_INT32;
-                      def->name = "array_size";
-                      def->description = "the size of the following array";
-                      def++;
-                    }
-                  
-                  def->type = SvIV (type);
-                  def->name = name ? SvPV (name, na) : 0;
-                  def->description = help ? SvPV (help, na) : 0;
-                  def++;
-                }
-              else
-                count += 1 + !!is_array (SvIV (type));
-            }
-          else
-            croak ("malformed paramdef, expected [PARAM_TYPE,\"NAME\",\"DESCRIPTION\"] or PARAM_TYPE");
-        }
-      
-      if (def)
-        return count;
-      
-      *res = def = g_new (GParamDef, count);
-    }
+            if (type)
+              {
+                if (def)
+                  {
+                    if (is_array (SvIV (type)))
+                      {
+                        def->type = PARAM_INT32;
+                        def->name = "array_size";
+                        def->description = "the size of the following array";
+                        def++;
+                      }
+                    
+                    def->type = SvIV (type);
+                    def->name = name ? SvPV (name, na) : 0;
+                    def->description = help ? SvPV (help, na) : 0;
+                    def++;
+                  }
+                else
+                  count += 1 + !!is_array (SvIV (type));
+              }
+            else
+              croak ("malformed paramdef, expected [PARAM_TYPE,\"NAME\",\"DESCRIPTION\"] or PARAM_TYPE");
+          }
+        
+        if (def)
+          break;
+        
+        *res = def = g_new (GParamDef, count);
+      }
+  else
+    *res = 0;
+  
+  return count;
 }
 
 static HV *
@@ -711,6 +713,7 @@ static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, 
           
           for (i = nreturn_vals; i-- && count; )
              {
+               printf ("i%d, count%d, nr%d, type%d\n", i, count, nreturn_vals, return_defs[i].type);
                return_vals[i].type = return_defs[i].type;
                if ((i >= nreturn_vals-1 || !is_array (return_defs[i+1].type))
                    && convert_sv2gimp (err_msg, &return_vals[i], TOPs))

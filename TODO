@@ -3,6 +3,9 @@ up-to-date and may not even be readable ;)
 
 bugs
 
+  * return values do not at all work
+  * enable t/run.t again (but how? different solutions
+    for gimp-1.0 and gimp-1.1???)
   * Gimp::main vs. Gimp::Fu::main (!)
   * wait for working gimp_file_load (or do it myself?)
 [DONE]  * Gimp::Net, <Image>-scripts should always ask for Image & Drawable(!)
@@ -14,6 +17,8 @@ bugs
   
 important issues
 
+  * docs updating: return vals, return undef, main() etc.
+  * sliders for Gimp::Fu
   * create working progress when Net and $verbose
   * require Storable soon(!)
   * Gimp::Fu::command(?)
