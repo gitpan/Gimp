@@ -23,7 +23,7 @@ $old_w = $^W; $^W = 0;
 *old_get_data = \&Gimp::Tile::get_data;
 *Gimp::Tile::get_data = sub ($) {
    my($tile)=@_;
-   my($pdl)=new_from_specification PDL (byte,$tile->{eheight},$tile->{ewidth},
+   my($pdl)=new_from_specification PDL (byte,width,height,
                                         $tile->{bpp} > 1 ? $tile->{bpp} : ());
    ${$pdl->get_dataref} = old_get_data($tile);
    $pdl->upd_data;
@@ -31,8 +31,8 @@ $old_w = $^W; $^W = 0;
 };
 
 # this tries to overwrite a function with another one. this is quite tricky
-# (impossible), we only overwrite Gimp::Lib::function and Gimp::function and
-# hope no other references are around.
+# (almost impossible in general), we only overwrite Gimp::Lib::function and
+# Gimp::function and hope no other references are around.
 sub rep ($&) {
    my($name,$sub)=@_;
    *{"old_$name"}=\&{"${interface_pkg}::gimp_pixel_rgn_$name"};
@@ -72,19 +72,19 @@ rep "get_rect", sub ($$$$$) {
 };
 
 rep "set_pixel", sub ($$$$) {
-   old_set_pixel($_[0],${$_[1]->get_dataref},$_[2],$_[3]);
+   old_set_pixel($_[0],${$_[1]->get_dataref},$_[2]);
 };
 
 rep "set_col", sub ($$$$) {
-   old_set_col($_[0],${$_[1]->get_dataref},$_[2],$_[3],($_[1]->dims)[1]);
+   old_set_col($_[0],${$_[1]->get_dataref},$_[2],$_[3]);
 };
 
 rep "set_row", sub ($$$$) {
-   old_set_row($_[0],${$_[1]->get_dataref},$_[2],$_[3],($_[1]->dims)[1]);
+   old_set_row($_[0],${$_[1]->get_dataref},$_[2],$_[3]);
 };
 
-rep "set_rect", sub ($$$$) {
-   old_set_rect($_[0],${$_[1]->get_dataref},$_[2],$_[3],($_[1]->dims)[1,2]);
+rep "set_rect", sub {
+   old_set_rect($_[0],${$_[1]->get_dataref},$_[2],$_[3],($_[1]->dims)[1]);
 };
 
 $^W = $old_w; undef $old_w;
@@ -94,7 +94,7 @@ __END__
 
 =head1 NAME
 
-Gimp::PDL - Overwrite Tile/Region functions to work on piddles.
+Gimp::PDL - Overwrite Tile/Region functions to work with piddles.
 
 =head1 SYNOPSIS
 
@@ -104,7 +104,22 @@ Gimp::PDL - Overwrite Tile/Region functions to work on piddles.
 
 =head1 DESCRIPTION
 
-This module overwrites all methods of Gimp::Tile and Gimp::PixelRgn
+This module overwrites all methods of Gimp::Tile and Gimp::PixelRgn. The new
+functions return and accept piddles instead of strings for pixel values. The
+last argument (height) of gimp_pixel_rgn_set_rect is calculated from the
+piddle.
+
+Some exmaples:
+
+$region = $drawable->pixel_rgn (0,0, 100,100, 1,0);
+$pixel = $region->get_pixel (5,7);	# fetches the pixel from (5|7)
+print $pixel;
+-> [255, 127, 0]			# RGB format ;)
+$region->set_pixel ($pixel * 0.5, 5, 7);# darken the pixel
+$rect = $region->get_rect (3,3,70,20);	# get a horizontal stripe
+$rect = $rect->hclip(255/5)*5;		# clip and multiply by 5
+$region->set_rect($rect);		# and draw it!
+undef $region;				# and update it!
 
 =head1 AUTHOR
 

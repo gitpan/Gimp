@@ -1,10 +1,16 @@
 Revision history for Gimp-Perl extension.
 
+0.93  Tue May 26 03:09:59 CEST 1998
+	- documentation updates.
+	- bugfixes.
+	- added windy.pl plug-in.
+
 0.92  Sat May 23 23:46:33 CEST 1998
 	- preliminary GDrawable support (NOT Gimp::Net)
 	- preliminary GTile support (NOT Gimp::Net)
 	- preliminary GPixelRgn support (NOT Gimp::Net)
 	- preliminary PDL support (in Gimp::PDL)
+	- moved Gimp::OO into Gimp
 	- bugfixes
 
 0.91  Fri May 22 01:55:30 CEST 1998

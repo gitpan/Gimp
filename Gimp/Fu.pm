@@ -21,6 +21,7 @@ Gimp::Fu - easy to use framework for Gimp scripts
 
 =head1 SYNOPSIS
 
+  use Gimp;
   use Gimp::Fu;
   
   (this module uses Gtk, so make sure it's correctly installed)
@@ -43,7 +44,6 @@ In general, a Gimp::Fu script looks like this:
    #!/path/to/your/perl
    
    use Gimp;
-   use Gimp::OO;
    use Gimp::Fu;
    
    register <many arguments>, sub {
@@ -378,6 +378,7 @@ sub register($$$$$$$$$&) {
       for my $img (&$code(@pre,@_)) {
          Gimp::gimp_display_new($img) if defined $img;
       }
+      Gimp::gimp_displays_flush();
    };
    push(@scripts,[$function,$blurb,$help,$author,$copyright,$date,
                   $menupath,$imagetypes,$params,$code]);

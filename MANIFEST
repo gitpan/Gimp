@@ -18,11 +18,13 @@ Perl-Server
 Gimp/Makefile.PL.in
 Gimp/Lib.xs
 Gimp/Lib.pm
-Gimp/OO.pm
+Gimp/OO.pod
 Gimp/Net.pm
 Gimp/Data.pm
 Gimp/Fu.pm
 Gimp/PDL.pm
+Gimp/Tile.pod
+Gimp/PixelRgn.pod
 examples/Create_Images
 examples/image_list
 examples/example-oo.pl

@@ -1,15 +1,9 @@
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <assert.h>
+#include <stdio.h>
+
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
-#ifdef __cplusplus
-}
-#endif
-
-#include <assert.h>
-#include <stdio.h>
 
 /* dirty is used in gimp.h.  */
 #undef dirty
@@ -1629,41 +1623,42 @@ gimp_pixel_rgn_set_pixel(pr, data, x, y)
 	gimp_pixel_rgn_set_pixel (pr, SvPV(data,na), x, y);
 
 void
-gimp_pixel_rgn_set_row(pr, data, x, y, width)
+gimp_pixel_rgn_set_row(pr, data, x, y)
 	GPixelRgn *	pr
 	SV *		data
 	int	x
 	int	y
-	int	width
 	CODE:
-	if (SvCUR (data) != pr->bpp * width)
+	if (SvCUR (data) % pr->bpp)
 	  croak ("gimp_pixel_rgn_set_row called with incorrect datasize");
-	gimp_pixel_rgn_set_row (pr, SvPV(data,na), x, y, width);
+	gimp_pixel_rgn_set_row (pr, SvPV(data,na), x, y, SvCUR (data) / pr->bpp);
 
 void
-gimp_pixel_rgn_set_col(pr, data, x, y, height)
+gimp_pixel_rgn_set_col(pr, data, x, y)
 	GPixelRgn *	pr
 	SV *		data
 	int	x
 	int	y
-	int	height
 	CODE:
-	if (SvCUR (data) != pr->bpp * height)
+	if (SvCUR (data) % pr->bpp)
 	  croak ("gimp_pixel_rgn_set_col called with incorrect datasize");
-	gimp_pixel_rgn_set_col (pr, SvPV(data,na), x, y, height);
+	gimp_pixel_rgn_set_col (pr, SvPV(data,na), x, y, SvCUR (data) / pr->bpp);
+
+PROTOTYPES: DISABLE
 
 void
-gimp_pixel_rgn_set_rect(pr, data, x, y, width, height)
+gimp_pixel_rgn_set_rect(pr, data, x, y, width)
 	GPixelRgn *	pr
 	SV *		data
 	int	x
 	int	y
 	int	width
-	int	height
 	CODE:
-	if (SvCUR (data) != pr->bpp * width * height)
+	if (SvCUR (data) % (pr->bpp * width))
 	  croak ("gimp_pixel_rgn_set_rect called with incorrect datasize");
-	gimp_pixel_rgn_set_rect (pr, SvPV(data,na), x, y, width, height);
+	gimp_pixel_rgn_set_rect (pr, SvPV(data,na), x, y, width, SvCUR (data) / (pr->bpp * width));
+
+PROTOTYPES: ENABLE
 
 # ??? any possibility to implement these in perl? maybe replacement functions in Gimp.pm?
 
@@ -1692,7 +1687,7 @@ get_data(tile)
 	GTile *	tile
 	CODE:
 	gimp_tile_ref (tile);
-	RETVAL = newSVpvn (tile->data, tile->ewidth * tile->eheight * tile->bpp);
+	RETVAL = newSVpvn (tile->data, gimp_tile_width() * gimp_tile_height() * tile->bpp);
 	gimp_tile_unref (tile, 0);
 	OUTPUT:
 	RETVAL
@@ -1702,7 +1697,7 @@ set_data(tile, data)
 	GTile *	tile
 	SV *	data
 	CODE:
-	if (SvCUR (data) != tile->ewidth * tile->eheight * tile->bpp)
+	if (SvCUR (data) != gimp_tile_width() * gimp_tile_height() * tile->bpp)
 	  croak ("set_data called with incorrect datasize");
 	
 	gimp_tile_ref_zero (tile);

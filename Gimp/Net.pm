@@ -151,8 +151,6 @@ sub gimp_main {
                exec "gimp","-n","-b","(extension_perl_server ".&Gimp::RUN_NONINTERACTIVE." ".
                                      (&Gimp::_PS_FLAG_BATCH | &Gimp::_PS_FLAG_QUIET)." ".
                                      fileno(GIMP_FH).")";
-                                     print "\n";
-               exit; # just to be sure..
             } else {
                croak "unable to fork: $!";
             }
@@ -164,6 +162,7 @@ sub gimp_main {
    $server_fh->autoflush(1); # for compatibility with very old perls..
    no strict 'refs';
    &{caller()."::net"};
+   return 0;
 }
 
 END {

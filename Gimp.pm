@@ -11,7 +11,7 @@ use vars qw($help $verbose $host);
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '0.92';
+$VERSION = '0.93';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -260,13 +260,16 @@ sub AUTOLOAD {
       } elsif (Gimp::_gimp_procedure_available ($_.$subname)) {
          *{$AUTOLOAD} = sub {
             shift if $_[0] eq $class;
-            Gimp::gimp_call_procedure $sub,@_;
+            print "args2 = @_\n";
+            Gimp::gimp_call_procedure($sub,@_);
          };
          goto &$AUTOLOAD;
       }
    }
    croak "function $subname not found in $class";
 }
+
+sub DESTROY {};
 
 sub _pseudoclass {
   no strict 'refs';
@@ -303,6 +306,12 @@ sub data {
    defined(wantarray) ? $self->get_data : undef;
 }
 
+package Gimp::GDrawable;
+
+sub pixel_rgn($$$$$$) {
+   Gimp::gimp_pixel_rgn_init(@_);
+}
+
 package Gimp::PixelRgn;
 
 *PixelRgn:: =  *Gimp::PixelRgn::;
@@ -327,12 +336,12 @@ This is mostly a reference manual. For a quick intro, look at L<Gimp::Fu>.
 Well, scheme (which is used by script-fu), is IMnsHO the crappiest language
 ever (well, the crappiest language that one actually can use, so it's not
 _that_ bad). Scheme has the worst of all languages, no data types, but still
-using variables. Look at haskell to see how functional is done right.
+using variables. Look at haskell (http://www.haskell.org) to see how
+functional is done right.
 
-I'd loved to write a haskell interface instead, but it was sooo much easier
-in perl (at least for me..), so here's the Gimp <-> Perl interface, mostly a
-direct libgimp interface. Needless to say, it was (is) very instructive,
-too.
+Since I was unable to write a haskell interface (and perl is the traditional
+scripting language), I wrote a Perl interface instead. Not too bad a
+decision I believe...
 
 =head1 SYNOPSIS
 
@@ -340,16 +349,12 @@ too.
   
   Other modules of interest:
   
-  use Gimp::Util;
-  use Gimp::OO;
-  use Gimp::Fu;
+  use Gimp::Fu;		# easy scripting environment
+  use Gimp::PDL;	# interface to the Perl Data Language
   
-  these have their own manpage.
+  these have their own manpage (or will have)
 
 =head2 IMPORT TAGS
-
-If you don't give an interface= hint, we will guess a default which might be
-wrong in future versions of the Gimp, so watch out!
 
 =over 4
 
@@ -367,49 +372,44 @@ Import PARAM_* constants (PARAM_INT32, PARAM_STRING etc.)
 
 The constants from gimpenums.h (BG_IMAGE_FILL, RUN_NONINTERACTIVE etc.)
 
-=item interface=lib
-
-Use direct interface via libgimp.
-
-=item interface=net
-
-Use network interface using Net-Server and Gimp::Net.
-
 =back
-  
+
 =head1 GETTING STARTED
 
-Dov Grobgeld has written an excellent tutorial for Gimp-Perl. While not
-finished, it's definitely better than this section currently. You can find
-it at http://imagic.weizmann.ac.il/~dov/gimp/perl-tut.html
+You should first read the Gimp::Fu manpage and then come back. This manpage is mainly
+intended for reference purposes.
+
+Also, Dov Grobgeld has written an excellent tutorial for Gimp-Perl. You can
+find it at http://imagic.weizmann.ac.il/~dov/gimp/perl-tut.html
 
 =head1 DESCRIPTION
 
-Look at the sample plug-ins that come with
-this module. If you write other plug-ins, send them to me! If you have
-question on use, you might as well ask me (although I'm a busy man, so be
-patient, or wait for the next version ;)
+I think you already know what this is about: writing Gimp
+plug-ins/extensions/scripts/file-handlers/standalone-scripts, just about
+everything you can imagine in perl. If you are missing functionality (look
+into TODO first), please feel free contact the author...
 
-It might also prove useful to know how a plug-in is written in C, so
-have a look at some existing plug-ins in C!
-
-Anyway, feedback is appreciated, otherwise, I won't publish future version.
-
-And have a look at the other modules, Gimp::Util and Gimp::OO, and maybe
-the interface modules Gimp::Lib and Gimp::Net.
-
-Some highlites:
+Some hilites:
 
 =over 2
 
 =item *
 Networked plug-ins and plug-ins using the libgimp interfaces (i.e. to be
-started by The Gimp) are written alsmot the same way, you can easily create
-hybrid (network & libgimp) scripts as well.
+started by The Gimp) are written almost the same way (if you use Gimp::Fu,
+there will be no differences at all), you can easily create hybrid (network
+& libgimp) scripts as well.
 
 =item *
 Use either a plain pdb (scheme-like) interface or nice object-oriented
 syntax, i.e. "gimp_layer_new(600,300,RGB)" is the same as "new Image(600,300,RGB)"
+
+=item *
+Gimp::Fu will start the gimp for you, if it cannot connect to an existing
+gimp process.
+
+=item *
+You can optionally overwrite the pixel-data functions by versions using piddles
+(see L<PDL>)
 
 =back
 
@@ -422,30 +422,165 @@ callback procedures do not return anything to The Gimp, not even a status
 argument, which seems to be mandatory by the gimp protocol (which is
 nowhere standardized, though).
 
-=item *
-The tile and region functions are not yet supported.
-
 =back
 
+=head1 OUTLINE OF A GIMP PLUG-IN
+
+All plug-ins (and extensions etc.) _must_ contain a call to C<gimp_main>.
+The return code should be immediately handed out to exit:
+
+C<exit gimp_main;>
+
+In a Gimp::Fu-script, you should call C<main> instead:
+
+C<exit main;>
+
+This is similar to Gtk, Tk or similar modules, where you have to call the
+main eventloop.
+
 =head1 CALLBACKS
+
+If you use the plain Gimp module (as opposed to Gimp::Fu), your
+program should only call one function: C<gimp_main>. Everything
+else is being B<called> from the Gimp. For this to work, you
+should define certain call-backs in the same module you called
+C<gimp_main>:
 
 =over 4
 
 =item init (), query (), quit (), <installed_procedure>()
 
-the standard libgimp callback functions. run() is missing, because this
+the standard libgimp callback functions. C<run>() is missing, because this
 module will directly call the function you registered with
-gimp_install_procedure.
+C<gimp_install_procedure>. Some only make sense for extensions, some
+only for normal plug-ins.
 
 =item net ()
 
-this is called when the plug-in is not started from within Gimp, but is using
-Net-Server (the perl network server extension you hopefully have installed
-and started ;)
+this is called when the plug-in is not started directly from within the
+Gimp, but instead from the I<Net-Server> (the perl network server extension you
+hopefully have installed and started ;)
 
 =back
 
-=head1 FUNCTIONS
+=head1 CALLING GIMP FUNCTIONS
+
+There are two different flavours of gimp-functions. Functions from the
+B<PDB> (the Procedural DataBase), and functions from B<libgimp> (the
+C-language interface library).
+
+You can get a listing and description of every PDB function by starting the
+B<DB Browser> extension in the Gimp-B<Xtns> menu (but remember that B<DB
+Browser> is buggy and displays "_" (underscores) as "-" (dashes), so you
+can't see the difference between gimp_quit and gimp-quit. As a rule of
+thumb, B<Script-Fu> registers scripts with dashes, and everything else uses
+underscores).
+
+B<libgimp> functions can't be traced (and won't be traceable in the
+foreseeable future). Many B<libgimp> functions are merely convinience
+functions for C programmers that just call equivalent PDB functions.
+
+At the moment, Gimp favours B<libgimp> functions where possible, i.e. the
+calling sequence is the same, or implementing an interface is too much work
+when there is an equivalent PDB function anyway. The libgimp functions are
+also slightly faster, but the real benefit is that users (B<YOU>) will hit
+bugs in libgimp very effectively ;) Once libgimp is sufficiently debugged,
+I'll remove the libgimp functions that only shadow PDB functions (thus
+reducing object size as well).
+
+To call pdb functions (or equivalent libgimp functions), just
+treat them as normal perl:
+
+gimp_palette_set_foreground_color([20,5,7]);
+
+"But how do I call functions containing dashes?". Well, get your favourite
+perl book and learn perl! Anyway, newer perls understand a nice syntax (see
+also the description for C<gimp_call_procedure>):
+
+"plug-in-the-egg"->(RUN_INTERACTIVE,$image,$drawable);
+
+Older perls need:
+
+&{"plug-in-the-egg"}(RUN_INTERACTIVE,$image,$drawable);
+
+(unfortunately. the plug-in in this example is actually called
+"plug_in_the_egg" *sigh*)
+
+=head1 SPECIAL FUNCTIONS
+
+In this section, you can find descriptions of special functions, functions
+having different calling conventions/semantics than I would expect (I cannot
+speak for you), or just plain interesting functions.
+
+=over 4
+
+=item gimp_main()
+
+Should be called immediately when perl is initialized. Arguments are not yet
+supported. Initializations can later be done in the init function.
+
+=item gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, image_types, type, [params], [return_vals])
+
+Mostly same as gimp_install_procedure. The parameters and return values for
+the functions are specified as an array ref containing either integers or
+array-refs with three elements, [PARAM_TYPE, \"NAME\", \"DESCRIPTION\"].
+
+=item gimp_progress_init(message)
+
+Initializes a progress bar. In networked modules this is a no-op.
+
+=item gimp_progress_update(percentage)
+
+Updates the progress bar. No-op in networked modules.
+
+=item gimp_tile_*
+
+This family of functions is documented in L<Gimp::Tile>.
+
+=item gimp_pixel_rgn_*
+
+This family of functions is documented in L<Gimp::PixelRgn>.
+
+=item gimp_drawable_get(drawable_ID)
+
+What a mess. Many functions named C<gimp_drawable_something> operate on
+drawable_ID's. This is not unusual, other functions operate on layer_ID's or
+image_ID's. But some functions operate on so-called C<GDrawable>s. The
+C<GDrawable> structure is your connection to the raw pixel data of a
+drawable. If you want to access the tile or pixel_rgn functions, you first
+need a C<GDrawable>. The above function will do just this.
+
+When the C<GDrawable> is destroyed, it is automatically flushed & detached,
+so don't destroy it too early.
+
+=item gimp_call_procedure(procname, arguments...)
+
+This function is actually used to implement the fancy stuff. Its your basic
+interface to the PDB. Every function call is eventually done through his
+function, i.e.:
+
+gimp_image_new(args...);
+
+is replaced by
+
+gimp_call_procedure "gimp_image_new",args...;
+
+at runtime.
+
+=back
+
+=head1 OBJECT ORIENTED SYNTAX
+
+In this manual, only the plain syntax (that lesser languages like C use) is
+described. Actually, the recommended way to write gimp scripts is to use the
+fancy OO-like syntax you are used to in perl (version 5 at least ;). As a
+fact, OO-syntax saves soooo much typing as well. See L<Gimp::OO> for
+details.
+
+=head1 DEBUGGING AIDS
+
+No, I can't tell you how to cure immune deficiencies, but I I<can> tell
+you how Gimp can help you debugging your scripts:
 
 =over 4
 
@@ -499,31 +634,6 @@ invocation.
 
 write trace to FILEHANDLE instead of STDERR.
 
-=item gimp_main()
-
-Should be called immediately when perl is initialized. Arguments are not yet
-supported. Initializations can later be done in the init function.
-
-=item gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, image_types, type, [params], [return_vals])
-
-Mostly same as gimp_install_procedure. The parameters and return values for
-the functions are specified as an array ref containing either integers or
-array-refs with three elements, [PARAM_TYPE, \"NAME\", \"DESCRIPTION\"].
-
-=item gimp_progress_init(message)
-
-Initializes a progress bar. In networked modules this is a no-op.
-
-=item gimp_progress_update(percentage)
-
-Updates the progress bar. No-op in networked modules.
-
-=back
-
-Some functions that have a different calling convention than pdb functions
-but the same name are not visible in the perl module. (i.e. pdb functions
-have priority on name clashes)
-
 =head1 SUPPORTED GIMP DATA TYPES
 
 Gimp supports different data types like colors, regions, strings. In
@@ -538,33 +648,26 @@ to a perl-double.
 
 =item INT32ARRAY, INT16ARRAY, INT8ARRAY, FLOATARRAY, STRINGARRAY
 
-array refs containing scalars of the same type, i.e. [1, 2, 3, 4].
-(not yet supported).
+array refs containing scalars of the same type, i.e. [1, 2, 3, 4]. Gimp
+implicitly swallows or generates a preceeding integer argument because the
+preceding argument usually (this is a de-facto standard) contains the number
+of elements.
 
 =item COLOR
 
 on input, either an array ref with 3 elements (i.e. [233,40,40])
 or a X11-like string is accepted ("#rrggbb").
 
-=item REGION
-
-Not yet supported.
-
 =item DISPLAY, IMAGE, LAYER, CHANNEL, DRAWABLE, SELECTION
 
 These will be mapped to corresponding objects (IMAGE => Gimp::Image). In trace
 output you will see small integers (the image/layer/etc..-ID)
 
-=item BOUNDARY, PATH, STATUS
+=item REGION, BOUNDARY, PATH, STATUS
 
 Not yet supported.
 
 =back
-
-=head1 PLEASE
-
-if you get this far while reading the manpage, please consider helping
-me with the documentation, or write scripts etc... ;) thanks!
 
 =head1 AUTHOR
 

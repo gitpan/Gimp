@@ -62,7 +62,8 @@ EOF
 # the contents of the Makefile that is written.
 WriteMakefile(
     'dist'	=> {
-                    'PREOP'     => 'chmod -R u=rwX,go= .',
+                    'PREOP'     => 'chmod -R u=rwX,go= . ;'.
+                    		   '[ -x ./cphp ] && ./cphp',
 #                                   '&& pod2man Gimp.pm | groff -man -P-buo -Tascii > README',
                     'COMPRESS'	=> 'gzip -9v',
                     'SUFFIX'	=> '.gz',
@@ -79,7 +80,7 @@ WriteMakefile(
     		    'Gimp/Fu.pm'	=> '$(INST_LIBDIR)/Gimp/Fu.pm',
     		    'Gimp/Lib.pm'	=> '$(INST_LIBDIR)/Gimp/Lib.pm',
     		    'Gimp/Net.pm'	=> '$(INST_LIBDIR)/Gimp/Net.pm',
-    		    'Gimp/OO.pm'	=> '$(INST_LIBDIR)/Gimp/OO.pm',
+    		    'Gimp/PDL.pm'	=> '$(INST_LIBDIR)/Gimp/PDL.pm',
     		    'Gimp/ColorSelectButton.pm'=> '$(INST_LIBDIR)/Gimp/ColorSelectButton.pm',
     		   },
     'LIBS'	=> [''],
