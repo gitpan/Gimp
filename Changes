@@ -1,5 +1,12 @@
 Revision history for Gimp-Perl extension.
 
+1.003 Sat Aug 15 21:06:41 CEST 1998
+	- gimp-1.1 removes some functions, so don't prototype them.
+	- a drawable first argument substitues for an image, i.e.
+	  you can omit the first IMAGE
+	- error reporting is now much better and reports the correct
+	  position, I hope ;)
+
 1.002 Mon Jul 27 12:44:46 CEST 1998
 	- Patch by Dov Grobgeld (default values for arguments, bugfixes)
 	- gimp_displays_flush called always after a Fu-script

@@ -2,14 +2,17 @@ bugs
 
   * modification of read-only variable attempted in Gimp::Data
   * croak where croak to croak is croaked
+  * colour descriptions also for GtkColorSelectButton(!!)
 
 important issues
 
   * add realclean
   * make traceable
+  * Untitled/0 Untitled/1 etc..
 
 not-so-important issues
 
+  * memory leaks on many croak()'s
   * return values for run()
   * default function parameters (with hash %defaults?)
   * gimp_text(text => "hallo", family => "engraver", size => 20);

@@ -1,6 +1,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include <libgimp/gimp.h>
+
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
@@ -8,9 +11,9 @@ extern "C" {
 }
 #endif
 
+/* FIXME */
 /* dirty is used in gimp.h.  */
 #undef dirty
-#include <libgimp/gimp.h>
 #include "extradefs.h"
 #include "config.h"
 

@@ -11,7 +11,7 @@ use vars qw($help $verbose $host);
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '1.002';
+$VERSION = '1.003';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -74,7 +74,7 @@ $VERSION = '1.002';
 	gimp_image_set_cmap		gimp_image_set_component_active	gimp_image_set_component_visible
 	gimp_image_set_filename		gimp_display_new		gimp_display_delete
 	gimp_displays_flush		gimp_layer_new			gimp_layer_copy
-	gimp_layer_delete		gimp_layer_width		gimp_layer_height
+	gimp_layer_delete
 	gimp_layer_bpp			gimp_layer_type			gimp_layer_add_alpha
 	gimp_layer_create_mask		gimp_layer_resize		gimp_layer_scale
 	gimp_layer_translate		gimp_layer_get_image_id		gimp_layer_is_floating_selection
@@ -290,6 +290,11 @@ package Gimp::OO;
 use vars qw($AUTOLOAD);
 use Carp;
 
+sub _croak($) {
+  $_[0] =~ s/ at .*? line \d+.*$//s;
+  croak $_[0];
+}
+
 sub AUTOLOAD {
    no strict 'refs';
    my ($class,$subname) = $AUTOLOAD =~ /^(.*)::(.*?)$/;
@@ -299,14 +304,15 @@ sub AUTOLOAD {
          my $ref = \&{"Gimp::$sub"};
          *{$AUTOLOAD} = sub {
             shift if $_[0] eq $class;
-            return &$ref;	# simulate goto until repaired
-            goto &$ref;		#d##fixme#
+            eval { &$ref };
+            _croak $@ if $@;
          };
          goto &$AUTOLOAD;
       } elsif (Gimp::_gimp_procedure_available ($_.$subname)) {
          *{$AUTOLOAD} = sub {
             shift if $_[0] eq $class;
-            Gimp::gimp_call_procedure($sub,@_);
+            eval { Gimp::gimp_call_procedure($sub,@_) };
+            _croak $@ if $@;
          };
          goto &$AUTOLOAD;
       }
@@ -320,8 +326,10 @@ sub _pseudoclass {
   no strict 'refs';
   my ($class, @prefixes)= @_;
   unshift(@prefixes,"");
-  @{"Gimp::${class}::ISA"}	= @{"${class}::ISA"}		= ('Gimp::OO');
-  @{"Gimp::${class}::PREFIXES"}	= @{"${class}::PREFIXES"}	= @prefixes;
+  @{"${class}::ISA"}		= ("Gimp::${class}");
+  @{"Gimp::${class}::ISA"}	= ('Gimp::OO');
+  @{"Gimp::${class}::PREFIXES"}	= 
+  @{"${class}::PREFIXES"}	= @prefixes;
 }
 
 _pseudoclass qw(Layer		gimp_layer_ gimp_drawable_ gimp_);
@@ -343,7 +351,7 @@ _pseudoclass qw(Tile		gimp_tile_);
 
 package Gimp::Tile;
 
-*Tile:: = *Gimp::Tile::;
+push (@Tile::ISA, "Gimp::Tile");
 
 sub data {
    my $self = shift;
@@ -359,7 +367,7 @@ sub pixel_rgn($$$$$$) {
 
 package Gimp::PixelRgn;
 
-*PixelRgn:: =  *Gimp::PixelRgn::;
+push(@PixelRgn::ISA, "Gimp::PixelRgn");
 
 sub new($$$$$$$$) {
    shift;

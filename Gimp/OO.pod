@@ -50,6 +50,17 @@ the magic autobless feature ;) to their corresponding classes, i.e.
 The class argument ($image in the above examples) is prepended to the
 argument list.
 
+Another shortcut: many functions want a (redudant) image argument, like
+
+ $image->shear ($layer, ...)
+
+Since you want to shear the E<$layer>, not the E<$image>, this is confusing as well.
+In cases like this, Gimp allows you to write:
+
+ $layer->shear (...)
+
+And automatically confers the additional IMAGE-type argument.
+
 You can call all sorts of sensible and not-so-sensible functions,
 so this feature can be abused:
 

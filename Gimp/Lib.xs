@@ -1,13 +1,15 @@
 #include <assert.h>
 #include <stdio.h>
 
+#include <libgimp/gimp.h>
+
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
 
+/* FIXME */
 /* dirty is used in gimp.h.  */
 #undef dirty
-#include <libgimp/gimp.h>
 
 #include "extradefs.h"
 
@@ -28,6 +30,8 @@
 #define PKG_GDRAWABLE	GIMP_PKG "GDrawable"
 #define PKG_TILE	GIMP_PKG "Tile"
 #define PKG_PIXELRGN	GIMP_PKG "PixelRgn"
+
+#define PKG_ANY		0
 
 static int trace = TRACE_NONE;
 
@@ -267,42 +271,51 @@ convert_sv2paramdef (GParamDef *par, SV *sv)
     croak ("malformed paramdef, expected [PARAM_TYPE,\"NAME\",\"DESCRIPTION\"] or PARAM_TYPE");
 }
 
+static HV *
+param_stash (GParamType type)
+{
+  static HV *bless_hv[PARAM_END]; /* initialized to zero */
+  static char *bless[PARAM_END] = {
+                            0		, 0		, 0		, 0		, 0		,
+                            0		, 0		, 0		, 0		, 0		,
+                            PKG_COLOR	, PKG_REGION	, PKG_DISPLAY	, PKG_IMAGE	, PKG_LAYER	,
+                            PKG_CHANNEL	, PKG_DRAWABLE	, PKG_SELECTION	, 0		, 0		,
+                            0
+                           };
+  
+  if (bless [type] && !bless_hv [type])
+    bless_hv [type] = gv_stashpv (bless [type], 1);
+  
+  return bless_hv [type];
+}
+  
 /* automatically bless SV into PARAM_type.  */
 /* for what it's worth, we cache the stashes.  */
 static SV *
 autobless (SV *sv, int type)
 {
-  static HV *bless_hv[22]; /* initialized to zero */
-  static char *bless[22] = {
-                            0		, 0		, 0		, 0		, 0		,
-                            0		, 0		, 0		, 0		, 0		,
-                            PKG_COLOR	, PKG_REGION	, PKG_DISPLAY	, PKG_IMAGE	, PKG_LAYER	,
-                            PKG_CHANNEL	, PKG_DRAWABLE	, PKG_SELECTION	, 0		, 0		,
-                            0		, 0
-                           };
+  HV *stash = param_stash (type);
   
-  if (bless [type])
-    {
-      if (!bless_hv [type])
-        bless_hv [type] = gv_stashpv (bless [type], 1);
-      
-      sv = sv_bless (newRV_noinc (sv), bless_hv [type]);
-    }
+  if (stash)
+    sv = sv_bless (newRV_noinc (sv), stash);
   
   return sv;
 }
 
 /* return gint32 from object, wether iv or rv.  */
 static gint32
-unbless (SV *sv)
+unbless (SV *sv, char *type)
 {
   if (SvROK (sv))
-    {
-      if (SvTYPE (SvRV (sv)) == SVt_PVMG)
-        return SvIV (SvRV (sv));
-      else
-        croak ("only blessed scalars accepted here");
-    }
+    if (type == PKG_ANY || sv_derived_from (sv, type))
+      {
+        if (SvTYPE (SvRV (sv)) == SVt_PVMG)
+          return SvIV (SvRV (sv));
+        else
+          croak ("only blessed scalars accepted here");
+      }
+    else
+      croak ("argument type %s expected", type);
   else
     return SvIV (sv);
 }
@@ -429,7 +442,11 @@ convert_gimp2sv (GParam *arg)
     croak ("perl-arrayref required as datatype for a gimp-array"); \
 }
 
-static void
+/*
+ * convert a perl scalar into a GParam, return true if
+ * the argument has been consumed.
+ */
+static int
 convert_sv2gimp (char *err, GParam *arg, SV *sv)
 {
   switch (arg->type)
@@ -439,15 +456,29 @@ convert_sv2gimp (char *err, GParam *arg, SV *sv)
       case PARAM_INT8:		arg->data.d_int8	= SvIV(sv); break;
       case PARAM_FLOAT:		arg->data.d_float	= SvNV(sv); break;
       case PARAM_STRING:	arg->data.d_string	= SvPv(sv); break;
-      case PARAM_DISPLAY:	arg->data.d_display	= unbless(sv); break;
-      case PARAM_IMAGE:		arg->data.d_image	= unbless(sv); break;
-      case PARAM_LAYER:		arg->data.d_layer	= unbless(sv); break;
-      case PARAM_CHANNEL:	arg->data.d_channel	= unbless(sv); break;
-      case PARAM_DRAWABLE:	arg->data.d_drawable	= unbless(sv); break;
-      case PARAM_SELECTION:	arg->data.d_selection	= unbless(sv); break;
+      case PARAM_DISPLAY:	arg->data.d_display	= unbless(sv, PKG_DISPLAY  ); break;
+      case PARAM_LAYER:		arg->data.d_layer	= unbless(sv, PKG_LAYER    ); break;
+      case PARAM_CHANNEL:	arg->data.d_channel	= unbless(sv, PKG_CHANNEL  ); break;
+      case PARAM_DRAWABLE:	arg->data.d_drawable	= unbless(sv, PKG_ANY      ); break;
+      case PARAM_SELECTION:	arg->data.d_selection	= unbless(sv, PKG_SELECTION); break;
       case PARAM_BOUNDARY:	arg->data.d_boundary	= SvIV(sv); break;
       case PARAM_PATH:		arg->data.d_path	= SvIV(sv); break;
       case PARAM_STATUS:	arg->data.d_status	= SvIV(sv); break;
+      case PARAM_IMAGE:
+        if (sv_derived_from (sv, PKG_IMAGE))
+          {
+      	                        arg->data.d_image	= unbless(sv, PKG_IMAGE    ); break;
+      	  }
+      	else if (sv_derived_from (sv, PKG_DRAWABLE))
+      	  arg->data.d_image = gimp_drawable_image_id    (unbless(sv, PKG_DRAWABLE));
+      	else if (sv_derived_from (sv, PKG_LAYER   ))
+      	  arg->data.d_image = gimp_layer_get_image_id   (unbless(sv, PKG_LAYER   ));
+      	else if (sv_derived_from (sv, PKG_CHANNEL ))
+      	  arg->data.d_image = gimp_channel_get_image_id (unbless(sv, PKG_CHANNEL ));
+      	
+      	return 0;
+      	break;
+      	
       case PARAM_COLOR:
         canonicalize_colour (err, sv, &arg->data.d_color);
         break;
@@ -461,9 +492,11 @@ convert_sv2gimp (char *err, GParam *arg, SV *sv)
       default:
         sprintf (err, "dunno how to pass arg type %d", arg->type);
     }
+  
+  return 1;
 }
 
-/* only free array pointers, but not actual aray values.  */
+/* only free array pointers, but not actual array values.  */
 static void
 destroy_params (GParam *arg, int count)
 {
@@ -485,7 +518,7 @@ destroy_params (GParam *arg, int count)
 }
 
 static int
-is_arraytype (GParamType typ)
+is_array (GParamType typ)
 {
   return typ == PARAM_INT32ARRAY
       || typ == PARAM_INT16ARRAY
@@ -500,19 +533,22 @@ perl_param_count (GParam *arg, int count)
   GParam *end = arg + count;
   
   while (arg < end)
-    if (is_arraytype (arg++->type))
+    if (is_array (arg++->type))
       count--;
   
   return count;
 }
 
+/*
+ * count actual parameter number
+ */
 static int
 perl_paramdef_count (GParamDef *arg, int count)
 {
   GParamDef *end = arg + count;
   
   while (arg < end)
-    if (is_arraytype (arg++->type))
+    if (is_array (arg++->type))
       count--;
   
   return count;
@@ -551,7 +587,7 @@ static void pii_run(char *name, int nparams, GParam *param, int *nreturn_vals, G
       EXTEND (sp, perl_param_count (param, nparams));
       for (i = 0; i < nparams; i++)
         {
-          if (i < nparams-1 && is_arraytype (param[i+1].type))
+          if (i < nparams-1 && is_array (param[i+1].type))
             i++;
           
           PUSHs(convert_gimp2sv(param+i));
@@ -717,8 +753,8 @@ gimp_call_procedure (proc_name, ...)
 		int nparams;
 		int nreturn_vals;
 		int i, j;
-		GParam *args;
-		GParam *values;
+		GParam *args = 0;
+		GParam *values = 0;
 		int nvalues;
 		GParamDef *params;
 		GParamDef *return_vals;
@@ -738,23 +774,31 @@ gimp_call_procedure (proc_name, ...)
 		    g_free (proc_author);
 		    g_free (proc_copyright);
 		    g_free (proc_date);
-		    if (items-1 != perl_paramdef_count (params, nparams))
-		      sprintf (croak_str, "'%s' expects %d arguments, not %d",
-		               proc_name, perl_paramdef_count (params, nparams), items-1);
+		    
+		    if (nparams)
+		      args = (GParam *) g_new (GParam, nparams);
+    		    
+    		    for (i = j = 0; i < nparams && j < items; i++)
+		      {
+		        args[i].type = params[i].type;
+		        if ((i >= nparams-1 || !is_array (params[i+1].type))
+		            && convert_sv2gimp (croak_str, &args[i], ST(j+1)))
+		          j++;
+		      }
+		    
+		    if (j != items-1)
+		      {
+		        if (trace & TRACE_CALL)
+		          trace_printf ("[unfinished]\n");
+		        
+		        sprintf (croak_str, "%s arguments (%d) for function '%s'",
+		                 j < items ? "not enough" : "too many", items-1, proc_name);
+    		        
+    		        if (nparams)
+    		          destroy_params (args, nparams);
+		      }
 		    else
 		      {
-		        if (nparams)
-		          args = (GParam *) g_new (GParam, nparams);
-    		        
-    		        for (i = j = 0; i < nparams; i++, j++)
-		          {
-		            args[i].type = params[i].type;
-		            if (i < nparams-1 && is_arraytype (params[i+1].type))
-		              j--;
-		            else
-		              convert_sv2gimp (croak_str, &args[i], ST(j+1));
-		          }
-		        
 		        if (trace & TRACE_CALL)
 		          {
 		            dump_params (nparams, args, params);
@@ -783,7 +827,7 @@ gimp_call_procedure (proc_name, ...)
                                 EXTEND(sp, perl_paramdef_count (return_vals, nvalues-1));
                                 for (i = 0; i < nvalues-1; i++)
                                   {
-	                            if (i < nvalues-2 && is_arraytype (values[i+2].type))
+	                            if (i < nvalues-2 && is_array (values[i+2].type))
 	                              i++;
 	                            
                                     PUSHs(sv_2mortal (convert_gimp2sv (values+i+1)));
@@ -795,10 +839,10 @@ gimp_call_procedure (proc_name, ...)
                         else
                           sprintf (croak_str, "gimp returned, well.. dunno how to interpret that...");
 		        
-		        if (values)
-		          gimp_destroy_params (values, nreturn_vals);
-		      
                       }
+		    
+		    if (values)
+		      gimp_destroy_params (values, nreturn_vals);
 		    
 		    g_free (return_vals);
 		    g_free (params);
