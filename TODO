@@ -3,10 +3,13 @@ up-to-date and may not even be readable ;)
 
 shortcuts (don't ask)
 
+gimp -b "(extension-perl-server 0 0 0)"
 gimp ~/pix/ka001.jpg -b "(extension-perl-server 0 0 0)"
+file:///usr/app/lib/perl5/site_perl/i686-linux/PDL/HtmlDocs/
 
 bugs
 
+  * gimptool 1.0 doesn't support -n or --noui
   * perl_fu_webify in homepage-logo.pl
   * save_image should be called for non-null return values
   * drawable is compatible to layer AND VICE VERSA (convert_sv2gimp)
@@ -19,6 +22,13 @@ bugs
   
 important issues
 
+  * Gimp::ping
+  * Gimp::Net::get_connection ();
+  * Gimp::Net::set_connection ($conn);
+  
+  * clean up PKG_ANY vs. PKG_REAL_DRAWABLE
+  * allow plug-ins to register with only a drawable argument(!)
+  * provide propper overwriting in Gimp::Net::pixel-_rgn ;(
   * gimp_blend && 15 doesn't work
   * gradient button
   * implement Perl-Server RSET and shared lock(!)
@@ -26,7 +36,7 @@ important issues
 [DONE]  * do not special-case INT32 in convert_sv2gimp
   * substr 4th argument form for Net:: -> require 5.005!!!! DO IT!
   * use Gimp qw(GIMP_HOST=jfjf)???
-  * brushes look inverted
+  * brushes are inverted
   * zero-copy PDL support
 [DONE]  * gimp_init, gimp_deinit
 [DONE]  * duplicate HAVE_VPRINTF in gimp
