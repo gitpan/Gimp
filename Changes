@@ -1,5 +1,8 @@
 Revision history for Gimp-Perl extension.
 
+1.0431 Thu Oct  8 20:01:32 CEST 1998
+	- compile fix for gimp-1.0
+
 1.043 Thu Oct  8 07:27:23 CEST 1998
 	- allow <None> as menupath
 	- added HORIZONTAL, VERTICAL

@@ -80,8 +80,10 @@ char *name;
 	    return EXPAND_AS_NECESSARY;
 	break;
     case 'F':
+#ifdef GIMP_HAVE_GET_DATA_SIZE
 	if (strEQ(name, "FG_IMAGE_FILL"))
 	    return FG_IMAGE_FILL;
+#endif
 	if (strEQ(name, "FG_BG_HSV"))
 	    return FG_BG_HSV;
 	if (strEQ(name, "FG_BG_RGB"))
@@ -132,8 +134,10 @@ char *name;
     case 'N':
 	if (strEQ(name, "NORMAL_MODE"))
 	    return NORMAL_MODE;
+#ifdef GIMP_HAVE_GET_DATA_SIZE
 	if (strEQ(name, "NO_IMAGE_FILL"))
 	    return NO_IMAGE_FILL;
+#endif
 	break;
     case 'O':
 	if (strEQ(name, "OVERLAY_MODE"))

@@ -10,7 +10,7 @@ register "webify",
          "This plug-in converts the image to indexed, with some extra options",
          "Marc Lehmann",
          "Marc Lehmann",
-         "19980916",
+         "1.0",
          "<Image>/Filters/Misc/Webify",
          "RGB*, GRAY*",
          [
