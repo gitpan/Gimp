@@ -1,8 +1,8 @@
 package Gimp::OO;
 
-use strict;
+use strict vars;
 use Carp;
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @EXPORT_FAIL);
+use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @EXPORT_FAIL @PREFIXES);
 use Gimp;
 
 require Exporter;
@@ -11,35 +11,26 @@ require AutoLoader;
 
 @ISA = qw(Exporter);
 @EXPORT = ();
+@EXPORT_OK = ();
+@PREFIXES = ();
 
-sub pseudoclass {
-  my ($class, @prep)= @_;
-  my ($prep);
-  for(@prep) {
-     $prep .= "\"${_}_\",";
-  };
-  $prep .= '""';
-  eval <<EOF;
-
-sub Gimp::${class}::AUTOLOAD {
-  my \$subname;
-  (\$subname = \$Gimp::${class}::AUTOLOAD) =~ s/.*:://;
-  for($prep) {
-    if (Gimp::_gimp_procedure_available (\$_.\$subname)) {
-      eval \"sub \$Gimp::${class}::AUTOLOAD { Gimp::gimp_call_procedure '\$_\$subname',\\\@_ }\";
-      goto &\$Gimp::${class}::AUTOLOAD;
+sub AUTOLOAD {
+  my ($class,$subname) = ($AUTOLOAD =~ /^(.*)::(.*?)$/);
+  shift if $_[0] eq $class;
+  for(@{"${class}::PREFIXES"}) {
+    if (Gimp::_gimp_procedure_available ($_.$subname)) {
+      eval "sub $AUTOLOAD { Gimp::gimp_call_procedure '$_$subname',\@_ }";
+      goto &$AUTOLOAD;
     }
   }
-  Carp::croak \"function \$subname not found in Gimp::$class\";
+  croak "function $subname not found in $class";
 }
 
-sub ${class}::AUTOLOAD {
-   \$Gimp::${class}::AUTOLOAD = \$${class}::AUTOLOAD;
-   goto &Gimp::${class}::AUTOLOAD;
-};
-
-EOF
-   die $@ if $@;
+sub pseudoclass {
+  my ($class, @prefixes)= @_;
+  @prefixes=map { $_."_" } @prefixes;
+  @{"Gimp::${class}::ISA"}	= @{"${class}::ISA"}	  = ('Gimp::OO');
+  @{"Gimp::${class}::PREFIXES"}	= @{"${class}::PREFIXES"} = @prefixes;
 }
 
 pseudoclass qw(Layer	gimp_layer gimp_drawable gimp);
@@ -52,6 +43,7 @@ pseudoclass qw(Palette	gimp_palette);
 pseudoclass qw(Plugin	plug_in);
 pseudoclass qw(Gradients gimp_gradients);
 pseudoclass qw(Edit	gimp_edit);
+pseudoclass qw(Progress	gimp_progress);
 
 1;
 __END__
@@ -139,6 +131,10 @@ gimp_gradients_*
 =item Edit
 
 gimp_edit_*
+
+=item Progress
+
+gimp_progress_*
 
 =back
 

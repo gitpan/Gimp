@@ -11,16 +11,16 @@ use Gimp::OO;
 # the extension that's called.
 sub extension_perl_experimental {
   
-  my $img=Image::new(300,200,RGB);
+  my $img=new Image(300,200,RGB);
   
-  my $bg=Layer::new($img,300,200,RGB_IMAGE,"Background",100,NORMAL_MODE);
+  my $bg=new Layer($img,300,200,RGB_IMAGE,"Background",100,NORMAL_MODE);
   
   Palette::set_background([200,100,200]);
   
-  $bg->fill (BG_IMAGE_FILL);
+  $bg->fill(BG_IMAGE_FILL);
   $img->add_layer($bg,1);
   
-  Display::new($img);
+  new Display($img);
 }
 
 sub query {

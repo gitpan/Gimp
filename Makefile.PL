@@ -3,7 +3,7 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     'dist'	=> {
-                    'PREOP'     => 'pod2text Gimp.pm > README',
+                    'PREOP'     => 'pod2man Gimp.pm | groff -man -P-buo -Tascii > README',
                     'COMPRESS'	=> 'gzip -9v',
                     'SUFFIX'	=> '.gz',
                    },

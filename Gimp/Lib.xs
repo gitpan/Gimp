@@ -39,6 +39,21 @@ typedef guint32 DISPLAY;
 typedef guint32 REGION;
 typedef guint32 COLOR;
 
+static SV *trace_var = 0;
+static PerlIO *trace_file = PerlIO_stderr (); /* FIXME: unportable.  */
+
+static void
+trace_init ()
+{
+  if (!trace_file)
+    SvCUR_set (trace_var, 0);
+}
+
+#define trace_printf(frmt,args...) \
+	if (trace_file) PerlIO_printf (trace_file, frmt, ## args); \
+	else		sv_catpvf (trace_var, frmt, ## args) \
+	
+
 static void
 dump_params (int nparams, GParam *args, GParamDef *params)
 {
@@ -51,56 +66,58 @@ dump_params (int nparams, GParam *args, GParamDef *params)
   };
   int i;
   
-  fprintf (stderr, "(");
+  trace_printf ("(");
   
   if ((trace & TRACE_DESC) == TRACE_DESC)
-    fprintf (stderr, "\n\t");
+    trace_printf ("\n\t");
   
   for (i = 0; i < nparams; i++)
     {
       if ((trace & TRACE_TYPE) == TRACE_TYPE)
         if (params[i].type >= 0 && params[i].type < 22)
-          fprintf (stderr, "%s ", ptype[params[i].type]);
+          trace_printf ("%s ", ptype[params[i].type]);
         else
-          fprintf (stderr, "T%d ", params[i].type);
+          trace_printf ("T%d ", params[i].type);
       
       if ((trace & TRACE_NAME) == TRACE_NAME)
-        fprintf (stderr, "%s=", params[i].name);
+        trace_printf ("%s=", params[i].name);
       
       switch (args[i].type)
         {
-          case PARAM_INT32:	fprintf (stderr, "%d", args[i].data.d_int32); break;
-          case PARAM_INT16:	fprintf (stderr, "%d", args[i].data.d_int16); break;
-          case PARAM_INT8:	fprintf (stderr, "%d", args[i].data.d_int8); break;
-          case PARAM_FLOAT:	fprintf (stderr, "%d", args[i].data.d_float); break;
-          case PARAM_STRING:	fprintf (stderr, "\"%s\"", args[i].data.d_string); break;
-          case PARAM_DISPLAY:	fprintf (stderr, "%d", args[i].data.d_display); break;
-          case PARAM_IMAGE:	fprintf (stderr, "%d", args[i].data.d_image); break;
-          case PARAM_LAYER:	fprintf (stderr, "%d", args[i].data.d_layer); break;
-          case PARAM_CHANNEL:	fprintf (stderr, "%d", args[i].data.d_channel); break;
-          case PARAM_DRAWABLE:	fprintf (stderr, "%d", args[i].data.d_drawable); break;
-          case PARAM_SELECTION:	fprintf (stderr, "%d", args[i].data.d_selection); break;
-          case PARAM_BOUNDARY:	fprintf (stderr, "%d", args[i].data.d_boundary); break;
-          case PARAM_PATH:	fprintf (stderr, "%d", args[i].data.d_path); break;
-          case PARAM_STATUS:	fprintf (stderr, "%d", args[i].data.d_status); break;
+          case PARAM_INT32:	trace_printf ("%d", args[i].data.d_int32); break;
+          case PARAM_INT16:	trace_printf ("%d", args[i].data.d_int16); break;
+          case PARAM_INT8:	trace_printf ("%d", args[i].data.d_int8); break;
+          case PARAM_FLOAT:	trace_printf ("%d", args[i].data.d_float); break;
+          case PARAM_STRING:	trace_printf ("\"%s\"", args[i].data.d_string); break;
+          case PARAM_DISPLAY:	trace_printf ("%d", args[i].data.d_display); break;
+          case PARAM_IMAGE:	trace_printf ("%d", args[i].data.d_image); break;
+          case PARAM_LAYER:	trace_printf ("%d", args[i].data.d_layer); break;
+          case PARAM_CHANNEL:	trace_printf ("%d", args[i].data.d_channel); break;
+          case PARAM_DRAWABLE:	trace_printf ("%d", args[i].data.d_drawable); break;
+          case PARAM_SELECTION:	trace_printf ("%d", args[i].data.d_selection); break;
+          case PARAM_BOUNDARY:	trace_printf ("%d", args[i].data.d_boundary); break;
+          case PARAM_PATH:	trace_printf ("%d", args[i].data.d_path); break;
+          case PARAM_STATUS:	trace_printf ("%d", args[i].data.d_status); break;
           
           case PARAM_COLOR:
-            fprintf (stderr, "[%d,%d,%d]",
-                     args[i].data.d_color.red, args[i].data.d_color.green, args[i].data.d_color.blue);
+            trace_printf ("[%d,%d,%d]",
+                          args[i].data.d_color.red,
+                          args[i].data.d_color.green,
+                          args[i].data.d_color.blue);
             break;
             
           default:
-            fprintf (stderr, "(?)");
+            trace_printf ("(?)");
         }
       
       if ((trace & TRACE_DESC) == TRACE_DESC)
-        fprintf (stderr, "\t\"%s\"\n\t", params[i].description);
+        trace_printf ("\t\"%s\"\n\t", params[i].description);
       else if (i < nparams - 1)
-        fprintf (stderr, ", ");
+        trace_printf (", ");
       
     }
   
-  fprintf (stderr, ")");
+  trace_printf (")");
 }
 
 static void
@@ -329,13 +346,39 @@ GPlugInInfo PLUG_IN_INFO = { pii_init, pii_quit, pii_query, pii_run };
 MODULE = Gimp::Lib	PACKAGE = Gimp::Lib
 
 # FIXME: ASAP
-PROTOTYPES: DISABLE
+PROTOTYPES: ENABLE
 
+#
+# usage:
+# set_trace (int new_trace_mask);
+# set_trace (\$variable_to_trace_into);
+# set_trace (*STDOUT);
+#
 void
-set_trace (mask)
-	int	mask
+set_trace (var)
 	CODE:
-	trace = mask;
+	{
+		SV *sv = ST (0);
+		
+		if (SvROK (sv) || SvTYPE (sv) == SVt_PVGV)
+		  {
+	            if (trace_var)
+		      SvREFCNT_dec (trace_var), trace_var = 0;
+		    
+		    if (SvTYPE (sv) == SVt_PVGV) /* pray it's a filehandle!  */
+		      trace_file = IoOFP (GvIO (sv));
+		    else
+		      {
+		        trace_file = 0;
+		        sv = SvRV (sv);
+		        SvREFCNT_inc (sv);
+		        SvUPGRADE (sv, SVt_PV);
+		        trace_var = sv;
+		      }
+		  }
+		else
+		  trace = SvIV (ST (0));
+	}
 
 int
 gimp_main(...)
@@ -411,8 +454,11 @@ gimp_call_procedure (proc_name, ...)
 		GParamDef *params;
 		GParamDef *return_vals;
 		
+		if (trace)
+		  trace_init ();
+		
 		if (trace & TRACE_CALL)
-		  fprintf (stderr, "%s", proc_name);
+		  trace_printf ("%s", proc_name);
 		
 		if (gimp_query_procedure (proc_name, &proc_blurb, &proc_help, &proc_author,
 		    &proc_copyright, &proc_date, &proc_type, &nparams, &nreturn_vals,
@@ -440,7 +486,7 @@ gimp_call_procedure (proc_name, ...)
 		        if (trace & TRACE_CALL)
 		          {
 		            dump_params (nparams, args, params);
-		            fprintf (stderr, " = ");
+		            trace_printf (" = ");
 		          }
     		    
                         values = gimp_run_procedure2 (proc_name, &nvalues, nparams, args);
@@ -451,7 +497,7 @@ gimp_call_procedure (proc_name, ...)
 			if (trace & TRACE_CALL)
 			  {
 			    dump_params (nvalues-1, values+1, return_vals);
-			    fprintf (stderr, "\n");
+			    trace_printf ("\n");
 			  }
 			
                         if (values && values[0].type == PARAM_STATUS)

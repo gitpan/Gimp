@@ -9,18 +9,19 @@ use Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @EXPORT_FAIL %EXPORT_TAGS);
 use vars qw(
    $default_tcp_port $default_unix_dir $default_unix_sock
-   $server_fh $trace_level
+   $server_fh $trace_level $trace_res
 );
 
 use IO::Socket;
 
 @ISA = ();
 
-use subs @Gimp::_procs;
-
 $default_tcp_port  = 10009;
 $default_unix_dir  = "/tmp/gimp-perl-serv/";
 $default_unix_sock = "gimp-perl-serv";
+
+$trace_res = *STDERR;
+$trace_level = 0;
 
 sub AUTOLOAD {
   my $constname;
@@ -73,13 +74,27 @@ sub _gimp_procedure_available {
 }
 
 sub gimp_call_procedure {
-  my($len,@args);
-  my $req="EXEC".args2net(@_);
-  print $server_fh pack("N",length($req)).$req;
-  $server_fh->read($len,4) == 4 or croak "protocol error";
-  $len=unpack("N",$len);
-  $server_fh->read($req,$len) == $len or croak "protocol error";
-  ($req,@args)=net2args($req);
+  my($len,@args,$trace,$req);
+  if ($trace_level) {
+    $req="TRCE".args2net($trace_level,@_);
+    print $server_fh pack("N",length($req)).$req;
+    $server_fh->read($len,4) == 4 or croak "protocol error";
+    $len=unpack("N",$len);
+    $server_fh->read($req,$len) == $len or croak "protocol error";
+    ($trace,$req,@args)=net2args($req);
+    if (ref $trace_res eq "SCALAR") {
+      $$trace_res = $trace;
+    } else {
+      print $trace_res $trace;
+    }
+  } else {
+    $req="EXEC".args2net(@_);
+    print $server_fh pack("N",length($req)).$req;
+    $server_fh->read($len,4) == 4 or croak "protocol error";
+    $len=unpack("N",$len);
+    $server_fh->read($req,$len) == $len or croak "protocol error";
+    ($req,@args)=net2args($req);
+  }
   croak $req if $req;
   wantarray ? @args : $args[0];
 }
@@ -95,15 +110,25 @@ sub server_quit {
 sub gimp_progress_init {};
 sub gimp_progress_update {};
 
-# for what it's worth...
 sub set_trace {
-  $trace_level = $_[0];
+  my($trace)=@_;
+  if(ref $trace) {
+    $trace_res=$trace;
+  } else {
+    $trace_level=$trace;
+  }
 }
 
 sub gimp_main {
   $server_fh = new IO::Socket::UNIX (Peer => $default_unix_dir.$default_unix_sock);
   unless($server_fh) {
-    croak "tcp connections not yet supported in client (make sure the Net-Server is running)";
+    my($host,$port);
+    $host = $ARGV[0] ? $ARGV[0] : "localhost";
+    $port = $ARGV[1] ? $ARGV[1] : $default_tcp_port;
+    $server_fh = new IO::Socket::INET (PeerAddr => $host, PeerPort => $port);
+    unless($server_fh) {
+      croak "unable to contact server (make sure Net-Server is running)";
+    }
   }
   $server_fh or croak "could not connect to the gimp server server (make sure Net-Server is running)";
   $server_fh->autoflush(1);

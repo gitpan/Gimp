@@ -1,5 +1,11 @@
 #!/usr/bin/perl
 
+#
+# you can enable unix sockets, tcp sockets, or both (or neither...)
+#
+# enabling tcp sockets can be a security risk. If you don't understand why,
+# you shouldn't enable it!
+#
 $use_unix	= 1;
 $use_tcp	= 0;	# don't enable tcp.  security...
 
@@ -8,8 +14,7 @@ use IO::Socket;
 use Gimp 'interface=lib';
 use Gimp::Net;
 
-# must implement remote tracing ASAP
-#Gimp::set_trace(&Gimp::TRACE_NAME); #d#
+Gimp::set_trace(\$trace_res);
 
 #
 # the protocol is quite easy ;)
@@ -19,6 +24,7 @@ use Gimp::Net;
 # cmd			response		description
 # QUIT						quit server
 # EXEC in-args		status out-args		run simple command
+# TRCE trace in-args	trace status out-args	run simple command (with tracing)
 # TEST procname		bool			check for procedure existance
 #
 # args is "number of arguments" arguments preceded by length
@@ -38,7 +44,7 @@ sub slog {
 
 sub handle_request($) {
   my($fh)=@_;
-  my($length,$req,$data,@args);
+  my($length,$req,$data,@args,$trace_level);
   
   $fh->timeout(4);
   $fh->sysread($length,4) == 4 or return 0;
@@ -47,16 +53,23 @@ sub handle_request($) {
   $fh->sysread($req,4) == 4 or return 0;
   $fh->sysread($data,$length-4) == $length-4 or return 0;
   
-  if ($req eq "QUIT") {
-    slog "received QUIT request";
-    $server_quit = 1;
-  } elsif ($req eq "TEST") {
-    print $fh Gimp::_gimp_procedure_available($data) ? "1" : "0";
-  } elsif($req eq "EXEC") {
+  if($req eq "EXEC") {
     ($req,@args)=Gimp::Net::net2args($data);
     @args=eval { Gimp::gimp_call_procedure($req,@args) };
     $data=Gimp::Net::args2net($@,@args);
     print $fh pack("N",length($data)).$data;
+  } elsif ($req eq "TEST") {
+    print $fh Gimp::_gimp_procedure_available($data) ? "1" : "0";
+  } elsif($req eq "TRCE") {
+    ($trace_level,$req,@args)=Gimp::Net::net2args($data);
+    Gimp::set_trace($trace_level);
+    @args=eval { Gimp::gimp_call_procedure($req,@args) };
+    $data=Gimp::Net::args2net($trace_res,$@,@args);
+    print $fh pack("N",length($data)).$data;
+    Gimp::set_trace(0);
+  } elsif ($req eq "QUIT") {
+    slog "received QUIT request";
+    $server_quit = 1;
   } else {
     slog "illegal command received, aborting connection";
     return 0;

@@ -1,180 +1,330 @@
+
+
+
+Gimp(3)        User Contributed Perl Documentation        Gimp(3)
+
+
 NAME
-    Gimp - Perl extension for writing Gimp Extensions/Plug-ins/Load
-    & Save-Handlers
+       Gimp - Perl extension for writing Gimp Extensions/Plug-
+       ins/Load & Save-Handlers
 
-WHY
-    Well, scheme (which is used by script-fu), is IMnsHO the
-    crappiest language ever (well, the crappiest language that one
-    actually can use, so it's not _that_ bad). Scheme has the worst
-    of all languages, no data types, but still using variables. Look
-    at haskell to see how functional is done right.
+RATIONALE
+       Well, scheme (which is used by script-fu), is IMnsHO the
+       crappiest language ever (well, the crappiest language that
+       one actually can use, so it's not _that_ bad). Scheme has
+       the worst of all languages, no data types, but still using
+       variables. Look at haskell to see how functional is done
+       right.
 
-    I'd loved to write a haskell interface instead, but it was sooo
-    much easier in perl (at least for me..), so here's the Gimp <->
-    Perl interface, mostly a direct libgimp interface. Needless to
-    say, it was (is) very instructive, too.
+       I'd loved to write a haskell interface instead, but it was
+       sooo much easier in perl (at least for me..), so here's
+       the Gimp <-> Perl interface, mostly a direct libgimp
+       interface. Needless to say, it was (is) very instructive,
+       too.
 
 SYNOPSIS
-      use Gimp;
-      
-      Other modules of interest:
-      
-      use Gimp::Util;
-      use Gimp::OO;
-      
-      these have their own manpage.
+         use Gimp;
 
-  IMPORT TAGS
+         Other modules of interest:
 
-    :auto
-        Import useful constants, like RGB, RUN_NONINTERACTIVE... as
-        well as all libgimp and pdb functions automagically into the
-        caller's namespace. BEWARE! This will overwrite your
-        AUTOLOAD function, if you have one!
+         use Gimp::Util;
+         use Gimp::OO;
 
-    interface=lib
-        Use direct interface via libgimp.
+         these have their own manpage.
 
-    interface=net
-        Use network interface using Net-Server and Gimp::Net.
 
-GETTING STARTED
-    (ignore this section for now... ;) this will eventually contain
-    some minimal plug-in examples)
+       IMPORT TAGS
 
-    use Gimp qw( :auto );
+       If you don't give an interface= hint, we will guess a
+       default which might be wrong in future versions of the
+       Gimp, so watch out!
 
-    sub net { gimp_quit; }
+       :auto
+           Import useful constants, like RGB,
+           RUN_NONINTERACTIVE... as well as all libgimp and pdb
+           functions automagically into the caller's namespace.
+           BEWARE!  This will overwrite your AUTOLOAD function,
+           if you have one!
 
-    exit gimp_main;
+       interface=lib
+           Use direct interface via libgimp.
+
+       interface=net
+           Use network interface using Net-Server and Gimp::Net.
+
+       (ignore this section for now... ;) this will eventually
+       contain some minimal plug-in examples)
+
+       use Gimp qw( :auto );
+
+       sub net {
+
+
+
+16/Feb/98              perl 5.004, patch 58                     1
+
+
+
+
+
+Gimp(3)        User Contributed Perl Documentation        Gimp(3)
+
+
+         gimp_quit; }
+
+       exit gimp_main;
 
 DESCRIPTION
-    Sorry, not much of a description yet. It took me exactly 9 hours
-    to get to version 0.02, so don't expect it to be perfect.
+       Sorry, I didn't make a very useful documentation yet..
+       help appreciated!
 
-    Look at the sample plug-ins (well, _the_ sample plug-in) that
-    comes with this module. If you write other plug-ins, send them
-    to me! If you have question on use, you might as well ask me
-    (although I'm a busy man, so be patient, or wait for the next
-    version ;)
+       Look at the sample plug-ins that come with this module. If
+       you write other plug-ins, send them to me! If you have
+       question on use, you might as well ask me (although I'm a
+       busy man, so be patient, or wait for the next version ;)
 
-    It might also prove useful to know how a plug-in is written in
-    C, so have a look at some existing plug-ins in C!
+       It might also prove useful to know how a plug-in is
+       written in C, so have a look at some existing plug-ins in
+       C!
 
-    Anyway, feedback is appreciated, otherwise, I won't publish
-    future version.
+       Anyway, feedback is appreciated, otherwise, I won't
+       publish future version.
 
-    And have a look at the other modules, Gimp::Lib, Gimp::Net,
-    Gimp::Util and Gimp:OO.
+       And have a look at the other modules, Gimp::Util and
+       Gimp::OO, and maybe the interface modules Gimp::Lib and
+       Gimp::Net.
 
-    Some noteworthy limitations (subject to be changed):
+       Some highlites:
 
-    *
-    gimp_main() doesn't take arguments, but instead relies on the global
-    variables origargc and origargv to do it's job.
-    *
-    callback procedures do not return anything to The Gimp, not even a status
-    argument, which seems to be mandatory by the gimp protocol (which is
-    nowhere standardized, though).
-    *
-    possible memory leaks everywhere... this is my first perl extension ;) Have
-    a look, correct it, send me patches!
-    *
-    this extension may not be thread safe, but I think libgimp isn't
-    either, so this is not much of a concern...
-    *
-    I wrote this extension with 5.004_58, which has some idiosynchrasies,
-    especially with goto &NAME, so watch out!
+       o Networked plug-ins and plug-ins using the libgimp
+         interfaces (i.e. to be started by The Gimp) are written
+         alsmot the same way, you can easily create hybrid
+         (network & libgimp) scripts as well.
+
+       o Use either a plain pdb (scheme-like) interface or nice
+         object- oriented syntax, i.e.
+         """"gimp_layer_new(600,300,RGB)"""" is the same as
+         """"new Image(600,300,RGB)""""
+
+       noteworthy limitations (subject to be changed):
+
+       o callback procedures do not return anything to The Gimp,
+         not even a status argument, which seems to be mandatory
+         by the gimp protocol (which is nowhere standardized,
+         though).
+
+       o The tile and region functions are not yet supported.
+
 CALLBACKS
-    init (), query (), quit (), <installed_procedure>()
-        the standard libgimp callback functions. run() is missing,
-        because this module will directly call the function you
-        registered with gimp_install_procedure.
+       init (), query (), quit (), <installed_procedure>()
+           the standard libgimp callback functions. run() is
+           missing, because this module will directly call the
+           function you registered with gimp_install_procedure.
 
-    net ()
-        this is called when the plug-in is not started from within
-        Gimp, but is using Net-Server (the perl network server
-        extension you hopefully have installed and started ;)
+       net ()
+           this is called when the plug-in is not started from
+           within Gimp, but is using Net-Server (the perl network
+
+
+
+16/Feb/98              perl 5.004, patch 58                     2
+
+
+
+
+
+Gimp(3)        User Contributed Perl Documentation        Gimp(3)
+
+
+           server extension you hopefully have installed and
+           started ;)
 
 FUNCTIONS
-    set_trace (traceflags)
-        Tracking down bugs in gimp scripts is difficult: no sensible
-        error messages. If anything goes wrong, you only get an
-        execution failure. This function is never exported, so you
-        have to qualify it when calling. (not yet implemented for
-        networked modules).
+       set_trace (tracemask)
+           Tracking down bugs in gimp scripts is difficult: no
+           sensible error messages.  If anything goes wrong, you
+           only get an execution failure. Switch on tracing to
+           see which parameters are used to call pdb functions.
 
-        traceflags is any number of the following flags or'ed
-        together.
+           This function is never exported, so you have to
+           qualify it when calling.  (not yet implemented for
+           networked modules).
 
-    TRACE_NONE  nothing is printed.
+           tracemask is any number of the following flags or'ed
+           together.
 
-    TRACE_CALL  all pdb calls (and only pdb calls!) are printed with
-                arguments and return values.
+       TRACE_NONE  nothing is printed.
 
-    TRACE_TYPE  the parameter types are printed additionally.
+       TRACE_CALL  all pdb calls (and only pdb calls!) are
+                   printed with arguments and return values.
 
-    TRACE_NAME  the parameter names are printed.
+       TRACE_TYPE  the parameter types are printed additionally.
 
-    TRACE_DESC  the parameter descriptions.
+       TRACE_NAME  the parameter names are printed.
 
-    TRACE_ALL   all of the above.
+       TRACE_DESC  the parameter descriptions.
 
-    gimp_main ()
-        Should be called immediately when perl is initialized.
-        Arguments are not yet supported. Initializations can later
-        be done in the init function.
+       TRACE_ALL   all of the above.
 
-    gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, image_types, type, [params], [return_vals])
-        Mostly same as gimp_install_procedure. The parameters and
-        return values for the functions are specified as an array
-        ref containing either integers or array-refs with three
-        elements, [PARAM_TYPE, \"NAME\", \"DESCRIPTION\"].
+       set_trace(\$tracevar)
+           write trace into $tracevar instead of printing it to
+           STDERR. $tracevar only contains the last command
+           traces, i.e. it's cleared on every gimp_call_procedure
+           invocation.
 
-    gimp_progress_init (message)
-        Initializes a progress bar. In networked modules this is a
-        no-op.
+       set_trace(*FILEHANDLE)
+           write trace to FILEHANDLE instead of STDERR.
 
-    gimp_progress_update (percentage)
-        Updates the progress bar.
+       gimp_main()
+           Should be called immediately when perl is initialized.
+           Arguments are not yet supported. Initializations can
+           later be done in the init function.
 
-    Some functions that have a different calling convention than pdb
-    functions with the same name are not visible in the perl module.
+       gimp_install_procedure(name, blurb, help, author,
+           copyright, date, menu_path, image_types, type,
+           [params], [return_vals])
+           Mostly same as gimp_install_procedure. The parameters
+           and return values for the functions are specified as
+           an array ref containing either integers or array-refs
+           with three elements, [PARAM_TYPE, \"NAME\",
+           \"DESCRIPTION\"].
+
+
+
+
+
+16/Feb/98              perl 5.004, patch 58                     3
+
+
+
+
+
+Gimp(3)        User Contributed Perl Documentation        Gimp(3)
+
+
+       gimp_progress_init(message)
+           Initializes a progress bar. In networked modules this
+           is a no-op.
+
+       gimp_progress_update(percentage)
+           Updates the progress bar. No-op in networked modules.
+
+       Some functions that have a different calling convention
+       than pdb functions but the same name are not visible in
+       the perl module. (i.e. pdb functions have priority on name
+       clashes)
 
 SUPPORTED GIMP DATA TYPES
-    Gimp supports different data types like colors, regions,
-    strings. In perl, these are represented as:
+       Gimp supports different data types like colors, regions,
+       strings. In perl, these are represented as:
 
-    INT32, INT16, INT8, FLOAT, STRING
-        normal perl scalars. Anything except STRING will be mapped
-        to a perl-double.
+       INT32, INT16, INT8, FLOAT, STRING
+           normal perl scalars. Anything except STRING will be
+           mapped to a perl-double.
 
-    INT32ARRAY, INT16ARRAY, INT8ARRAY, FLOATARRAY, STRINGARRAY
-        array refs containing scalars of the same type, i.e. [1, 2,
-        3, 4]. (not yet supported).
+       INT32ARRAY, INT16ARRAY, INT8ARRAY, FLOATARRAY, STRINGARRAY
+           array refs containing scalars of the same type, i.e.
+           [1, 2, 3, 4].  (not yet supported).
 
-    COLOR
-        on input, either an array ref with 3 elements (i.e.
-        [233,40,40]) or a X11-like string is accepted ("#rrggbb").
+       COLOR
+           on input, either an array ref with 3 elements (i.e.
+           [233,40,40]) or a X11-like string is accepted
+           ("#rrggbb").
 
-    REGION
-        Not yet supported.
+       REGION
+           Not yet supported.
 
-    DISPLAY, IMAGE, LAYER, CHANNEL, DRAWABLE, SELECTION
-        These will be mapped to opaque scalars. In reality these are
-        small integers (like file descriptors).
+       DISPLAY, IMAGE, LAYER, CHANNEL, DRAWABLE, SELECTION
+           These will be mapped to corresponding objects (IMAGE
+           => Gimp::Image). In trace outpout you will see small
+           integers (the image/layer/etc..-ID)
 
-    BOUNDARY, PATH, STATUS
-        Not yet supported.
+       BOUNDARY, PATH, STATUS
+           Not yet supported.
 
 PLEASE
-    if you get this far while reading the manpage, please consider
-    helping me with the documentation, or write scripts etc... ;)
-    thanks!
+       if you get this far while reading the manpage, please
+       consider helping me with the documentation, or write
+       scripts etc... ;) thanks!
 
 AUTHOR
-    Marc Lehmann, pcg@goof.com
+       Marc Lehmann, pcg@goof.com
 
 SEE ALSO
-    perl(1), gimp(1), Gimp::Util.
+       perl(1), gimp(1), Gimp::Util.
+
+
+
+
+
+
+
+16/Feb/98              perl 5.004, patch 58                     4
+
+
+
+
+
+Gimp(3)        User Contributed Perl Documentation        Gimp(3)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+16/Feb/98              perl 5.004, patch 58                     5
+
 

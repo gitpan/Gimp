@@ -9,7 +9,7 @@ Revision history for Perl extension Gimp.
 0.03  Sat Feb  7 06:15:09 CET 1998
 	- even more usable. although only pdb calls are implemented,
 	  most gimp functions are available. dealing with tiles
-	  directly in perl is probbaly too slow anyway.
+	  directly in perl is probbaly too slow anyway (ha-ha ;)
 	- the example plugin does slightly more now.
 
 0.04  Sat Feb  7 21:43:56 CET 1998
@@ -38,4 +38,12 @@ Revision history for Perl extension Gimp.
 	- Gimp::Net and Gimp::Lib are only internal modules, there is not much of
 	  a distinction between networked modules and modules using libgimp!
 	- Gimp::OO usable over the network.
+
+0.81  Sun Feb 15 20:57:53 CET 1998
+	- tracing now works for networked scripts.
+	- tcp supported in the server & client, but not enabled by default.
+	- simplified Gimp::OO.pm
+	- IO-syntax now support, i.e. new Image(..), which is still a hacky
+	  namespace game
+
 

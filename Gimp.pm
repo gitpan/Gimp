@@ -8,7 +8,7 @@ use vars qw(@_consts @_procs @_internals $interface_pkg $interface_type);
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '0.80';
+$VERSION = '0.81';
 
 @_consts = qw(
 	ADDITION_MODE	ALPHA_MASK	APPLY		BEHIND_MODE	BG_BUCKET_FILL
@@ -178,7 +178,7 @@ __END__
 
 Gimp - Perl extension for writing Gimp Extensions/Plug-ins/Load & Save-Handlers
 
-=head1 WHY
+=head1 RATIONALE
 
 Well, scheme (which is used by script-fu), is IMnsHO the crappiest language
 ever (well, the crappiest language that one actually can use, so it's not
@@ -203,6 +203,9 @@ too.
 
 =head2 IMPORT TAGS
 
+If you don't give an interface= hint, we will guess a default which might be
+wrong in future versions of the Gimp, so watch out!
+
 =over 4
 
 =item :auto
@@ -221,9 +224,6 @@ Use network interface using Net-Server and Gimp::Net.
 
 =back
   
-If you don't give an interface= hint, we will guess a default which might be
-wrong in future versions of the Gimp, so watch out!
-
 =head1 GETTING STARTED
 
 (ignore this section for now... ;) this will eventually contain some minimal
@@ -239,10 +239,10 @@ exit gimp_main;
 
 =head1 DESCRIPTION
 
-Sorry, not much of a description yet. It took me exactly 9 hours to get to
-version 0.02, so don't expect it to be perfect.
+Sorry, I didn't make a very useful documentation yet.. help
+appreciated!
 
-Look at the sample plug-ins (well, _the_ sample plug-in) that comes with
+Look at the sample plug-ins that come with
 this module. If you write other plug-ins, send them to me! If you have
 question on use, you might as well ask me (although I'm a busy man, so be
 patient, or wait for the next version ;)
@@ -252,15 +252,27 @@ have a look at some existing plug-ins in C!
 
 Anyway, feedback is appreciated, otherwise, I won't publish future version.
 
-And have a look at the other modules, Gimp::Lib, Gimp::Net, Gimp::Util and Gimp:OO.
+And have a look at the other modules, Gimp::Util and Gimp::OO, and maybe
+the interface modules Gimp::Lib and Gimp::Net.
 
-Some noteworthy limitations (subject to be changed):
+Some highlites:
 
 =over 2
 
 =item *
-gimp_main() doesn't take arguments, but instead relies on the global
-variables origargc and origargv to do it's job.
+Networked plug-ins and plug-ins using the libgimp interfaces (i.e. to be
+started by The Gimp) are written alsmot the same way, you can easily create
+hybrid (network & libgimp) scripts as well.
+
+=item *
+Use either a plain pdb (scheme-like) interface or nice object-oriented
+syntax, i.e. "gimp_layer_new(600,300,RGB)" is the same as "new Image(600,300,RGB)"
+
+=back
+
+noteworthy limitations (subject to be changed):
+
+=over 2
 
 =item *
 callback procedures do not return anything to The Gimp, not even a status
@@ -268,16 +280,7 @@ argument, which seems to be mandatory by the gimp protocol (which is
 nowhere standardized, though).
 
 =item *
-possible memory leaks everywhere... this is my first perl extension ;) Have
-a look, correct it, send me patches!
-
-=item *
-this extension may not be thread safe, but I think libgimp isn't
-either, so this is not much of a concern...
-
-=item *
-I wrote this extension with 5.004_58, which has some idiosynchrasies,
-especially with goto &NAME, so watch out!
+The tile and region functions are not yet supported.
 
 =back
 
@@ -303,14 +306,16 @@ and started ;)
 
 =over 4
 
-=item set_trace (traceflags)
+=item set_trace (tracemask)
 
 Tracking down bugs in gimp scripts is difficult: no sensible error messages.
-If anything goes wrong, you only get an execution failure. This function is
-never exported, so you have to qualify it when calling. (not yet implemented
-for networked modules).
+If anything goes wrong, you only get an execution failure. Switch on
+tracing to see which parameters are used to call pdb functions.
 
-traceflags is any number of the following flags or'ed together.
+This function is never exported, so you have to qualify it when calling.
+(not yet implemented for networked modules).
+
+tracemask is any number of the following flags or'ed together.
 
 =over 8
 
@@ -341,7 +346,17 @@ all of the above.
 
 =back
 
-=item gimp_main ()
+=item set_trace(\$tracevar)
+
+write trace into $tracevar instead of printing it to STDERR. $tracevar only
+contains the last command traces, i.e. it's cleared on every gimp_call_procedure
+invocation.
+
+=item set_trace(*FILEHANDLE)
+
+write trace to FILEHANDLE instead of STDERR.
+
+=item gimp_main()
 
 Should be called immediately when perl is initialized. Arguments are not yet
 supported. Initializations can later be done in the init function.
@@ -352,18 +367,19 @@ Mostly same as gimp_install_procedure. The parameters and return values for
 the functions are specified as an array ref containing either integers or
 array-refs with three elements, [PARAM_TYPE, \"NAME\", \"DESCRIPTION\"].
 
-=item gimp_progress_init (message)
+=item gimp_progress_init(message)
 
 Initializes a progress bar. In networked modules this is a no-op.
 
-=item gimp_progress_update (percentage)
+=item gimp_progress_update(percentage)
 
-Updates the progress bar.
+Updates the progress bar. No-op in networked modules.
 
 =back
 
 Some functions that have a different calling convention than pdb functions
-with the same name are not visible in the perl module.
+but the same name are not visible in the perl module. (i.e. pdb functions
+have priority on name clashes)
 
 =head1 SUPPORTED GIMP DATA TYPES
 
@@ -393,8 +409,8 @@ Not yet supported.
 
 =item DISPLAY, IMAGE, LAYER, CHANNEL, DRAWABLE, SELECTION
 
-These will be mapped to opaque scalars. In reality these are small
-integers (like file descriptors).
+These will be mapped to corresponding objects (IMAGE => Gimp::Image). In trace
+outpout you will see small integers (the image/layer/etc..-ID)
 
 =item BOUNDARY, PATH, STATUS
 
