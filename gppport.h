@@ -1,8 +1,8 @@
 
-#ifndef _P_P_PORTABILITY_H_
-#define _P_P_PORTABILITY_H_
+#ifndef _G_P_P_PORTABILITY_H_
+#define _G_P_P_PORTABILITY_H_
 
-/* Perl/Pollution/Portability Version 1.0007-gimp-1 */
+/* Perl/Pollution/Portability Version 1.0007-gimp-2 */
 
 /* Copyright (C) 1999, Kenneth Albanowski. This code may be used and
    distributed under the same license as any version of Perl. */
@@ -288,4 +288,4 @@ SV *sv;
 #	define SvPV_nolen(b) SvPV((b),PL_na)
 #endif
 
-#endif /* _P_P_PORTABILITY_H_ */
+#endif /* _G_P_P_PORTABILITY_H_ */

@@ -78,6 +78,7 @@ sub PF_GRADIENT	() { Gimp::PARAM_END+8	};
 sub PF_RADIO	() { Gimp::PARAM_END+9	};
 sub PF_CUSTOM	() { Gimp::PARAM_END+10	};
 sub PF_FILE	() { Gimp::PARAM_END+11	};
+sub PF_TEXT	() { Gimp::PARAM_END+12	};
 
 sub PF_BOOL	() { PF_TOGGLE		};
 sub PF_INT	() { PF_INT32		};
@@ -103,6 +104,7 @@ sub Gimp::RUN_FULLINTERACTIVE (){ Gimp::RUN_INTERACTIVE+100 };	# you don't want 
          &PF_RADIO	=> 'string',
          &PF_CUSTOM	=> 'string',
          &PF_FILE	=> 'string',
+         &PF_TEXT	=> 'string',
          &PF_IMAGE	=> 'NYI',
          &PF_LAYER	=> 'NYI',
          &PF_CHANNEL	=> 'NYI',
@@ -112,7 +114,8 @@ sub Gimp::RUN_FULLINTERACTIVE (){ Gimp::RUN_INTERACTIVE+100 };	# you don't want 
 @_params=qw(PF_INT8 PF_INT16 PF_INT32 PF_FLOAT PF_VALUE PF_STRING PF_COLOR
             PF_COLOUR PF_TOGGLE PF_IMAGE PF_DRAWABLE PF_FONT PF_LAYER
             PF_CHANNEL PF_BOOL PF_SLIDER PF_INT PF_SPINNER PF_ADJUSTMENT
-            PF_BRUSH PF_PATTERN PF_GRADIENT PF_RADIO PF_CUSTOM PF_FILE);
+            PF_BRUSH PF_PATTERN PF_GRADIENT PF_RADIO PF_CUSTOM PF_FILE
+            PF_TEXT);
 
 #@EXPORT_OK = qw(interact $run_mode save_image);
 
@@ -243,6 +246,9 @@ sub interact($$$$@) {
    for(;;) {
      my $t = new Gtk::Tooltips;
      my $w = new Gtk::Dialog;
+     my $accel = new Gtk::AccelGroup;
+
+     $accel->attach($w);
 
      set_title $w $Gimp::function;
      
@@ -462,6 +468,84 @@ sub interact($$$$@) {
            $f->ok_button    ->signal_connect (clicked => sub { $f->hide; $s->set_text ($f->get_filename) });
            $f->cancel_button->signal_connect (clicked => sub { $f->hide });
            
+        } elsif($type == PF_TEXT) {
+           $a = new Gtk::Frame;
+           my $h = new Gtk::VBox 0,5;
+           $a->add($h);
+           my $e = new Gtk::Text;
+           my %e;
+           %e = $$extra if ref $extra eq "HASH";
+
+           my $sv = sub { 
+              my $t = shift,
+              $e->delete_text(0,-1);
+              $e->insert_text($t,0);
+           };
+           my $gv = sub {
+              $e->get_chars(0,-1);
+           };
+
+           $h->add ($e);
+           $e->set_editable (1);
+
+           my $buttons = new Gtk::HBox 1,5;
+           $h->add($buttons);
+
+           my $load = new Gtk::Button "Load"; $buttons->add($load);
+           my $save = new Gtk::Button "Save"; $buttons->add($save);
+           my $edit = new Gtk::Button "Edit"; $buttons->add($edit);
+
+           $edit->signal_connect(clicked => sub {
+              my $editor = $ENV{EDITOR} || "vi";
+              my $tmp = Gimp->temp_name("txt");
+              open TMP,">$tmp" or die "FATAL: unable to create $tmp: $!\n"; print TMP &$gv; close TMP;
+              system ('xterm','-T',"$editor: $name",'-e',$editor,$tmp);
+              if (open TMP,"<$tmp") {
+                 local $/; &$sv(scalar<TMP>); close TMP;
+              } else {
+                 Gimp->message("unable to read temporary file $tmp: $!");
+              }
+           });
+
+           my $filename = ($e{prefix} || eval { Gimp->directory } || ".") . "/";
+           
+           my $f = new Gtk::FileSelection "FilexSelector for $name";
+           $f->set_filename($filename);
+           $f->cancel_button->signal_connect (clicked => sub { $f->hide });
+           my $lf =sub {
+              $f->hide;
+              my $fn = $f->get_filename;
+              if(open TMP,"<$fn") {
+                 local $/; &$sv(scalar<TMP>);
+                 close TMP;
+              } else {
+                 Gimp->message("unable to read '$fn': $!");
+              }
+           };
+           my $sf =sub {
+              $f->hide;
+              my $fn = $f->get_filename;
+              if(open TMP,">$fn") {
+                 print TMP &$gv;
+                 close TMP;
+              } else {
+                 Gimp->message("unable to create '$fn': $!");
+              }
+           };
+           $load->signal_connect (clicked => sub {
+              $f->set_title("Load $name");
+              $f->ok_button->signal_connect (clicked => $lf);
+              $f->show_all;
+           });
+           $save->signal_connect (clicked => sub {
+              $f->set_title("Save $name");
+              $f->ok_button->signal_connect (clicked => $sf);
+              $f->show_all;
+           });
+
+           push @setvals,$sv;
+           push @getvals,$gv;
+
         } else {
            $label="Unsupported argumenttype $type";
            push(@setvals,sub{});
@@ -514,11 +598,13 @@ sub interact($$$$@) {
      $w->action_area->pack_start($button,1,1,0);
      can_default $button 1;
      grab_default $button;
+     add $accel 0xFF0D, [], [], $button, "clicked";
      
      $button = new Gtk::Button "Cancel";
      signal_connect $button "clicked", sub {hide $w; main_quit Gtk};
      $w->action_area->pack_start($button,1,1,0);
      can_default $button 1;
+     add $accel 0xFF1B, [], [], $button, "clicked";
      
      $res=0;
      
@@ -566,6 +652,7 @@ sub string2pf($$) {
       || $type==PF_BRUSH
       || $type==PF_CUSTOM
       || $type==PF_FILE
+      || $type==PF_TEXT
       || $type==PF_RADIO	# for now! #d#
       || $type==PF_GRADIENT) {
       $s;
@@ -694,6 +781,7 @@ sub query {
                                       $_->[0]=Gimp::PARAM_STRING	if $_->[0] == PF_GRADIENT;
                                       $_->[0]=Gimp::PARAM_STRING	if $_->[0] == PF_CUSTOM;
                                       $_->[0]=Gimp::PARAM_STRING	if $_->[0] == PF_FILE;
+                                      $_->[0]=Gimp::PARAM_STRING	if $_->[0] == PF_TEXT;
                                       $_;
                                    } @$params],
                                    $results);
@@ -906,6 +994,11 @@ commandline or via the PDB.
 
 This represents a file system object. It usually is a file, but can be
 anything (directory, link). It might not even exist at all.
+
+=item PF_TEXT
+
+Similar to PF_STRING, but the entry widget is much larger and has Load and
+Save buttons.
 
 =back
 
