@@ -79,6 +79,8 @@ sub PF_ADJUSTMENT(){ PARAM_END+5	}; # compatibility fix for script-fu _ONLY_
 sub PF_BRUSH	() { PARAM_END+6	};
 sub PF_PATTERN	() { PARAM_END+7	};
 sub PF_GRADIENT	() { PARAM_END+8	};
+sub PF_RADIO	() { PARAM_END+9	};
+sub PF_CUSTOM	() { PARAM_END+10	};
 
 sub PF_BOOL	() { PF_TOGGLE		};
 sub PF_INT	() { PF_INT32		};
@@ -101,6 +103,8 @@ sub Gimp::RUN_FULLINTERACTIVE (){ Gimp::RUN_INTERACTIVE+100 };	# you don't want 
          &PF_SLIDER	=> 'integer',
          &PF_SPINNER	=> 'integer',
          &PF_ADJUSTMENT	=> 'integer',
+         &PF_RADIO	=> 'string',
+         &PF_CUSTOM	=> 'string',
          &PF_IMAGE	=> 'NYI',
          &PF_LAYER	=> 'NYI',
          &PF_CHANNEL	=> 'NYI',
@@ -111,7 +115,7 @@ sub Gimp::RUN_FULLINTERACTIVE (){ Gimp::RUN_INTERACTIVE+100 };	# you don't want 
             PF_STRING PF_COLOR PF_COLOUR PF_TOGGLE PF_IMAGE
             PF_DRAWABLE PF_FONT PF_LAYER PF_CHANNEL PF_BOOL
             PF_SLIDER PF_INT PF_SPINNER PF_ADJUSTMENT
-            PF_BRUSH PF_PATTERN PF_GRADIENT);
+            PF_BRUSH PF_PATTERN PF_GRADIENT PF_RADIO PF_CUSTOM);
 
 @EXPORT = (qw(register main),@_params);
 @EXPORT_OK = qw(interact $run_mode save_image);
@@ -126,21 +130,27 @@ sub import {
 # the old value of the trace flag
 my $old_trace;
 
-sub _default {
-   my $d = shift;
-   my @a = @_;
-   if (ref $d) {
-     @a[0..$#$d] = @{$d};
-   } elsif (defined $d) {
-     $a[0] = $d;
-   }
-   @a;
-}
-
 sub wrap_text {
    my $x=$_[0];
    $x=~s/(\G.{$_[1]}\S*)\s+/$1\n/g;
    $x;
+}
+
+sub _new_adjustment {
+   my @adj = eval { @{$_[1]} };
+
+   $adj[2]||=($adj[1]-$adj[0])*0.01;
+   $adj[3]||=($adj[1]-$adj[0])*0.01;
+   $adj[4]||=0;
+   
+   new Gtk::Adjustment $_[0],@adj;
+}
+
+# find a suitable value for the "digits" value
+sub _find_digits {
+   my $adj = shift;
+   my $digits = log($adj->step_increment || 1)/log(0.1);
+   $digits>0 ? int $digits+0.9 : 0;
 }
 
 sub interact($$$@) {
@@ -158,7 +168,6 @@ sub interact($$$@) {
    init Gtk; # gross hack...
    parse Gtk::Rc Gimp->gtkrc;
 
-   require Gtk::ColorSelectButton; import Gtk::ColorSelectButton;
    require Gimp::UI; import Gimp::UI;
 
    my $gimp_10 = Gimp->major_version==1 && Gimp->minor_version==0;
@@ -239,38 +248,40 @@ sub interact($$$@) {
            $a->signal_connect("clicked", sub { show $fs });
            
         } elsif($type == PF_SPINNER) {
-           my $adj = new Gtk::Adjustment $value,_default($extra,0,99,1,5,5);
+           my $adj = _new_adjustment ($value,$extra);
            $a=new Gtk::SpinButton $adj,1,0;
+           $a->set_digits (_find_digits $adj);
            $a->set_usize (120,0);
            push(@setvals,sub{$adj->set_value($_[0])});
            push(@getvals,sub{$adj->get_value});
            
         } elsif($type == PF_SLIDER) {
-           my $adj = new Gtk::Adjustment $value,_default($extra,0,99,1,1,5);
+           my $adj = _new_adjustment ($value,$extra);
            $a=new Gtk::HScale $adj;
+           $a->set_digits (_find_digits $adj);
            $a->set_usize (120,0);
            push(@setvals,sub{$adj->set_value($_[0])});
            push(@getvals,sub{$adj->get_value});
            
         } elsif($type == PF_COLOR) {
            $a=new Gtk::HBox (0,5);
-           my $b=new Gtk::ColorSelectButton -width => 90, -height => 18;
+           my $b=new Gimp::UI::ColorSelectButton -width => 90, -height => 18;
            $a->pack_start ($b,1,1,0);
            $value = [216, 152, 32] unless defined $value;
-           push(@setvals,sub{$b->color(join " ",@{Gimp::canonicalize_color $_[0]})});
-           push(@getvals,sub{[split ' ',$b->color]});
+           push(@setvals,sub{$b->set('color', "@{Gimp::canonicalize_color $_[0]}")});
+           push(@getvals,sub{[split ' ',$b->get('color')]});
            set_tip $t $b,$desc;
            
            my $c = new Gtk::Button "FG";
            signal_connect $c "clicked", sub {
-             $b->color(join " ",@{Gimp::Palette->get_foreground});
+             $b->set('color', "@{Gimp::Palette->get_foreground}");
            };
            set_tip $t $c,"get current foreground colour from the gimp";
            $a->pack_start ($c,1,1,0);
            
            my $d = new Gtk::Button "BG";
            signal_connect $d "clicked", sub {
-             $b->color(join " ",@{Gimp::Palette->get_background});
+             $b->set('color', "@{Gimp::Palette->get_background}");
            };
            set_tip $t $d,"get current background colour from the gimp";
            $a->pack_start ($d,1,1,0);
@@ -280,11 +291,30 @@ sub interact($$$@) {
            push(@setvals,sub{set_state $a ($_[0] ? 1 : 0)});
            push(@getvals,sub{state $a eq "active"});
            
+        } elsif($type == PF_RADIO) {
+           my $b = new Gtk::HBox 0,5;
+           my($r,$prev);
+           my $prev_sub = sub { $r = $_[0] };
+           for (@$extra) {
+              my ($label,$value)=@$_;
+              my $radio = new Gtk::RadioButton $label;
+              $radio->set_group ($prev) if $prev;
+              $b->pack_start ($radio,1,0,5);
+              $radio->signal_connect(clicked => sub { $r = $value });
+              my $prev_sub_my = $prev_sub;
+              $prev_sub = sub { $radio->set_active ($_[0] == $value); &$prev_sub_my };
+              $prev = $radio;
+           }
+           $a = new Gtk::Frame;
+           $a->add($b);
+           push(@setvals,$prev_sub);
+           push(@getvals,sub{$r});
+           
         } elsif($type == PF_IMAGE) {
            my $res;
            $a=new Gtk::HBox (0,5);
            my $b=new Gtk::OptionMenu;
-           $b->set_menu(new Gimp::UI::ImageMenu(sub {1},-1,$res));
+           $b->set_menu(new Gimp::UI::ImageMenu(sub {1},-1,\$res));
            $a->pack_start ($b,1,1,0);
            push(@setvals,sub{});
            push(@getvals,sub{$res});
@@ -299,21 +329,21 @@ sub interact($$$@) {
         } elsif($type == PF_LAYER) {
            my $res;
            $a=new Gtk::OptionMenu;
-           $a->set_menu(new Gimp::UI::LayerMenu(sub {1},-1,$res));
+           $a->set_menu(new Gimp::UI::LayerMenu(sub {1},-1,\$res));
            push(@setvals,sub{});
            push(@getvals,sub{$res});
            
         } elsif($type == PF_CHANNEL) {
            my $res;
            $a=new Gtk::OptionMenu;
-           $a->set_menu(new Gimp::UI::ChannelMenu(sub {1},-1,$res));
+           $a->set_menu(new Gimp::UI::ChannelMenu(sub {1},-1,\$res));
            push(@setvals,sub{});
            push(@getvals,sub{$res});
            
         } elsif($type == PF_DRAWABLE) {
-           my $res;
+           my $res=13;
            $a=new Gtk::OptionMenu;
-           $a->set_menu(new Gimp::UI::DrawableMenu(sub {1},-1,$res));
+           $a->set_menu(new Gimp::UI::DrawableMenu(sub {1},-1,\$res));
            push(@setvals,sub{});
            push(@getvals,sub{$res});
            
@@ -343,6 +373,11 @@ sub interact($$$@) {
               push(@setvals,sub{$a->set('active',$default)});
               push(@getvals,sub{$a->get('active')});
            }
+           
+        } elsif($type == PF_CUSTOM) {
+           $a=$extra->[0];
+           push(@setvals,$extra->[1]);
+           push(@getvals,$extra->[2]);
            
         } else {
            $label="Unsupported argumenttype $type";
@@ -443,6 +478,8 @@ sub string2pf($$) {
       || $type==PF_FONT
       || $type==PF_PATTERN
       || $type==PF_BRUSH
+      || $type==PF_CUSTOM
+      || $type==PF_RADIO	# for now! #d#
       || $type==PF_GRADIENT) {
       $s;
    } elsif($type==PF_INT8
@@ -553,10 +590,12 @@ sub query {
                                       $_->[0]=PARAM_INT32	if $_->[0] == PF_SLIDER;
                                       $_->[0]=PARAM_INT32	if $_->[0] == PF_SPINNER;
                                       $_->[0]=PARAM_INT32	if $_->[0] == PF_ADJUSTMENT;
+                                      $_->[0]=PARAM_INT32	if $_->[0] == PF_RADIO;
                                       $_->[0]=PARAM_STRING	if $_->[0] == PF_FONT;
                                       $_->[0]=PARAM_STRING	if $_->[0] == PF_BRUSH;
                                       $_->[0]=PARAM_STRING	if $_->[0] == PF_PATTERN;
                                       $_->[0]=PARAM_STRING	if $_->[0] == PF_GRADIENT;
+                                      $_->[0]=PARAM_STRING	if $_->[0] == PF_CUSTOM;
                                       $_;
                                    } @$params],
                                    $results);
@@ -703,6 +742,19 @@ Default values will be substitued for missing entries, like in:
 
 The same as PF_SLIDER, except that this one uses a spinbutton instead of a scale.
 
+=item PF_RADIO
+
+In addition to a default value, an extra argument describing the various
+options I<must> be provided. That extra argument must be a reference
+to an array filled with ["Option-Name", integer-value] pairs. Gimp::Fu
+will then generate a horizontal frame with radio buttons, one for each
+alternative. For example:
+
+ [PF_RADIO, "direction", "the direction to move to", 5, [["Left",5],["Right",7]]]
+
+draws two buttons, when the first (the default, "Left") is activated, 5
+will be returned. If the second is activated, 7 is returned.
+
 =item PF_FONT
 
 Lets the user select a font and returns a X Logical Font Descriptor (XLFD).
@@ -717,6 +769,24 @@ In older Gimp-Versions a user-supplied string is returned.
 
 Lets the user select a brush/pattern/gradient whose name is returned as a
 string. The default brush/pattern/gradient-name can be preset.
+
+=item PF_CUSTOM
+
+PF_CUSTOM is for those of you requiring some non-standard-widget. Just supply an array reference
+with three elements as extra argument:
+
+ [widget, settor, gettor]
+
+C<widget> is Gtk widget that should be used.
+
+C<settor> is a function that takes a single argument, the new value for
+the widget (the widget should be updated accordingly).
+
+C<gettor> is a function that should return the current value of the widget.
+
+While the values can be of any type (as long as it fits into a scalar),
+you should be prepared to get a string when the script is started from the
+commandline.
 
 =back
 
@@ -737,7 +807,7 @@ sub register($$$$$$$$$;@) {
    
    *$function = sub {
       $run_mode=shift;	# global!
-      my(@pre,@defaults,@lastvals);
+      my(@pre,@defaults,@lastvals,$input_image);
       if ($menupath=~/^<Image>\//) {
          @_ >= 2 or die "<Image> plug-in called without an image and drawable!\n";
          @pre = (shift,shift);
@@ -779,6 +849,8 @@ sub register($$$$$$$$$;@) {
       } else {
          die "run_mode must be INTERACTIVE, NONINTERACTIVE or WITH_LAST_VALS\n";
       }
+      $input_image = $_[0]   if ref $_[0]   eq "Gimp::Image";
+      $input_image = $pre[0] if ref $pre[0] eq "Gimp::Image";
       
       $Gimp::Data{"$function/_fu_data"}=Dumper([@_]);
       
@@ -802,7 +874,7 @@ sub register($$$$$$$$$;@) {
                   save_image($img,$path);
                   $img->delete;
                } elsif ($run_mode != &Gimp::RUN_NONINTERACTIVE) {
-                  $img->display_new;
+                  $img->display_new unless $input_image && $$img == $$input_image;
                }
             } elsif (!@$results) {
                warn "WARNING: $function returned something that is not an image: \"$img\"\n";

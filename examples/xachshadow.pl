@@ -1,4 +1,4 @@
-#!/usr/app/bin/perl
+#!/usr/bin/perl
 # by Seth Burgess <sjburges@gimp.org>
 
 #[Xach] start off with an image, then pixelize it

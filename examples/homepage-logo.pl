@@ -1,4 +1,4 @@
-#!/usr/app/bin/perl
+#!/usr/bin/perl
 
 # this test-plugin will create a simple button, and does automatically
 # save it as an indexed gif in /tmp/x.gif

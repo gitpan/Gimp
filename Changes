@@ -1,5 +1,24 @@
 Revision history for Gimp-Perl extension.
 
+1.06  Sat Mar  6 19:36:12 CET 1999
+	- Gimp::Fu does no longer display the returned image when it
+          is the same as the one passed in.
+        - append imagenumber to "Untitled"-images in widget.
+        - removed publicly-visible non-PDB pixelfunctions.
+          "uuuuuse peedee-ell or dieieie".
+        - implemented Gimp::Fu::PF_RADIO.
+        - added blowinout.pl, terral_text and xachvision.pl.
+        - the use of Gimp::PDL to access the region/tile functions is
+          now mandatory. The old string interface does not exist anymore.
+        - the path to the server-socket now includes the UID, to avoid
+          collisions. CGI-scripts should use either tcp or specify the path
+          directly using GIMP_HOST (see Gimp::Net for details).
+        - use _much_ saner defaults for the Scale types in Gimp::Fu.
+        - Gimp::Fu's optionmenus didn't work in net()-mode.
+        - implemented PF_CUSTOM (untested).
+        - added Gimp::UI::ColorSelectbutton, I was utterly fed up with
+          GtkColorSelectbutton never working.
+        
 1.055 Mon Feb 22 22:38:44 CET 1999
 	- applied seth's script changes.
         - gimp11ified some plug-ins.

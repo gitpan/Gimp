@@ -5,12 +5,12 @@
 
 #include <libgimp/gimp.h>
 #if UI
-#include <libgimp/gimpui.h>
+# include <libgimp/gimpui.h>
 #endif
 
 #if GIMP_MAJOR_VERSION>1 || (GIMP_MAJOR_VERSION==1 && GIMP_MINOR_VERSION>=1)
-#define GIMP11 1
-#define GIMP_PARASITE 1
+# define GIMP11 1
+# define GIMP_PARASITE 1
 #endif
 
 /* FIXME */
@@ -32,18 +32,16 @@
 #endif
 /* And also for newer perls... */
 #ifndef dTHR
-#define dTHR (void)0
+# define dTHR (void)0
 #endif
 #if (PATCHLEVEL < 5)
-#define newSVpvn(data,len) ((len) ? newSVpv ((data), (len)) : newSVpv ("", 0))
-#endif
-#ifndef PL_sv_undef
-#define PL_sv_undef sv_undef
+# define newSVpvn(data,len) ((len) ? newSVpv ((data), (len)) : newSVpv ("", 0))
+# define PL_sv_undef sv_undef
 #endif
 
 /* dirty is used in gimp.h AND in perl < 5.005 or with PERL_POLLUTE.  */
 #ifdef dirty
-#undef dirty
+# undef dirty
 #endif
 
 #include "extradefs.h"
@@ -60,7 +58,7 @@
 #define PKG_SELECTION	GIMP_PKG "Selection"
 #define PKG_REGION	GIMP_PKG "Region"
 #if GIMP_PARASITE
-#define PKG_PARASITE	GIMP_PKG "Parasite"
+# define PKG_PARASITE	GIMP_PKG "Parasite"
 #endif
 
 #define PKG_GDRAWABLE	GIMP_PKG "GDrawable"
@@ -1539,7 +1537,7 @@ gimp_pixel_rgn_resize(sv, x, y, width, height)
 	}
 
 SV *
-gimp_pixel_rgn_get_pixel(pr, x, y)
+_gimp_pixel_rgn_get_pixel(pr, x, y)
 	GPixelRgn *	pr
 	int	x
 	int	y
@@ -1552,7 +1550,7 @@ gimp_pixel_rgn_get_pixel(pr, x, y)
 	RETVAL
 
 SV *
-gimp_pixel_rgn_get_row(pr, x, y, width)
+_gimp_pixel_rgn_get_row(pr, x, y, width)
 	GPixelRgn *	pr
 	int	x
 	int	y
@@ -1566,7 +1564,7 @@ gimp_pixel_rgn_get_row(pr, x, y, width)
 	RETVAL
 
 SV *
-gimp_pixel_rgn_get_col(pr, x, y, height)
+_gimp_pixel_rgn_get_col(pr, x, y, height)
 	GPixelRgn *	pr
 	int	x
 	int	y
@@ -1580,7 +1578,7 @@ gimp_pixel_rgn_get_col(pr, x, y, height)
 	RETVAL
 
 SV *
-gimp_pixel_rgn_get_rect(pr, x, y, width, height)
+_gimp_pixel_rgn_get_rect(pr, x, y, width, height)
 	GPixelRgn *	pr
 	int	x
 	int	y
@@ -1595,7 +1593,7 @@ gimp_pixel_rgn_get_rect(pr, x, y, width, height)
 	RETVAL
 
 void
-gimp_pixel_rgn_set_pixel(pr, data, x, y)
+_gimp_pixel_rgn_set_pixel(pr, data, x, y)
 	GPixelRgn *	pr
 	SV *	data
 	int	x
@@ -1608,7 +1606,7 @@ gimp_pixel_rgn_set_pixel(pr, data, x, y)
 	gimp_pixel_rgn_set_pixel (pr, SvPV(data, dc), x, y);
 
 void
-gimp_pixel_rgn_set_row(pr, data, x, y)
+_gimp_pixel_rgn_set_row(pr, data, x, y)
 	GPixelRgn *	pr
 	SV *		data
 	int	x
@@ -1621,7 +1619,7 @@ gimp_pixel_rgn_set_row(pr, data, x, y)
 	gimp_pixel_rgn_set_row (pr, SvPV(data, dc), x, y, SvCUR (data) / pr->bpp);
 
 void
-gimp_pixel_rgn_set_col(pr, data, x, y)
+_gimp_pixel_rgn_set_col(pr, data, x, y)
 	GPixelRgn *	pr
 	SV *		data
 	int	x
@@ -1634,7 +1632,7 @@ gimp_pixel_rgn_set_col(pr, data, x, y)
 	gimp_pixel_rgn_set_col (pr, SvPV(data, dc), x, y, SvCUR (data) / pr->bpp);
 
 void
-gimp_pixel_rgn_set_rect(pr, data, x, y, width)
+_gimp_pixel_rgn_set_rect(pr, data, x, y, width)
 	GPixelRgn *	pr
 	SV *		data
 	int	x
@@ -1663,7 +1661,7 @@ PROTOTYPES: DISABLE
 # construction/destruction.
 
 SV *
-get_data(tile)
+_get_data(tile)
 	GTile *	tile
 	CODE:
 	gimp_tile_ref (tile);
@@ -1673,7 +1671,7 @@ get_data(tile)
 	RETVAL
 
 void
-set_data(tile, data)
+_set_data(tile, data)
 	GTile *	tile
 	SV *	data
 	CODE:
