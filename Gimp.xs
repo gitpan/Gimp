@@ -66,6 +66,8 @@ char *name;
 	    return DISCARD;
 	if (strEQ(name, "DISSOLVE_MODE"))
 	    return DISSOLVE_MODE;
+	if (strEQ(name, "DIVIDE_MODE"))
+	    return DIVIDE_MODE;
 	break;
     case 'E':
 	if (strEQ(name, "EXPAND_AS_NECESSARY"))

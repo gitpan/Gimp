@@ -1,6 +1,11 @@
 Revision history for Gimp-Perl extension.
 
-0.100 
+0.992 Thu Jul 16 17:10:46 CEST 1998
+	- added more constants (see DIVIDE_MODE, gimp_color_balance)
+	- Perl-Server now clears the trace result from the last command,
+	  in case the command doesn't set it.
+
+0.991 Thu Jul 15 19:00:50 CEST 1998
 	- gimp_set/get_data now uses gimp_data_get_size when available
 	  (the test will fail with some cpp's, though ...)
 

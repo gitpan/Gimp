@@ -52,7 +52,7 @@ unless ($major > 0
         || ($major == 0 && $minor == 2 && $patch > 1)) {
    print <<EOF;
 
-WARNING: version 0.2.3 of Gtk is _required_ for this module to build
+WARNING: version 0.2_03 of Gtk is _required_ for this module to build
          properly.  You can get the newest version from
          ftp://ftp.gimp.org/pub/gtk/perl/ or any CPAN mirror.  Older
          versions may work, but I have warned you!

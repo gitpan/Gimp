@@ -1043,9 +1043,10 @@ void
 gimp_image_enable_undo(image_ID)
 	IMAGE	image_ID
 
-void
-gimp_image_flatten(image_ID)
-	IMAGE	image_ID
+# different return code
+#void
+#gimp_image_flatten(image_ID)
+#	IMAGE	image_ID
 
 void
 gimp_image_lower_channel(image_ID, channel_ID)
@@ -1277,10 +1278,10 @@ gimp_layer_set_edit_mask(layer_ID, edit_mask)
 	LAYER	layer_ID
 	gint	edit_mask
 
-void
-gimp_layer_set_mode(layer_ID, mode)
-	LAYER	layer_ID
-	GLayerMode	mode
+#void
+#gimp_layer_set_mode(layer_ID, mode)
+#	LAYER	layer_ID
+#	GLayerMode	mode
 
 void
 gimp_layer_set_name(layer_ID, name)
