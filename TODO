@@ -19,6 +19,7 @@ bugs
 important issues
 
   * reset to defaults button
+  * help button ;)
 [DONE]  * adjustment, spinner &c..
 [DONE]  * doc update: return vals, return undef, main() etc.
   * create working progress when Net and $verbose

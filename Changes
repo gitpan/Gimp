@@ -1,5 +1,18 @@
 Revision history for Gimp-Perl extension.
 
+1.041 Sat Oct  3 21:58:09 CEST 1998
+	- a 5.004 compatibility fix. Another one and I'll simply "require
+	  5.005".
+	- Gimp::Fu doesn't display image and drawable widgets in commandline
+	  mode unless the script really is an <Image>-type script.
+	- Gimp::Net now passes colour values correctly (and also
+	  undefs, which makes it slower but perl doesn't warn
+	  anymore. argh.)
+	- constants now have empty prototypes (so "RGB_IMAGE ? ... : ..." parses as
+	  question operator rather than pattern match.
+	- Gimp::Fu/Cancel button works in commandline mode
+
+1.04  Thu Oct  1 22:42:57 CEST 1998
 	- don't disallow drawable arguments as layer parameters.
 	- fixed error reporting again (it should work now but still
 	  compiler with older perls ;)
@@ -48,7 +61,7 @@ Revision history for Gimp-Perl extension.
 	- first try to implement return values in Gimp. Gimp::Fu still
 	  lacks support.
 
-1.03 Wed Sep  9 21:04:54 CEST 1998
+1.03  Wed Sep  9 21:04:54 CEST 1998
 	- all files are now readable/exec'able by group owner
 	- updated some examples to the new syntax
 	- small documentation changes (still waaay to go..)
@@ -63,14 +76,14 @@ Revision history for Gimp-Perl extension.
 	- passwords can now be used for the Perl-Server (and tcp is open
 	  by default)
 
-1.02 Wed Sep  2 23:35:37 CEST 1998
+1.02  Wed Sep  2 23:35:37 CEST 1998
 	- added Gimp::Patterns
 	- Gimp::Fu now doesn't gratitiously share LAST_VALS with other
 	  Gimp::Fu-plugins anymore ;)
 	- reworked AUTOLOAD again, no it even seems to work.
 	- fixed Fu::interact
 
-1.01 Tue Sep  1 23:18:25 CEST 1998
+1.01  Tue Sep  1 23:18:25 CEST 1998
 	- PARAM_IMAGEs (et al.) can now be passed into an INT32ARRAY
 	  (*shudder*)
 	- arrays as return value now work. if a single array is being returned,

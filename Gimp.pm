@@ -3,7 +3,7 @@ package Gimp;
 use strict 'vars';
 use Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
-            @_consts @_procs $interface_pkg $interface_type @_param
+            @_consts @_procs $interface_pkg $interface_type @_param @_al_consts
             @PREFIXES $_PROT_VERSION
             @gimp_gui_functions
             $help $verbose $host $gimp_main);
@@ -11,7 +11,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '1.04';
+$VERSION = '1.041';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -21,7 +21,8 @@ $VERSION = '1.04';
 	PARAM_SELECTION	PARAM_STATUS	PARAM_STRING	PARAM_STRINGARRAY
 );
 
-@_consts = (@_param,qw(
+# constants to be autoloaded
+@_al_consts = (@_param,qw(
 	ADDITION_MODE	ALPHA_MASK	APPLY		BEHIND_MODE	BG_BUCKET_FILL
 	BG_IMAGE_FILL	BILINEAR	BLACK_MASK	BLUE_CHANNEL	BLUR
 	CLIP_TO_BOTTOM_LAYER		CLIP_TO_IMAGE	COLOR_MODE	CONICAL_ASYMMETRIC
@@ -42,36 +43,44 @@ $VERSION = '1.04';
 	STATUS_PASS_THROUGH		STATUS_SUCCESS	SUBTRACT_MODE	TRANS_IMAGE_FILL
 	VALUE_MODE	DIVIDE_MODE	WHITE_MASK	WHITE_IMAGE_FILL
 	
+	TRACE_NONE	TRACE_CALL	TRACE_TYPE	TRACE_NAME	TRACE_DESC
+	TRACE_ALL
+	
+));
+
+@_consts = (@_al_consts,qw(
 	MESSAGE_BOX	CONSOLE
 	
 	ALL_HUES	RED_HUES	YELLOW_HUES	GREEN_HUES	CYAN_HUES
 	BLUE_HUES	MAGENTA_HUES
-	
-	TRACE_NONE	TRACE_CALL	TRACE_TYPE	TRACE_NAME	TRACE_DESC
-	TRACE_ALL
-	
 ));
 
 @_procs = qw(
 	gimp_main	main
 );
 
-use subs @_consts;
+bootstrap Gimp $VERSION;
 
-sub ALL_HUES		{ 0 };
-sub RED_HUES		{ 1 };
-sub YELLOW_HUES		{ 2 };
-sub GREEN_HUES		{ 3 };
-sub CYAN_HUES		{ 4 };
-sub BLUE_HUES		{ 5 };
-sub MAGENTA_HUES	{ 6 };
+# use subs is broken for our purpose, so no constant autoloading...
+for(@_al_consts) {
+   my $val = constant($_);
+   *{$_} = sub (){ $val };
+}
 
-sub MESSAGE_BOX		{ 0 };
-sub CONSOLE		{ 1 };
+sub ALL_HUES		(){ 0 };
+sub RED_HUES		(){ 1 };
+sub YELLOW_HUES		(){ 2 };
+sub GREEN_HUES		(){ 3 };
+sub CYAN_HUES		(){ 4 };
+sub BLUE_HUES		(){ 5 };
+sub MAGENTA_HUES	(){ 6 };
 
-sub SHADOWS		{ 0 };
-sub MIDTONES		{ 1 };
-sub HIGHLIGHTS		{ 2 };
+sub MESSAGE_BOX		(){ 0 };
+sub CONSOLE		(){ 1 };
+
+sub SHADOWS		(){ 0 };
+sub MIDTONES		(){ 1 };
+sub HIGHLIGHTS		(){ 2 };
 
 # internal constants shared with Perl-Server
 
@@ -218,7 +227,7 @@ my %ignore_function = ();
 );
 
 sub ignore_functions(@) {
-   undef $ignore_function{$_} for @_;
+   @ignore_function{@_}++;
 }
 
 sub _croak($) {
@@ -227,14 +236,13 @@ sub _croak($) {
 }
 
 sub AUTOLOAD {
-   no strict;
    my ($class,$name) = $AUTOLOAD =~ /^(.*)::(.*?)$/;
    my $val = Gimp::constant($name);
    if ($!) {
       for(@{"${class}::PREFIXES"}) {
          my $sub = $_.$name;
          if (exists $ignore_function{$sub}) {
-           *{$AUTOLOAD} = sub { return () };
+           *{$AUTOLOAD} = sub { () };
            goto &$AUTOLOAD;
          } elsif (UNIVERSAL::can($interface_pkg,$sub)) {
             my $ref = \&{"${interface_pkg}::$sub"};
@@ -261,8 +269,8 @@ sub AUTOLOAD {
       }
       croak "function/macro \"$name\" not found in $class";
    }
-   *{$AUTOLOAD} = sub { $val };
-   $val;
+   *{$AUTOLOAD} = sub (){ $val };
+   goto &$AUTOLOAD;
 }
 
 # FIXME: why is this necessary? try to understand, hard!
@@ -301,8 +309,6 @@ _pseudoclass qw(Brushes		gimp_brushes_);
 _pseudoclass qw(Edit		gimp_edit_);
 _pseudoclass qw(Gradients	gimp_gradients_);
 _pseudoclass qw(Patterns	gimp_patterns_);
-
-bootstrap Gimp $VERSION;
 
 package Gimp::Tile;
 

@@ -44,12 +44,14 @@ sub net2args($) {
 sub args2net {
    my($res,$v);
    for $v (@_) {
-      if(ref($v) eq "ARRAY") {
+      if(ref($v) eq "ARRAY" or ref($v) eq "Gimp::Color") {
          $res.="[".join(",",map { "qq[".quotemeta($_)."]" } @$v)."],";
       } elsif(ref($v)) {
          $res.="b(".$$v.",".ref($v)."),";
-      } else {
+      } elsif(defined $v) {
          $res.="qq[".quotemeta($v)."],";
+      } else {
+         $res.="undef,";
       }
    }
    $res;

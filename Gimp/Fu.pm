@@ -314,51 +314,49 @@ sub interact($$$@) {
      (my $v=new Gtk::HBox 0,5)->show;
      $g->attach($v,1,2,$res,$res+1,{},{},4,2);
      
-     $button = new Gtk::Button "Defaults";
+     ($button = new Gtk::Button "Defaults")->show;
      signal_connect $button "clicked", sub {
        for my $i (0..$#defaults) {
          $setvals[$i]->($defaults[$i]);
        }
      };
      set_tip $t $button,"Reset all values to their default";
-     show $button;
+     $v->add($button);
      
-     $button = new Gtk::Button "Previous";
+     ($button = new Gtk::Button "Previous")->show;
      signal_connect $button "clicked", sub {
        for my $i (0..$#lastvals) {
          $setvals[$i]->($lastvals[$i]);
        }
      };
-     $g->attach($button,1,2,$res,$res+1,{},{},4,2);
+     $v->add($button);
      set_tip $t $button,"Restore values to the previous ones";
-     show $button;
-     
-     $res=0;
      
      signal_connect $w "destroy", sub {main_quit Gtk};
 
      $button = new Gtk::Button "OK";
-     signal_connect $button "clicked", sub {$res = 1; main_quit Gtk};
+     signal_connect $button "clicked", sub {$res = 1; hide $w; main_quit Gtk};
      $w->action_area->pack_start($button,1,1,0);
      can_default $button 1;
      grab_default $button;
      show $button;
      
      $button = new Gtk::Button "Cancel";
-     signal_connect $button "clicked", sub {main_quit Gtk};
+     signal_connect $button "clicked", sub {hide $w; main_quit Gtk};
      $w->action_area->pack_start($button,1,1,0);
      show $button;
+     
+     $res=0;
      
      show $w;
      main Gtk;
      $w->destroy;
      
-     return () if $res == 0;
+     return undef if $res == 0;
      @_ = map {&$_} @getvals;
-     return @_ if $res == 1;
+     return (1,@_) if $res == 1;
      Gimp->file_load(&Gimp::RUN_NONINTERACTIVE,"","");
    }
-   @_;
 }
 
 sub this_script {
@@ -446,7 +444,8 @@ sub net {
    }
    
    # Go for it
-   $this->[0]->($interact>0 ? (&Gimp::RUN_FULLINTERACTIVE,undef,undef,@args)
+   $this->[0]->($interact>0 ? $this->[6]=~/^<Image>/ ? (&Gimp::RUN_FULLINTERACTIVE,undef,undef,@args)
+                                                     : (&Gimp::RUN_INTERACTIVE,@args)
                             : (&Gimp::RUN_NONINTERACTIVE,@args));
 }
 
@@ -678,16 +677,18 @@ sub register($$$$$$$$$;@) {
       
       if ($run_mode == &Gimp::RUN_INTERACTIVE) {
          if (@_) {
+            my $res;
             local $^W=0; # perl -w is braindamaged
             my $VAR1; # Data::Dumper is braindamaged
             # gimp is braindamaged, is doesn't deliver useful values!!
-            @_=interact($blurb,$help,$params,@{eval $Gimp::Data{"$function/_fu_data"}});
-            return unless @_;
+            ($res,@_)=interact($blurb,$help,$params,@{eval $Gimp::Data{"$function/_fu_data"}});
+            return unless $res;
          }
       } elsif ($run_mode == &Gimp::RUN_FULLINTERACTIVE) {
-         @_=interact($blurb,$help,[@image_params,@{$params}],[@pre,@_]);
+         my($res);
+         ($res,@_)=interact($blurb,$help,[@image_params,@{$params}],[@pre,@_]);
          undef @pre;
-         return unless defined(@_);
+         return unless $res;
       } elsif ($run_mode == &Gimp::RUN_NONINTERACTIVE) {
       } elsif ($run_mode == &Gimp::RUN_WITH_LAST_VALS) {
          @_=@defaults;	# FIXME
