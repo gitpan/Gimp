@@ -1065,7 +1065,7 @@ side to another.",
 "Seth Burgess", 
 "Seth Burgess", 
 "2000", 
-"<Image>/Image/Alpha/Fade", 
+"<Image>/Layer/Transparency/Fade...", 
 "*", 
 PLUGIN,  
 [
@@ -1078,3 +1078,11 @@ PLUGIN,
 };
 
 exit main;
+
+=head1 LICENSE
+
+Copyright Seth Burgess.  
+Distrubuted under the same terms as Gimp-Perl.
+
+=cut
+

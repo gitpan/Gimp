@@ -1,4 +1,4 @@
-#!/opt/bin/perl
+#!/usr/bin/perl
 # iland.pl
 #
 # Copyright (c) Fabian Frederick 2001
@@ -79,7 +79,7 @@ sub landscape {
 	Gimp->progress_update(1);
 	$newdrawable->merge_shadow(1);
 	$newdrawable->update(0,0,$width, $height);
-	plug_in_rotate(RUN_NONINTERACTIVE, $newimage,-1,1,1);
+	plug_in_rotate($newdrawable,1,1);
 	$newdrawable->merge_shadow(1);
 	$newdrawable->update(0,0,$width, $height);
 
@@ -93,7 +93,7 @@ sub landscape {
 			$camerapos=3;
 		}
 	}
-	plug_in_rotate(RUN_NONINTERACTIVE, $image, -1, $camerapos, 1) if ($camerapos != 0);
+	plug_in_rotate($image, -1, $camerapos, 1) if ($camerapos != 0);
 
 }
 
@@ -134,3 +134,11 @@ of the original picture (which is an taken as an apical view).
 =head1 AUTHOR
 
 Written by Fabian Frederick <fabian.frederick@gmx.fr>, (c) 2001
+
+=head1 LICENSE
+
+Copyright Fabian Frederick.
+This plugin may be distributed under the same terms as The Gimp itself.
+
+=cut
+

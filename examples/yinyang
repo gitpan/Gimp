@@ -112,7 +112,7 @@ register("yinyang",
 	"Aaron Sherman", 
 	"(c) 1998, Aaron Sherman",
 	"1999b", 
-	N_"<Toolbox>/Xtns/Yin-Yang...", 
+	N_"<Toolbox>/Xtns/Render/Yin-Yang...", 
 	undef,
 	[
 		[PF_INT32, "width", "Width", 256],
@@ -185,5 +185,10 @@ lime juice, 1 dash black pepper. Eat to taste.
 =head1 AUTHOR
 
 Written by Aaron Sherman <ajs@ajs.com>, (c) 1998.
+
+=head1 LICENSE
+
+Copyright Aaron Sherman.
+Distributed under unknown license terms.
 
 =cut
