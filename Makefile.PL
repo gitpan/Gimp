@@ -128,6 +128,9 @@ install-plugins:
 	-cd examples && $GIMPTOOL2 --install-admin-bin windy.pl
 	-cd examples && $GIMPTOOL2 --install-admin-bin prep4gif.pl
 	-cd examples && $GIMPTOOL2 --install-admin-bin webify.pl
+	-cd examples && $GIMPTOOL2 --install-admin-bin PDB
+	-cd examples && $GIMPTOOL2 --install-admin-bin alpha2color.pl
+	-cd examples && $GIMPTOOL2 --install-admin-bin tex-to-float
 #	-cd examples && $GIMPTOOL2 --install-admin-bin border.pl
 EOF
 }
