@@ -11,7 +11,7 @@ use vars qw($help $verbose $host);
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '0.90';
+$VERSION = '0.91';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -245,8 +245,7 @@ __END__
 
 Gimp - Perl extension for writing Gimp Extensions/Plug-ins/Load & Save-Handlers
 
-This is mostly a reference manual. For a quick intro, look at the Gimp::Fu
-manpage.
+This is mostly a reference manual. For a quick intro, look at L<Gimp::Fu>.
 
 =head1 RATIONALE
 
@@ -498,6 +497,6 @@ Marc Lehmann <pcg@goof.com>
 
 =head1 SEE ALSO
 
-perl(1), gimp(1), Gimp:OO(3), Gimp::Data(3), Gimp::Util(3).
+perl(1), gimp(1), L<Gimp::OO>, L<Gimp::Data> and L<Gimp::Util>.
 
 =cut

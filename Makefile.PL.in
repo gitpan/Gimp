@@ -47,7 +47,7 @@ WriteMakefile(
     		    'Gimp/ColorSelectButton.pm'=> '$(INST_LIBDIR)/Gimp/ColorSelectButton.pm',
     		   },
     'LIBS'	=> [''],
-    'INC'	=> '',
+    'INC'	=> '@CFLAGS@ @DEFS@',
     'DEFINE'	=> '',
     'clean'	=> { FILES => "config.log config.h Makefile.PL Gimp/Makefile.PL" },
     'realclean'	=> { FILES => "config.status config.cache" },

@@ -54,6 +54,6 @@ Marc Lehmann <pcg@goof.com>
 
 =head1 SEE ALSO
 
-perl(1), Gimp(3)
+perl(1), L<Gimp>.
 
 =cut

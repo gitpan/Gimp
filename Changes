@@ -1,9 +1,12 @@
 Revision history for Gimp-Perl extension.
 
-0.91* not yet issued
+0.91  Fri May 22 01:55:30 CEST 1998
 	- Gimp::ColorSelectButton is no longer installed, Gtk-0.2.2 is
 	  required.
 	- commandlien parameters supported
+	- gimp_image_get_layers, gimp_image_get_cmap, gimp_image_get_channels
+	  commented out, use pdb functions instead
+	- fixed a bug in Fu handling of <Image> plug-ins
 
 0.90  Tue May 12 15:26:50 CEST 1998
 	- BUGFIX ONLY RELEASE

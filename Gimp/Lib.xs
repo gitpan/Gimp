@@ -1035,15 +1035,17 @@ LAYER
 gimp_image_get_active_layer(image_ID)
 	IMAGE	image_ID
 
-gint32 *
-gimp_image_get_channels(image_ID, nchannels)
-	IMAGE	image_ID
-	gint *	nchannels
+# different calling conventions
+#gint32 *
+#gimp_image_get_channels(image_ID, nchannels)
+#	IMAGE	image_ID
+#	gint *	nchannels
 
-guchar *
-gimp_image_get_cmap(image_ID, ncolors)
-	IMAGE	image_ID
-	gint *	ncolors
+# different calling conventions
+#guchar *
+#gimp_image_get_cmap(image_ID, ncolors)
+#	IMAGE	image_ID
+#	gint *	ncolors
 
 gint
 gimp_image_get_component_active(image_ID, component)
@@ -1060,10 +1062,11 @@ char *
 gimp_image_get_filename(image_ID)
 	IMAGE	image_ID
 
-gint32 *
-gimp_image_get_layers(image_ID, nlayers)
-	IMAGE	image_ID
-	gint *	nlayers
+# different calling conventions
+#gint32 *
+#gimp_image_get_layers(image_ID, nlayers)
+#	IMAGE	image_ID
+#	gint *	nlayers
 
 gint32
 gimp_image_get_selection(image_ID)

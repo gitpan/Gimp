@@ -189,7 +189,7 @@ sub query {
       
       if ($menupath=~/^<Image>\//) {
          $type=&Gimp::PROC_PLUG_IN;
-         unshift(@$params,[&Gimp::PARAM_IMAGE]);
+         unshift(@$params,[&Gimp::PARAM_IMAGE],[&Gimp::PARAM_DRAWABLE]);
       } elsif ($menupath=~/^<Toolbox>\//) {
          $type=&Gimp::PROC_EXTENSION;
       } else {
@@ -431,6 +431,6 @@ Marc Lehmann <pcg@goof.com>
 
 =head1 SEE ALSO
 
-perl(1), Gimp(3),
+perl(1), L<Gimp>,
 
 =cut

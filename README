@@ -61,7 +61,7 @@ SYNOPSIS
 
 
 
-12/May/98              perl 5.004, patch 64                     1
+22/May/98              perl 5.004, patch 65                     1
 
 
 
@@ -127,7 +127,7 @@ CALLBACKS
 
 
 
-12/May/98              perl 5.004, patch 64                     2
+22/May/98              perl 5.004, patch 65                     2
 
 
 
@@ -193,7 +193,7 @@ FUNCTIONS
 
 
 
-12/May/98              perl 5.004, patch 64                     3
+22/May/98              perl 5.004, patch 65                     3
 
 
 
@@ -253,13 +253,13 @@ AUTHOR
        Marc Lehmann <pcg@goof.com>
 
 SEE ALSO
-       perl(1), gimp(1), Gimp:OO(3), Gimp::Data(3),
-       Gimp::Util(3).
+       perl(1), gimp(1), the Gimp::OO manpage, the Gimp::Data
+       manpage and the Gimp::Util manpage.
 
 
 
 
-12/May/98              perl 5.004, patch 64                     4
+22/May/98              perl 5.004, patch 65                     4
 
 
 
@@ -325,6 +325,6 @@ Gimp(3)        User Contributed Perl Documentation        Gimp(3)
 
 
 
-12/May/98              perl 5.004, patch 64                     5
+22/May/98              perl 5.004, patch 65                     5
 
 
