@@ -110,7 +110,7 @@ sub try_connect {
    $_=$_[0];
    $auth = s/^(.*)\@// ? $1 : undef;	# get authorization
    if ($_ ne "") {
-      if (s{^udp/}{/}) {
+      if (s{^unix/}{/}) {
          return new IO::Socket::UNIX (Peer => $_);
       } else {
          s{^tcp/}{};
@@ -186,22 +186,22 @@ Gimp::Net - Communication module for the gimp-perl server.
 WARNING: the Net-Server may open a listening socket at port 10009, reachable for
 everybody. In this version, no provisions for security have been made!
 
-You first have to install the "Server" extension somewhere where Gimp can
-find it. Then have a look at example-net.pl (and run it!), or homepage-logo.pl
-(which is a hybrid: works as plug-in and as
+You first have to install the "Perl-Server" extension somewhere where Gimp
+can find it (e.g in your .gimp/plug-ins/ directory). Then have a look at
+example-fu.pl (and run it!), or example-net.pl (and run it!).
 
 =head1 ENVIRONMENT
 
 The environment variable C<GIMP_HOST> specifies the default server to contact. The syntax
-is [auth@][tcp/]hostname[:port] for tcp or [auth@]udp/local/socket/path. Examples are:
+is [auth@][tcp/]hostname[:port] for tcp or [auth@]unix/local/socket/path. Examples are:
 
 www.yahoo.com               # just kidding ;)
 yahoo.com:11100             # non-standard port
 tcp/yahoo.com               # make sure it uses tcp
 authorize@tcp/yahoo.com:123 # full-fledged specification
 
-udp/tmp/mysocket            # use unix domain socket /tmp/mysocket
-password@udp/tmp/test       # additionally use a password
+unix/tmp/unx                # use unix domain socket
+password@unix/tmp/test      # additionally use a password
 
 authorize@                  # specify authorization only
 

@@ -67,6 +67,7 @@ sub handle_request($) {
   } elsif ($req eq "TEST") {
     print $fh Gimp::_gimp_procedure_available($data) ? "1" : "0";
   } elsif($req eq "TRCE") {
+    no strict 'refs';
     ($trace_level,$req,@args)=Gimp::Net::net2args($data);
     Gimp::set_trace($trace_level);
     @args=eval { &{"Gimp::$req"}(@args) };
@@ -94,9 +95,7 @@ sub extension_perl_server {
         $fh or die "unable to open Gimp::Net communications socket\n";
         $fh->autoflush(1); # compatibility for old perls
         while(!$server_quit) {
-           print "about to handle command\n";
            last unless handle_request($fh);
-           print "handled command\n";
         }
 #        Gimp::gimp_quit(0);	# borken in libgimp #FIXME#
         kill 'TERM',getppid();	# borken do not do this.. #FIXME#

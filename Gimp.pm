@@ -11,7 +11,7 @@ use vars qw($help $verbose $host);
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '0.89';
+$VERSION = '0.90';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -223,6 +223,7 @@ Usage: $0 [gimp-args..] [interface-args..] [script-args..]
            -h | -help | --help | -?   print some help
            -v | --verbose             be more verbose in what you do
            --host|--tcp HOST[:PORT]   connect to HOST (optionally using PORT)
+                                      (for more info, see Gimp::Net(3))
 EOF
          } elsif (/^-v$|^--verbose$/) {
             $verbose++;

@@ -7,7 +7,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @EXPORT_FAIL
 use Gimp qw(:param);
 use File::Basename;
 use Gtk;
-use Gtk::ColorSelectButton;
+use Gimp::ColorSelectButton;
 
 require Exporter;
 require DynaLoader;
@@ -38,7 +38,7 @@ C<http://imagic.weizmann.ac.il/~dov/gimp/perl-tut.html>.
 
 =head1 INTRODUCTION
 
-In general, a Fimp::Fu script looks like this:
+In general, a Gimp::Fu script looks like this:
 
    #!/path/to/your/perl
    
@@ -114,9 +114,9 @@ sub interact($@) {
          #select_region $a 0,1;
          push(@getres,,sub{get_text $a});
       } elsif($type == PF_COLOR) {
-         $a=new Gtk::ColorSelectButton(-width => 150);
-         set_color $a Gimp::canonicalize_color $value;
-         push(@getres,sub{color $a});
+         $a=new Gimp::ColorSelectButton;
+         $a->color(@{Gimp::canonicalize_color $value});
+         push(@getres,sub{$a->color});
       } elsif($type == PF_TOGGLE) {
          $a=new Gtk::CheckButton $desc;
          set_state $a ($value ? 1 : 0);
@@ -177,8 +177,8 @@ sub this_script {
 sub net {
    no strict 'refs';
    my $this = this_script;
-   print "calling $this->[0]\n" if $Gimp::verbose;
-   $this->[0]->(&Gimp::RUN_INTERACTIVE);
+   # fixe #FIXME #d#
+   $this->[0]->(&Gimp::RUN_INTERACTIVE,@ARGV);
 }
 
 sub query {
@@ -370,6 +370,8 @@ sub register($$$$$$$$$&) {
       } else {
          die "run_mode must be INTERACTIVE, NONINTERACTIVE or WITH_LAST_VALS\n";
       }
+      
+      print $function,"(",join(",",(@pre,@_)),")\n" if $Gimp::verbose;
       
       for my $img (&$code(@pre,@_)) {
          Gimp::gimp_display_new($img);

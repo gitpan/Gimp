@@ -9,8 +9,8 @@ $GTK or print <<EOF;
 
 WARNING: unable to use the Perl-Gtk interface. Some features (like Gimp::Fu)
          rely on this extension. You can try to build without it, but it's
-         better to install it (you can get it from
-         ftp://ftp.gimp.org/pub/gtk/ or any CPAN mirror).
+         better to install it (version 0.2.1 is required, you can get it
+         from ftp://ftp.gimp.org/pub/gtk/ or any CPAN mirror).
 
 EOF
 
@@ -44,7 +44,7 @@ WriteMakefile(
     		    'Gimp/Lib.pm'	=> '$(INST_LIBDIR)/Gimp/Lib.pm',
     		    'Gimp/Net.pm'	=> '$(INST_LIBDIR)/Gimp/Net.pm',
     		    'Gimp/OO.pm'	=> '$(INST_LIBDIR)/Gimp/OO.pm',
-    		    'Gtk/ColorSelectButton.pm'=> '$(INST_LIBDIR)/Gtk/ColorSelectButton.pm',
+    		    'Gimp/ColorSelectButton.pm'=> '$(INST_LIBDIR)/Gimp/ColorSelectButton.pm',
     		   },
     'LIBS'	=> [''],
     'INC'	=> '',

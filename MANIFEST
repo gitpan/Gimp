@@ -1,3 +1,4 @@
+Gimp/ColorSelectButton.pm
 Makefile.PL.in
 configure
 configure.in
@@ -22,7 +23,6 @@ Gimp/OO.pm
 Gimp/Net.pm
 Gimp/Data.pm
 Gimp/Fu.pm
-Gtk/ColorSelectButton.pm
 examples/Create_Images
 examples/image_list
 examples/example-oo.pl

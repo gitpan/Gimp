@@ -1,5 +1,18 @@
 Revision history for Gimp-Perl extension.
 
+0.91* not yet issued
+	- Gimp::ColorSelectButton is no longer installed, Gtk-0.2.2 is
+	  required.
+	- commandlien parameters supported
+
+0.90  Tue May 12 15:26:50 CEST 1998
+	- BUGFIX ONLY RELEASE
+	- tracing works in Perl-Server (Oleg Bartunov)
+	- fixes for Gtk-0.2.1
+	- Gtk::ColorSelectButton renamed to Gimp::ColorSelectButton
+	  until Gtk is fixed.
+	- _I_ made the error of writing udp when I meant unix. _ARGH_
+
 0.89  Mon May 11 03:29:30 CEST 1998
 	- added common commandline options (--help, --host, --verbose)
 	- help option for Gimp::Fu
