@@ -1,16 +1,16 @@
 package Gimp;
 
-use strict;
+use strict 'vars';
 use Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
-            @_consts @_procs @_internals $interface_pkg $interface_type @_param
-            @PREFIXES
-            $help $verbose $host);
+            @_consts @_procs $interface_pkg $interface_type @_param
+            @PREFIXES $_PROT_VERSION
+            $help $verbose $host $gimp_main);
 
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '1.02';
+$VERSION = '1.031';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -51,81 +51,8 @@ $VERSION = '1.02';
 	
 ));
 
-# some _common_ procedures, the only ones supported by the Gimp::function
-# syntax. Use Gimp->function to access all functions.
 @_procs = qw(
-	gimp_main			gimp_install_procedure		gimp_call_procedure
-	gimp_quit			gimp_progress_init		gimp_progress_update
-	gimp_register_save_handler	gimp_register_magic_load_handler
-	gimp_register_load_handler	gimp_gamma			gimp_install_cmap
-	gimp_use_xshm			gimp_color_cube			gimp_gtkrc
-	gimp_image_new			gimp_image_delete		gimp_image_width
-	gimp_image_height		gimp_image_base_type		gimp_image_floating_selection
-	gimp_image_add_channel		gimp_image_add_layer		gimp_image_add_layer_mask
-	gimp_image_clean_all		gimp_image_disable_undo		gimp_image_enable_undo
-	gimp_image_flatten		gimp_image_lower_channel	gimp_image_lower_layer
-	gimp_image_merge_visible_layers	gimp_image_pick_correlate_layer	gimp_image_raise_channel
-	gimp_image_raise_layer		gimp_image_remove_channel	gimp_image_remove_layer
-	gimp_image_remove_layer_mask	gimp_image_resize		gimp_image_get_active_channel
-	gimp_image_get_active_layer	gimp_image_get_channels		gimp_image_get_cmap
-	gimp_image_get_component_active	gimp_image_get_filename		gimp_image_get_layers
-	gimp_image_get_selection	gimp_image_set_active_channel	gimp_image_set_active_layer
-	gimp_image_set_cmap		gimp_image_set_component_active	gimp_image_set_component_visible
-	gimp_image_set_filename		gimp_display_new		gimp_display_delete
-	gimp_displays_flush		gimp_layer_new			gimp_layer_copy
-	gimp_layer_delete
-	gimp_layer_bpp			gimp_layer_type			gimp_layer_add_alpha
-	gimp_layer_create_mask		gimp_layer_resize		gimp_layer_scale
-	gimp_layer_translate		gimp_layer_get_image_id		gimp_layer_is_floating_selection
-	gimp_layer_get_mask_id		gimp_layer_get_apply_mask	gimp_layer_get_edit_mask
-	gimp_layer_get_mode		gimp_layer_get_name		gimp_layer_get_opacity
-	gimp_layer_get_show_mask	gimp_layer_get_visible		gimp_layer_get_preserve_transparency
-	gimp_layer_set_apply_mask	gimp_layer_set_edit_mask	gimp_layer_set_mode
-	gimp_layer_set_name		gimp_layer_set_offsets		gimp_layer_set_opacity
-	gimp_layer_set_show_mask	gimp_layer_set_visible		gimp_layer_set_preserve_transparency
-	gimp_channel_new		gimp_channel_copy		gimp_channel_delete
-	gimp_channel_width		gimp_channel_height		gimp_channel_get_image_id
-	gimp_channel_get_layer_id	gimp_channel_get_color		gimp_channel_get_name
-	gimp_channel_get_opacity	gimp_channel_get_visible	gimp_channel_set_name
-	gimp_channel_set_opacity	gimp_channel_set_visible	gimp_drawable_get
-	gimp_drawable_detach		gimp_drawable_flush		gimp_drawable_delete
-	gimp_drawable_update		gimp_drawable_merge_shadow	gimp_drawable_image_id
-	gimp_drawable_name		gimp_drawable_width		gimp_drawable_height
-	gimp_drawable_bpp		gimp_drawable_type		gimp_drawable_visible
-	gimp_drawable_channel		gimp_drawable_color		gimp_drawable_gray
-	gimp_drawable_has_alpha		gimp_drawable_indexed		gimp_drawable_layer
-	gimp_drawable_layer_mask	gimp_drawable_fill		gimp_drawable_set_name
-	gimp_drawable_set_visible	gimp_drawable_get_tile		gimp_drawable_get_tile2
-	
-	gimp_tile_cache_size		gimp_tile_cache_ntiles		gimp_tile_width
-	gimp_tile_height		gimp_tile_flush
-	
-	gimp_gradients_get_active	gimp_gradients_set_active
-	
-	gimp_set_data			gimp_get_data
-
-	gimp_pixel_rgn_init		gimp_pixel_rgn_resize		gimp_pixel_rgn_get_pixel
-	gimp_pixel_rgn_get_row		gimp_pixel_rgn_get_col		gimp_pixel_rgn_get_rect
-	gimp_pixel_rgn_set_pixel	gimp_pixel_rgn_set_row		gimp_pixel_rgn_set_col
-	gimp_pixel_rgn_set_rect
-	
-	gimp_list_images
-
-	gimp_gdrawable_width		gimp_gdrawable_height		gimp_gdrawable_ntile_rows
-	gimp_gdrawable_ntile_cols	gimp_gdrawable_bpp		gimp_gdrawable_id
-
-	gimp_pixel_rgn_x		gimp_pixel_rgn_y		gimp_pixel_rgn_w
-	gimp_pixel_rgn_h		gimp_pixel_rgn_rowstride	gimp_pixel_rgn_bpp
-	gimp_pixel_rgn_dirty		gimp_pixel_rgn_shadow		gimp_pixel_rgn_drawable
-
-	gimp_tile_ewidth		gimp_tile_eheight		gimp_tile_bpp
-	gimp_tile_shadow		gimp_tile_gdrawable
-
-);
-
-# internal XS procedure not to be exported
-@_internals = qw(
-	_gimp_procedure_available	set_trace
+	gimp_main	main
 );
 
 use subs @_consts;
@@ -150,33 +77,36 @@ sub HIGHLIGHTS		{ 2 };
 sub _PS_FLAG_QUIET	{ 0000000001 };	# do not output messages
 sub _PS_FLAG_BATCH	{ 0000000002 }; # started via Gimp::Net, extra = filehandle
 
+$_PROT_VERSION	= "1";			# protocol version
+
 # we really abuse the import facility..
 sub import($;@) {
-   no strict 'refs';
-   
    my $pkg = shift;
    my $up = caller();
    my @export;
    
    # make a quick but dirty guess ;)
    
+   @_=qw(gimp_main main :auto) unless @_;
+   
    for(@_) {
       if ($_ eq ":auto") {
          push(@export,@_consts,@_procs);
-         eval "package ${up};
-            sub AUTOLOAD {
-               no strict 'vars';
-               local \@PREFIXES=('');
-               \$Gimp::AUTOLOAD=\$AUTOLOAD;
-               &Gimp::AUTOLOAD;
-            }";
-         die $@ if $@;
+         *{"${up}::AUTOLOAD"} = sub {
+            my ($class,$name) = $AUTOLOAD =~ /^(.*)::(.*?)$/;
+            *{$AUTOLOAD} = sub { Gimp->$name(@_) };
+            goto &$AUTOLOAD;
+         };
       } elsif ($_ eq ":consts") {
          push(@export,@_consts);
       } elsif ($_ eq ":param") {
          push(@export,@_param);
       } elsif (/^interface=(\S+)$/) {
          croak "interface=... tag is no longer supported\n";
+      } elsif ($_ ne "") {
+         push(@export,$_);
+      } elsif ($_ eq "") {
+         #nop #d#FIXME
       } else {
          croak "$_ is not a valid import tag for package $pkg";
       }
@@ -218,7 +148,7 @@ sub canonicalize_colour {
       if ($rgb_db{lc($_[0])}) {
          return $rgb_db{lc($_[0])};
       } else {
-         croak "Unable to grok ".join(",",@_)," as colour specifier";
+         croak "Unable to grok '".join(",",@_),"' as colour specifier";
       }
    }
 }
@@ -265,13 +195,13 @@ if ($interface_type=~/^lib$/i) {
 }
 
 eval "require $interface_pkg" or croak "$@";
-$interface_pkg->import();
 
 # create some common aliases
-for(qw(_gimp_procedure_available gimp_call_procedure set_trace gimp_main)) {
-   no strict 'refs';
+for(qw(_gimp_procedure_available gimp_call_procedure set_trace)) {
    *$_ = \&{"${interface_pkg}::$_"};
 }
+
+*main = *gimp_main = \&{"${interface_pkg}::gimp_main"};
 
 sub _croak($) {
   $_[0] =~ s/ at .*? line \d+.*$//s;
@@ -287,11 +217,11 @@ sub AUTOLOAD {
    if ($!) {
       for(@{"${class}::PREFIXES"}) {
          my $sub = $_.$name;
-         if (Gimp::_gimp_procedure_available ($sub)) {
+         if (_gimp_procedure_available ($sub)) {
             *{$AUTOLOAD} = sub {
-               shift if @_ && $_[0] eq $class;
-#               unshift & goto, FIXME!!! PERLBUG!!
-               my @r=eval { Gimp::gimp_call_procedure($sub,@_) };
+               shift unless ref $_[0];
+#               goto gimp_call_procedure
+               my @r=eval { gimp_call_procedure ($sub,@_) };
                _croak $@ if $@;
                wantarray ? @r : $r[0];
             };
@@ -299,8 +229,8 @@ sub AUTOLOAD {
          } elsif (defined(*{"${interface_pkg}::$sub"}{CODE})) {
             my $ref = \&{"${interface_pkg}::$sub"};
             *{$AUTOLOAD} = sub {
-               shift if @_ && $_[0] eq $class;
-#               goto &$ref;	# does not work always, PERLBUG! #FIXME
+               shift unless ref $_[0];
+#               goto &$ref;	# does not always work, PERLBUG! #FIXME
                my @r = eval { &$ref };
                _croak $@ if $@;
                wantarray ? @r : $r[0];
@@ -314,25 +244,24 @@ sub AUTOLOAD {
    $val;
 }
 
-sub _pseudoclass {
-  no strict 'refs';
-  my ($class, @prefixes)= @_;
-  unshift(@prefixes,"");
-  push(@{"${class}::ISA"}		, "Gimp::${class}");
-  push(@{"Gimp::${class}::ISA"}		, 'Gimp');
-  push(@{"Gimp::${class}::PREFIXES"}	, @prefixes);
-  push(@{"${class}::PREFIXES"}		, @prefixes);
-}
-
 # FIXME: why is this necessary? try to understand, hard!
 sub DESTROY {
 }
 
-_pseudoclass qw(Layer		gimp_layer_ gimp_drawable_ gimp_);
+sub _pseudoclass {
+  my ($class, @prefixes)= @_;
+  unshift(@prefixes,"");
+  push(@{"${class}::ISA"}		, "Gimp::${class}");
+  push(@{"Gimp::${class}::ISA"}		, 'Gimp');
+  push(@{"Gimp::${class}::PREFIXES"}	, @prefixes); @prefixes=@{"Gimp::${class}::PREFIXES"};
+  push(@{"${class}::PREFIXES"}		, @prefixes); @prefixes=@{"${class}::PREFIXES"};
+}
+
+_pseudoclass qw(Layer		gimp_layer_ gimp_drawable_ gimp_image_ gimp_);
 _pseudoclass qw(Image		gimp_image_ gimp_drawable_ gimp_);
-_pseudoclass qw(Drawable	gimp_drawable_ gimp_);
+_pseudoclass qw(Drawable	gimp_drawable_ gimp_layer_ gimp_image_ gimp_);
 _pseudoclass qw(Selection 	gimp_selection_);
-_pseudoclass qw(Channel		gimp_channel_ gimp_drawable_ gimp_);
+_pseudoclass qw(Channel		gimp_channel_ gimp_drawable_ gimp_image_ gimp_);
 _pseudoclass qw(Display		gimp_display_ gimp_);
 _pseudoclass qw(Plugin		plug_in_);
 _pseudoclass qw(Gradients	gimp_gradients_);
@@ -395,7 +324,7 @@ package Gimp; # for __DATA__
 
 Gimp - Perl extension for writing Gimp Extensions/Plug-ins/Load & Save-Handlers
 
-This is mostly a reference manual. For a quick intro, look at L<Gimp::Fu>.
+This is mostly a reference manual. For a quick intro, look at L<Fu>.
 
 =head1 RATIONALE
 
@@ -418,9 +347,12 @@ decision I believe...
   use Gimp::Fu;		# easy scripting environment
   use Gimp::PDL;	# interface to the Perl Data Language
   
-  these have their own manpage (or will have)
+  these have their own manpage.
 
 =head2 IMPORT TAGS
+
+If you don't specify any import tags, Gimp assumes :consts
+which is usually what you want.
 
 =over 4
 
@@ -432,13 +364,15 @@ This will overwrite your AUTOLOAD function, if you have one!
 
 =item :param
 
-Import PARAM_* constants (PARAM_INT32, PARAM_STRING etc.)
+Import PARAM_* constants (PARAM_INT32, PARAM_STRING etc.) only.
 
 =item :consts
 
-The constants from gimpenums.h (BG_IMAGE_FILL, RUN_NONINTERACTIVE etc.)
+All constants from gimpenums.h (BG_IMAGE_FILL, RUN_NONINTERACTIVE, NORMAL_MODE, PARAM_INT32 etc.).
 
 =back
+
+The default (unless '' is specified) is C<gimp_main main :auto>.
 
 =head1 GETTING STARTED
 
@@ -455,22 +389,22 @@ plug-ins/extensions/scripts/file-handlers/standalone-scripts, just about
 everything you can imagine in perl. If you are missing functionality (look
 into TODO first), please feel free contact the author...
 
-Some hilites:
+Some hilights:
 
 =over 2
 
 =item *
 Networked plug-ins and plug-ins using the libgimp interfaces (i.e. to be
-started by The Gimp) are written almost the same way (if you use Gimp::Fu,
-there will be no differences at all), you can easily create hybrid (network
-& libgimp) scripts as well.
+started from within The Gimp) look almost the same (if you use the Gimp::Fu
+interface, there will be no visible differences at all), you can easily
+create hybrid (networked & libgimp) scripts as well.
 
 =item *
 Use either a plain pdb (scheme-like) interface or nice object-oriented
 syntax, i.e. "gimp_layer_new(600,300,RGB)" is the same as "new Image(600,300,RGB)"
 
 =item *
-Gimp::Fu will start the gimp for you, if it cannot connect to an existing
+Gimp::Fu will start The Gimp for you, if it cannot connect to an existing
 gimp process.
 
 =item *
@@ -484,33 +418,32 @@ noteworthy limitations (subject to be changed):
 =over 2
 
 =item *
-callback procedures do not return anything to The Gimp, not even a status
-argument, which seems to be mandatory by the gimp protocol (which is
-nowhere standardized, though).
+callback procedures do not poass return values to The Gimp.
 
 =back
 
 =head1 OUTLINE OF A GIMP PLUG-IN
 
-All plug-ins (and extensions etc.) _must_ contain a call to C<gimp_main>.
+All plug-ins (and extensions etc.) _must_ contain a call to C<Gimp::main>.
 The return code should be immediately handed out to exit:
 
-C<exit gimp_main;>
+ C<exit main;>		# Gimp::main is exported by default.
 
-In a Gimp::Fu-script, you should call C<main> instead:
+Before the call to C<Gimp::main>, I<no> other PDB function must be called.
 
-C<exit main;>
+In a Gimp::Fu-script, you should call C<Gimp::Fu::main> instead:
+
+ C<exit main;>		# Gimp::Fu::main is exported by default as well.
 
 This is similar to Gtk, Tk or similar modules, where you have to call the
 main eventloop.
 
 =head1 CALLBACKS
 
-If you use the plain Gimp module (as opposed to Gimp::Fu), your
-program should only call one function: C<gimp_main>. Everything
-else is being B<called> from the Gimp. For this to work, you
-should define certain call-backs in the same module you called
-C<gimp_main>:
+If you use the plain Gimp module (as opposed to Gimp::Fu), your program
+should only call one function: C<gimp_main>. Everything else is going to be
+B<called> from The Gimp at a later stage. For this to work, you should
+define certain call-backs in the same module you called C<Gimp::main>:
 
 =over 4
 
@@ -543,22 +476,24 @@ thumb, B<Script-Fu> registers scripts with dashes, and everything else uses
 underscores).
 
 B<libgimp> functions can't be traced (and won't be traceable in the
-foreseeable future). Many B<libgimp> functions are merely convinience
-functions for C programmers that just call equivalent PDB functions.
+foreseeable future).
 
-At the moment, Gimp favours B<libgimp> functions where possible, i.e. the
-calling sequence is the same, or implementing an interface is too much work
-when there is an equivalent PDB function anyway. The libgimp functions are
-also slightly faster, but the real benefit is that users (B<YOU>) will hit
-bugs in libgimp very effectively ;) Once libgimp is sufficiently debugged,
-I'll remove the libgimp functions that only shadow PDB functions (thus
-reducing object size as well).
-
-To call pdb functions (or equivalent libgimp functions), just
-treat them as normal perl:
+To call pdb functions (or equivalent libgimp functions), just treat them like
+normal perl (this requires the use of the C<:auto> import tag, but see below
+for another possibility!):
 
  gimp_palette_set_foreground([20,5,7]);
- gimp_palette_ser_background("cornsilk");
+ gimp_palette_set_background("cornsilk");
+
+If you don't use the C<:auto> import tag, you can call all Gimp functions
+using OO-Syntax:
+
+ Gimp->gimp_palette_set_foreground([20,5,7]);
+ Gimp->palette_set_background("cornsilk");
+ Palette->set_foreground('#1230f0');
+
+As you can see, you can also drop part of the name prefixes with this
+syntax, so its actually shorter to write.
 
 "But how do I call functions containing dashes?". Well, get your favourite
 perl book and learn perl! Anyway, newer perls understand a nice syntax (see
@@ -566,7 +501,7 @@ also the description for C<gimp_call_procedure>):
 
  "plug-in-the-egg"->(RUN_INTERACTIVE,$image,$drawable);
 
-Older perls need:
+Very old perls may need:
 
  &{"plug-in-the-egg"}(RUN_INTERACTIVE,$image,$drawable);
 
@@ -581,7 +516,7 @@ speak for you), or just plain interesting functions.
 
 =over 4
 
-=item gimp_main()
+=item main(), gimp_main()
 
 Should be called immediately when perl is initialized. Arguments are not yet
 supported. Initializations can later be done in the init function.
@@ -603,7 +538,7 @@ Updates the progress bar. No-op in networked modules.
 =item gimp_tile_*, gimp_pixel_rgn_*, gimp_drawable_get
 
 With these functions you can access the raw pixel data of drawables. They
-are documented in L<Gimp::Pixel>, to keep this manual page short.
+are documented in L<Pixel>, to keep this manual page short.
 
 =item gimp_call_procedure(procname, arguments...)
 
@@ -640,12 +575,14 @@ C<perldoc -m Gimp>, at the end of the file.
 In this manual, only the plain syntax (that lesser languages like C use) is
 described. Actually, the recommended way to write gimp scripts is to use the
 fancy OO-like syntax you are used to in perl (version 5 at least ;). As a
-fact, OO-syntax saves soooo much typing as well. See L<Gimp::OO> for
+fact, OO-syntax saves soooo much typing as well. See L<OO> for
 details.
 
 =head1 DEBUGGING AIDS
 
-No, I can't tell you how to cure immune deficiencies, but I I<can> tell
+No, I can't tell you how to cure immune deficiencies (which might well be
+uncurable, as AIDS virii might be able to survive in brain cells, among
+other unreachable (for medication) parts of your body), but I I<can> tell
 you how Gimp can help you debugging your scripts:
 
 =over 4
@@ -693,7 +630,7 @@ all of the above.
 =item set_trace(\$tracevar)
 
 write trace into $tracevar instead of printing it to STDERR. $tracevar only
-contains the last command traces, i.e. it's cleared on every gimp_call_procedure
+contains the last command traces, i.e. it's cleared on every PDB invocation
 invocation.
 
 =item set_trace(*FILEHANDLE)
@@ -731,7 +668,7 @@ output you will see small integers (the image/layer/etc..-ID)
 
 =item REGION, BOUNDARY, PATH, STATUS
 
-Not yet supported.
+Not yet supported (and might never be).
 
 =back
 
@@ -741,7 +678,7 @@ Marc Lehmann <pcg@goof.com>
 
 =head1 SEE ALSO
 
-perl(1), gimp(1), L<Gimp::OO>, L<Gimp::Data> and L<Gimp::Util>.
+perl(1), gimp(1), L<OO>, L<Data>, L<Pixel>, L<PDL>, L<UI>, L<Net> and L<Lib>.
 
 =cut
 

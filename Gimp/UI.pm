@@ -19,6 +19,17 @@ Gimp::UI - "simulation of libgimpui"
 Due to the braindamaged (read: "unusable") libgimpui API, I had to
 reimplement it in perl.
 
+=over 4
+
+ $obj = new Gimp::UI::ImageMenu;
+ $obj = new Gimp::UI::LayerMenu;
+ $obj = new Gimp::UI::ChannelMenu;
+ $obj = new Gimp::UI::DrawableMenu;
+
+Create a Gtk object displaying all objects of the specified type.
+
+=back
+
 =cut
 
 @Gimp::UI::ImageMenu::ISA   =qw(Gimp::UI);

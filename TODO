@@ -1,24 +1,29 @@
-this is mostly my internal worksheet, which may not be up-to-date and may
-not even be readable ;)
+this is mostly my personal worksheet and notepad, which may not be
+up-to-date and may not even be readable ;)
 
 bugs
 
-  * check Perl-Server(subito)
-  * -rdynamic is being ignored by MakeMaker.
-[DONE]  * too many vs. not enough
-  * Gimp::Net, <Image>-scripts should always ask for Image & Drawable(!)
-  * create working progress when Net and $verbose
+  * Gimp::main vs. Gimp::Fu::main (!)
+  * wait for working gimp_file_load (or do it myself?)
+[DONE]  * Gimp::Net, <Image>-scripts should always ask for Image & Drawable(!)
   * block display_new &c when Net
+  * Gimp::import should croak on import "garbage".
+[????]  * enable prototypes for gimp_main
+[DONE]  * "Gimp" is eaten as first argument..
+  * memory leak on croak(). de-croakify the code!
   
 important issues
 
+  * create working progress when Net and $verbose
+  * require Storable soon(!)
+  * Gimp::Fu::command(?)
+[DONE]  * authorization
   * Untitled/0 Untitled/1 etc..
   * default parameters at end(!)
   * try to deduce default parameters
   * return values for run()
-  * more colour codes allowed on commandline.
 
-not-so-important issues
+not-so-important issues and ideas
 
   * memory leaks on many croak()'s
   * default function parameters (with hash %defaults?)

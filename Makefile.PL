@@ -5,6 +5,30 @@ if ($ARGV[0] ne "--writemakefile") {
    for(@ARGV) {
       s/^prefix=/--prefix=/i;
    }
+   
+   $|=1;
+   do './config.pl';
+   if(defined $EXTENSIVE_TESTS) {
+      print "\nFetched some defaults from an earlier Makefile.PL run.\n";
+      print "Run \"make clean\" if you don't want this\n";
+   } else {
+      print "
+This module usually does only a very short installation check.
+Alternatively, it can do more extensive tests, but these tests might fail
+even if everything is in fact correct.  And it has only been tested with
+gimp-1.1 ;)
+
+If you decide to run these tests (please!), I'd be glad to hear
+success stories (and of course any bug-reports ;)
+
+Do you want me to make these tests [n]? ";
+      
+      $EXTENSIVE_TESTS = (<STDIN> =~ /^[yYjJ]/) ? 1 : 0;
+   }
+   
+   print "\n";
+   
+   $ENV{'EXTENSIVE_TESTS'} = $EXTENSIVE_TESTS;
    $ENV{CC}=$Config{cc};
    $ENV{LD}=$Config{ld};
    $ENV{prefix}=$Config{prefix};
@@ -41,8 +65,9 @@ EOF
 
 !$PDL or $PDL::Version::VERSION > 1.99 or print <<EOF;
 
-WARNING: PDL version $PDL::Version::VERSION is installed. Gimp::PDL was only tested with
-         1.9905.  In case of problems its advisable to upgrade PDL.
+WARNING: PDL version $PDL::Version::VERSION is installed. Gimp::PDL was only
+         tested with 1.99 and higher.  In case of problems its advisable to
+         upgrade PDL to at least version 2.
 
 EOF
 
@@ -69,8 +94,9 @@ install :: install-plugins
 
 install-plugins:
 	$GIMPTOOL --install-admin-bin Perl-Server
-	cd examples && $GIMPTOOL --install-admin-bin windy.pl
-	cd examples && $GIMPTOOL --install-admin-bin prep4gif.pl
+	-cd examples && $GIMPTOOL --install-admin-bin windy.pl
+	-cd examples && $GIMPTOOL --install-admin-bin prep4gif.pl
+	-cd examples && $GIMPTOOL --install-admin-bin webify.pl
 EOF
 }
 
@@ -78,7 +104,7 @@ EOF
 # the contents of the Makefile that is written.
 WriteMakefile(
     'dist'	=> {
-                    'PREOP'     => 'chmod -R u=rwX,go= . ;'.
+                    'PREOP'     => 'chmod -R u=rwX,go=rX . ;'.
                     		   '[ -x ./cphp ] && ./cphp',
 #                                   '&& pod2man Gimp.pm | groff -man -P-buo -Tascii > README',
                     'COMPRESS'	=> 'gzip -9v',

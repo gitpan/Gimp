@@ -1,5 +1,31 @@
 Revision history for Gimp-Perl extension.
 
+1.031 Sun Sep 13 21:50:51 CEST 1998
+	- non-OO syntax works again (silly me) (and is no longer deprecated,
+	  but the default!)
+	- Gimp::function syntax officially does not work anymore. Use
+	  Gimp->function syntax now (or use :auto)
+	- made compatible with the newest gimp snapshit. wrote
+	  lamentation to gimp-developers. commited suicide.
+	- added examples/webify.pl
+	- first try to implement return values in Gimp. Gimp::Fu still
+	  lacks support.
+
+1.03 Wed Sep  9 21:04:54 CEST 1998
+	- all files are now readable/exec'able by group owner
+	- updated some examples to the new syntax
+	- small documentation changes (still waaay to go..)
+	- Gimp::Fu now allows any string as colour specifier.
+	- the Perl-Server doesn't eat the string "Gimp" as first argument
+	  anymore, but still gimp_some_function("Gimp") is indistinguishable
+	  from Gimp->gimp_some_function().
+	- not use'ing Gimp from interface modules makes everything so much
+	  easier..
+	- fixed make clean
+	- added more tests, including starting and testing The Gimp itself
+	- passwords can now be used for the Perl-Server (and tcp is open
+	  by default)
+
 1.02 Wed Sep  2 23:35:37 CEST 1998
 	- added Gimp::Patterns
 	- Gimp::Fu now doesn't gratitiously share LAST_VALS with other
@@ -245,7 +271,3 @@ Revision history for Gimp-Perl extension.
 
 0.01  Fri Feb  6 17:51:56 CET 1998
 	- original version; created by h2xs 1.18
-
-
-
-

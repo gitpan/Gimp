@@ -7,17 +7,16 @@ package Gimp::Net;
 use strict;
 use Carp;
 use vars qw(
-   $VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @EXPORT_FAIL %EXPORT_TAGS
+   $VERSION @ISA
    $default_tcp_port $default_unix_dir $default_unix_sock
    $server_fh $trace_level $trace_res $auth $gimp_pid
 );
 use subs qw(gimp_call_procedure);
-use Gimp;
 
 use IO::Socket;
 
 @ISA = ();
-
+ 
 $default_tcp_port  = 10009;
 $default_unix_dir  = "/tmp/gimp-perl-serv/";
 $default_unix_sock = "gimp-perl-serv";
@@ -33,14 +32,6 @@ sub import {
       my $req="DTRY".args2net(@_);
       print $server_fh pack("N",length($req)).$req;
    };
-}
-
-sub AUTOLOAD {
-   my $constname;
-   ($constname = $AUTOLOAD) =~ s/.*:://;
-   no strict "refs";
-   *{$AUTOLOAD} = sub { Gimp::Net::gimp_call_procedure $constname,@_ };
-   goto &$AUTOLOAD;
 }
 
 # network to array
@@ -71,8 +62,25 @@ sub _gimp_procedure_available {
    return $req;
 }
 
+# this is hardcoded into gimp_call_procedure!
+sub response {
+   my($len,$req);
+   $server_fh->read($len,4) == 4 or die "protocol error";
+   $len=unpack("N",$len);
+   $server_fh->read($req,$len) == $len or die "protocol error";
+   net2args($req);
+}
+
+# this is hardcoded into gimp_call_procedure!
+sub command {
+   my $req=shift;
+   $req.=args2net(@_);
+   print $server_fh pack("N",length($req)).$req;
+}
+
 sub gimp_call_procedure {
    my($len,@args,$trace,$req);
+   
    if ($trace_level) {
       $req="TRCE".args2net($trace_level,@_);
       print $server_fh pack("N",length($req)).$req;
@@ -117,67 +125,94 @@ sub set_trace {
    }
 }
 
+sub start_server {
+   print "trying to start gimp\n" if $Gimp::verbose;
+   $server_fh=*SERVER_SOCKET;
+   socketpair $server_fh,GIMP_FH,AF_UNIX,SOCK_STREAM,PF_UNIX
+      or croak "unable to create socketpair for gimp communications: $!";
+   $gimp_pid = fork;
+   if ($gimp_pid > 0) {
+      *gimp_display_new=sub {};
+      *gimp_displays_flush=sub {};
+      return $server_fh;
+   } elsif ($gimp_pid == 0) {
+      close $server_fh;
+      unless ($Gimp::verbose) {
+         open STDOUT,">/dev/null";
+         open STDERR,">&1";
+         close STDIN;
+      }
+      my $args = &Gimp::RUN_NONINTERACTIVE." ".
+                 (&Gimp::_PS_FLAG_BATCH | &Gimp::_PS_FLAG_QUIET)." ".
+                 fileno(GIMP_FH);
+      exec "gimp","-n","-b","(extension_perl_server $args)",
+                            "(extension-perl-server $args)";
+   } else {
+      croak "unable to fork: $!";
+   }
+}
+
 sub try_connect {
    $_=$_[0];
-   $auth = s/^(.*)\@// ? $1 : undef;	# get authorization
+   my $fh;
+   $auth = s/^(.*)\@// ? $1 : "";	# get authorization
    if ($_ ne "") {
-      if (s{^unix/}{/}) {
+      if (s{^spawn/}{}) {
+         return start_server;
+      } elsif (s{^unix/}{/}) {
          return new IO::Socket::UNIX (Peer => $_);
       } else {
          s{^tcp/}{};
          my($host,$port)=split /:/,$_;
          $port=$default_tcp_port unless $port;
          return new IO::Socket::INET (PeerAddr => $host, PeerPort => $port);
-      }
-   };
+      };
+   } else {
+      return $fh if $fh = try_connect ("$auth\@unix$default_unix_dir$default_unix_sock");
+      return $fh if $fh = try_connect ("$auth\@tcp/localhost:$default_tcp_port");
+      return $fh if $fh = try_connect ("$auth\@spawn/");
+   }
    undef $auth;
 }
 
 sub gimp_main {
-   return if $Gimp::help;
    if (defined($Gimp::host)) {
       $server_fh = try_connect ($Gimp::host);
    } elsif (defined($ENV{GIMP_HOST})) {
       $server_fh = try_connect ($ENV{GIMP_HOST});
    } else {
-      $server_fh = new IO::Socket::UNIX (Peer => $default_unix_dir.$default_unix_sock);
-      unless(defined($server_fh)) {
-         $server_fh = new IO::Socket::INET (PeerAddr => "localhost", PeerPort => $default_tcp_port);
-         unless (defined($server_fh)) {
-            print "trying to start gimp\n" if $Gimp::verbose;
-            $server_fh=*SERVER_SOCKET;
-            socketpair $server_fh,GIMP_FH,AF_UNIX,SOCK_STREAM,PF_UNIX
-               or croak "unable to create socketpair for gimp communications: $!";
-            $gimp_pid = fork;
-            if ($gimp_pid > 0) {
-               *gimp_display_new=sub {};
-               # well, we now have out perl-server listening, don't we?
-            } elsif ($gimp_pid == 0) {
-               close $server_fh;
-               unless ($Gimp::verbose) {
-                  open STDOUT,">/dev/null";
-                  open STDERR,">&1";
-                  close STDIN;
-               }
-               exec "gimp","-n","-b","(extension_perl_server ".&Gimp::RUN_NONINTERACTIVE." ".
-                                     (&Gimp::_PS_FLAG_BATCH | &Gimp::_PS_FLAG_QUIET)." ".
-                                     fileno(GIMP_FH).")";
-            } else {
-               croak "unable to fork: $!";
-            }
-         }
+      $server_fh = try_connect ("");
+   }
+   defined $server_fh or croak "could not connect to the gimp server server (make sure Net-Server is running)";
+   $server_fh->autoflush(1); # for compatibility with very old perls..
+   
+   my @r = response;
+   
+   die "expected perl-server at other end of socket, got @r\n"
+      unless $r[0] eq "PERL-SERVER";
+   shift @r;
+   die "expected protocol version $Gimp::_PROT_VERSION, but server uses $r[0]\n"
+      unless $r[0] eq $Gimp::_PROT_VERSION;
+   shift @r;
+   
+   for(@r) {
+      if($_ eq "AUTH") {
+         die "server requests authorization, but no authorization available\n"
+            unless $auth;
+         command "AUTH",$auth;
+         my @r = response;
+         die "authorization failed: $r[1]\n" unless $r[0];
+         print "authorization ok, but: $r[1]\n" if $Gimp::verbose and $r[1];
       }
    }
-   defined($server_fh)
-      or croak "could not connect to the gimp server server (make sure Net-Server is running)";
-   $server_fh->autoflush(1); # for compatibility with very old perls..
+   
    no strict 'refs';
    &{caller()."::net"};
    return 0;
 }
 
 END {
-   kill "TERM",$gimp_pid if $gimp_pid;
+   kill 'KILL',$gimp_pid if $gimp_pid;
 }
 
 1;
@@ -189,21 +224,31 @@ Gimp::Net - Communication module for the gimp-perl server.
 
 =head1 SYNOPSIS
 
-  use Gimp qw( interface=net );
+  use Gimp;
 
 =head1 DESCRIPTION
 
-WARNING: the Net-Server may open a listening socket at port 10009, reachable for
-everybody. In this version, no provisions for security have been made!
+For Gimp::Net (and thus commandline and remote scripts) to work, you first have to
+install the "Perl-Server" extension somewhere where Gimp can find it (e.g in
+your .gimp/plug-ins/ directory). Usually this is done automatically while installing
+the Gimp extension. If you have a menu entry C<<Xtns>/Perl-Server>
+then it is probably installed.
 
-You first have to install the "Perl-Server" extension somewhere where Gimp
-can find it (e.g in your .gimp/plug-ins/ directory). Then have a look at
-example-fu.pl (and run it!), or example-net.pl (and run it!).
+The Perl-Server can either be started from the C<<Xtns>> menu in Gimp, or automatically
+when a perl script can't find a running Perl-Server.
+
+When started from within The Gimp, the Perl-Server will create a
+unix domain socket to which local clients can connect. If an authorization
+password is given to the Perl-Server (by defining the environment variable
+C<GIMP_HOST> before starting The Gimp), it will also listen on a tcp port
+(default 10009).
 
 =head1 ENVIRONMENT
 
-The environment variable C<GIMP_HOST> specifies the default server to contact. The syntax
-is [auth@][tcp/]hostname[:port] for tcp or [auth@]unix/local/socket/path. Examples are:
+The environment variable C<GIMP_HOST> specifies the default server to
+contact and/or the password to use. The syntax is
+[auth@][tcp/]hostname[:port] for tcp, [auth@]unix/local/socket/path for unix
+and spawn/ for a private gimp instance. Examples are:
 
  www.yahoo.com               # just kidding ;)
  yahoo.com:11100             # non-standard port
@@ -214,13 +259,15 @@ is [auth@][tcp/]hostname[:port] for tcp or [auth@]unix/local/socket/path. Exampl
  password@unix/tmp/test      # additionally use a password
  
  authorize@                  # specify authorization only
+ 
+ spawn/                      # use a private gimp instance
 
 =head1 CALLBACKS
 
  net()
 
-is called after we succesfully connected to the server. Do your dirty work
-in this function.
+is called after we have succesfully connected to the server. Do your dirty
+work in this function, or see L<Gimp::Fu> for a better solution.
 
 =head1 FUNCTIONS
 

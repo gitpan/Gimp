@@ -7,25 +7,28 @@
 # you shouldn't enable it!
 #
 $use_unix	= 1;
-$use_tcp	= 0;	# don't enable tcp.  security...
+$use_tcp	= 1;	# tcp is enabled only when authorization is available
 
 use IO::Handle;
 use IO::Socket;
 
 use strict;
 use vars qw($use_unix $use_tcp $trace_res $server_quit $max_pkt $unix $tcp $ps_flags
-            %object_dynamic $object_uid %objects);
-use Gimp;
+            %object_dynamic $object_uid %objects $auth @authorized);
+use Gimp '';
 use Gimp::Net qw(:server);
 
 Gimp::set_trace(\$trace_res);
 
 #
 # the protocol is quite easy ;)
+# at connect() time the server returns
+# PERL-SERVER protocolversion [AUTH]
 #
 # length_of_packet cmd
 #
 # cmd			response		description
+# AUTH password		ok [message]		authorize yourself
 # QUIT						quit server
 # EXEC in-args		status out-args		run simple command
 # TRCE trace in-args	trace status out-args	run simple command (with tracing)
@@ -84,45 +87,79 @@ sub destroy_objects {
    delete @objects{map $$_,@_};
 }
 
+# this is hardcoded into handle_request!
+sub reply {
+  my $fh=shift;
+  my $data=Gimp::Net::args2net(@_);
+  print $fh pack("N",length($data)).$data;
+}
+
 sub handle_request($) {
-  my($fh)=@_;
-  my($length,$req,$data,@args,$trace_level);
-  
-  $fh->timeout(6) unless $ps_flags & &Gimp::_PS_FLAG_BATCH;
-  $fh->read($length,4) == 4 or return 0;
-  $length=unpack("N",$length);
-  $length>0 && $length<$max_pkt or return 0;
-  $fh->read($req,4) == 4 or return 0;
-  $fh->read($data,$length-4) == $length-4 or return 0;
-  
-  if($req eq "EXEC") {
-    no strict 'refs';
-    ($req,@args)=Gimp::Net::net2args($data);
-    @args=deobjectify(eval { &{"Gimp::$req"}(objectify(@args)) });
-    $data=Gimp::Net::args2net($@,@args);
-    print $fh pack("N",length($data)).$data;
-  } elsif ($req eq "TEST") {
-    no strict 'refs';
-    print $fh (defined(*{"Gimp::Lib::$data"}{CODE}) || Gimp::_gimp_procedure_available($data)) ? "1" : "0";
-  } elsif ($req eq "DTRY") {
-    destroy_objects Gimp::Net::net2args($data);
-  } elsif($req eq "TRCE") {
-    no strict 'refs';
-    ($trace_level,$req,@args)=Gimp::Net::net2args($data);
-    Gimp::set_trace($trace_level);
-    undef $trace_res;
-    @args=deobjectify(eval { &{"Gimp::$req"}(objectify(@args)) });
-    $data=Gimp::Net::args2net($trace_res,$@,@args);
-    print $fh pack("N",length($data)).$data;
-    Gimp::set_trace(0);
-  } elsif ($req eq "QUIT") {
-    slog "received QUIT request";
-    $server_quit = 1;
-  } else {
-    slog "illegal command received, aborting connection";
-    return 0;
-  }
-  return 1;
+   my($fh)=@_;
+   my($length,$req,$data,@args,$trace_level);
+   
+   $fh->timeout(6) unless $ps_flags & &Gimp::_PS_FLAG_BATCH;
+   $fh->read($length,4) == 4 or return 0;
+   $length=unpack("N",$length);
+   $length>0 && $length<$max_pkt or return 0;
+   $fh->read($req,4) == 4 or return 0;
+   $fh->read($data,$length-4) == $length-4 or return 0;
+   
+   if(!$auth or $authorized[fileno($fh)]) {
+      if($req eq "EXEC") {
+         no strict 'refs';
+         ($req,@args)=Gimp::Net::net2args($data);
+         @args=deobjectify(eval { Gimp->$req(objectify(@args)) });
+         $data=Gimp::Net::args2net($@,@args);
+         print $fh pack("N",length($data)).$data;
+      } elsif ($req eq "TEST") {
+         no strict 'refs';
+         print $fh (defined(*{"Gimp::Lib::$data"}{CODE}) || Gimp::_gimp_procedure_available($data)) ? "1" : "0";
+      } elsif ($req eq "DTRY") {
+         destroy_objects Gimp::Net::net2args($data);
+      } elsif($req eq "TRCE") {
+         no strict 'refs';
+         ($trace_level,$req,@args)=Gimp::Net::net2args($data);
+         Gimp::set_trace($trace_level);
+         undef $trace_res;
+         @args=deobjectify(eval { Gimp->$req(objectify(@args)) });
+         $data=Gimp::Net::args2net($trace_res,$@,@args);
+         print $fh pack("N",length($data)).$data;
+         Gimp::set_trace(0);
+      } elsif ($req eq "QUIT") {
+         slog "received QUIT request";
+         $server_quit = 1;
+      } elsif($req eq "AUTH") {
+         $data=Gimp::Net::args2net(1,"authorization unnecessary");
+         print $fh pack("N",length($data)).$data;
+      } else {
+         print $fh pack("N",0);
+         slog "illegal command received, aborting connection";
+         return 0;
+      }
+   } else {
+      if($req eq "AUTH") {
+         my($ok,$msg);
+         ($req)=Gimp::Net::net2args($data);
+         if($req eq $auth) {
+            $ok=1;
+            $authorized[fileno($fh)]=1;
+         } else {
+            $ok=0;
+            $msg="wrong authorization, aborting connection";
+            slog $msg;
+            sleep 10; # safety measure
+         }
+         $data=Gimp::Net::args2net($ok,$msg);
+         print $fh pack("N",length($data)).$data;
+         return $ok;
+      } else {
+         print $fh pack("N",0);
+         slog "unauthorized command received, aborting connection";
+         return 0;
+      }
+   }
+   return 1;
 }
 
 sub extension_perl_server {
@@ -135,13 +172,14 @@ sub extension_perl_server {
         my($fh)=new_from_fd IO::Handle $extra,"r+";
         $fh or die "unable to open Gimp::Net communications socket\n";
         $fh->autoflush(1); # compatibility for old perls
-        while(!$server_quit) {
+        reply $fh,"PERL-SERVER",$Gimp::_PROT_VERSION;
+        while(!$server_quit and !eof($fh)) {
            last unless handle_request($fh);
         }
-#        Gimp::gimp_quit(0);	# borken in libgimp #FIXME#
-        kill 'TERM',getppid();	# borken do not do this.. #FIXME#
-        exit(0);		# borken as well
-        close $fh;
+#        Gimp::gimp_quit(0);	# borken in libgimp #d#FIXME#
+        kill 'KILL',getppid();	# borken do not do this.. #d#FIXME#
+        exit(0);
+#        close $fh;
         return;
      }
   } else {
@@ -149,7 +187,9 @@ sub extension_perl_server {
      $ps_flags=0;
   }
   
-  slog "server started";
+  $auth = $ENV{'GIMP_HOST'}=~s/^(.*)\@// ? $1 : undef;	# get authorization
+  
+  slog "server version $Gimp::VERSION started".($auth ? ", authorization required" : "");
   
   $SIG{PIPE}='IGNORE'; # may not work, since libgimp (eech) overwrites it.        
   my($unix_path)=$Gimp::Net::default_unix_dir.$Gimp::Net::default_unix_sock;
@@ -163,27 +203,32 @@ sub extension_perl_server {
     slog "accepting connections on $unix_path";
     vec($rm,$unix->fileno,1)=1;
   }
-  if ($use_tcp) {
+  if ($use_tcp && $auth) {
     $tcp = new IO::Socket::INET (LocalPort => $Gimp::Net::default_tcp_port, Listen => 5,
                                  Reuse => 1) or die "$!";
     slog "accepting connections on port $Gimp::Net::default_tcp_port";
     vec($rm,$tcp->fileno,1)=1;
   }
   
+  sub new_connection {
+     my $fh = shift;
+     $fh->autoflush (1); # for compatibility with old perls..
+     $handles{fileno($fh)}=$fh;
+     my @r = ("PERL-SERVER",$Gimp::_PROT_VERSION);
+     push(@r,"AUTH") if $auth;
+     reply $fh,@r;
+     vec($rm,$fh->fileno,1)=1;
+  }
+
   while(!$server_quit) {
     if(select($r=$rm,undef,undef,undef)>0) {
       if ($tcp && vec($r,$tcp->fileno,1)) {
-        my($h)=$tcp->accept;
-        $h->autoflush (1); # for compatibility with very old perls..
-        $handles{fileno($h)}=$h;
-        vec($rm,$h->fileno,1)=1;
+        my $h=$tcp->accept;
+        new_connection($h);
         slog("accepted tcp connection from ",$h->peerhost);
       }
       if ($unix && vec($r,$unix->fileno,1)) {
-        my($h)=$unix->accept;
-        $h->autoflush (1); # for compatibility with very old perls..
-        $handles{fileno($h)}=$h;
-        vec($rm,$h->fileno,1)=1;
+        new_connection($unix->accept);
         slog("accepted unix connection");
       }
       for $f (keys(%handles)) {
@@ -226,7 +271,7 @@ sub query {
 sub quit {
 }
 
-exit(Gimp::gimp_main());
+exit &Gimp::main;
 
 
 

@@ -1,9 +1,9 @@
 package Gimp::Fu;
 
-use strict;
+use strict 'vars';
 use Carp;
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @EXPORT_FAIL
-            %EXPORT_TAGS @PREFIXES @scripts @_params $run_mode %pf_type2string);
+use vars qw($VERSION @ISA @EXPORT @EXPORT_OK @EXPORT_FAIL %EXPORT_TAGS
+            @scripts @_params $run_mode %pf_type2string @image_params);
 use Gimp qw(:param);
 use Gimp::UI;
 use Gimp::Data;
@@ -76,6 +76,9 @@ sub PF_DRAWABLE	() { PARAM_DRAWABLE};
 
 sub PF_FONT	() { PARAM_STRING	};	# at the moment!
 sub PF_TOGGLE	() { PARAM_END+1	};
+sub PF_BOOL	() { PF_TOGGLE		};
+
+sub Gimp::RUN_FULLINTERACTIVE { &Gimp::RUN_INTERACTIVE+100 };	# you don't want to know
 
 %pf_type2string = (
          &PF_INT8	=> 'small integer',
@@ -84,7 +87,7 @@ sub PF_TOGGLE	() { PARAM_END+1	};
          &PF_FLOAT	=> 'value',
          &PF_STRING	=> 'string',
          &PF_COLOR	=> 'colour',
-#         &PF_FONT	=> 'fontspec',
+#         &PF_FONT	=> 'XLFD',
          &PF_TOGGLE	=> 'boolean',
          &PF_IMAGE	=> 'NYI',
          &PF_LAYER	=> 'NYI',
@@ -94,12 +97,18 @@ sub PF_TOGGLE	() { PARAM_END+1	};
 
 @_params=qw(PF_INT8 PF_INT16 PF_INT32 PF_FLOAT PF_VALUE
             PF_STRING PF_COLOR PF_COLOUR PF_TOGGLE PF_IMAGE
-            PF_DRAWABLE PF_FONT PF_LAYER PF_CHANNEL);
+            PF_DRAWABLE PF_FONT PF_LAYER PF_CHANNEL PF_BOOL);
 
 @ISA = qw(Exporter);
-@EXPORT = (qw(register main),@_params);
+@EXPORT = (qw(register main gimp_main),@_params);
 @EXPORT_OK = qw(interact $run_mode save_image);
 %EXPORT_TAGS = (params => [@_params]);
+
+sub import {
+   undef *{caller()."::main"};
+   undef *{caller()."::gimp_main"};
+   goto &Exporter::import;
+}
 
 sub interact($@) {
    my(@types)=@{shift()};
@@ -109,117 +118,128 @@ sub interact($@) {
    
    parse Gtk::Rc Gimp->gtkrc;
    
-   $t = new Gtk::Tooltips;
-   
-   $w = new Gtk::Dialog;
-   set_title $w "$0";
-   
-   $g = new Gtk::Table scalar@types,2,0;
-   $g->border_width(4);
-   show $g;
-   $w->vbox->pack_start($g,1,1,0);
-   
-   for(@types) {
-      my($label,$a);
-      my($type,$name,$desc,$default)=@$_;
-      my($value)=shift;
-      $value=$default unless defined $value;
-      push(@defaults,$default);
-      $label="$name: ";
-      if($type == PF_INT8	# perl just maps
-      || $type == PF_INT16	# all this crap
-      || $type == PF_INT32	# into the scalar
-      || $type == PF_FLOAT	# domain.
-      || $type == PF_STRING) {	# I love it
-         $a=new Gtk::Entry;
-         set_usize $a 0,25;
-         push(@setvals,sub{set_text $a $value});
-         #select_region $a 0,1;
-         push(@getvals,sub{get_text $a});
-      } elsif($type == PF_COLOR) {
-         $a=new Gtk::ColorSelectButton (-width => 90, -height => 18);
-         $value = [216, 152, 32] unless defined $value;
-         push(@setvals,sub{$a->color(join " ",@{Gimp::canonicalize_color $value})});
-         push(@getvals,sub{[split ' ',$a->color]});
-      } elsif($type == PF_TOGGLE) {
-         $a=new Gtk::CheckButton $desc;
-         push(@setvals,sub{set_state $a ($value ? 1 : 0)});
-         push(@getvals,sub{state $a eq "active"});
-      } elsif($type == PF_IMAGE) {
-         my $res;
-         $a=new Gtk::OptionMenu;
-         $a->set_menu(new Gimp::UI::ImageMenu(sub {1},-1,$res));
-         push(@setvals,sub{});
-         push(@getvals,sub{$res});
-      } elsif($type == PF_LAYER) {
-         my $res;
-         $a=new Gtk::OptionMenu;
-         $a->set_menu(new Gimp::UI::LayerMenu(sub {1},-1,$res));
-         push(@setvals,sub{});
-         push(@getvals,sub{$res});
-      } elsif($type == PF_CHANNEL) {
-         my $res;
-         $a=new Gtk::OptionMenu;
-         $a->set_menu(new Gimp::UI::ChannelMenu(sub {1},-1,$res));
-         push(@setvals,sub{});
-         push(@getvals,sub{$res});
-      } elsif($type == PF_DRAWABLE) {
-         my $res;
-         $a=new Gtk::OptionMenu;
-         $a->set_menu(new Gimp::UI::DrawableMenu(sub {1},-1,$res));
-         push(@setvals,sub{});
-         push(@getvals,sub{$res});
-      } else {
-         $label="Unsupported argumenttype $type";
-         push(@setvals,sub{});
-         push(@getvals,sub{$value});
-      }
-      
-      $setvals[-1]->($value);
-      
-      $label=new Gtk::Label $label;
-      $label->set_alignment(0,0.5);
-      show $label;
-      $g->attach($label,0,1,$res,$res+1,{},{},4,2);
-      $a && do {
-         set_tip $t $a,$desc;
-         show $a;
-         $g->attach($a,1,2,$res,$res+1,{},{},4,2);
-      };
-      $res++;
-   }
-   
-   $button = new Gtk::Button "Last Values";
-   signal_connect $button "clicked", sub {
-     for my $i (0..$#defaults) {
-       $setvals[$i]->($defaults[$i]);
+   for(;;) {
+     $t = new Gtk::Tooltips;
+     
+     $w = new Gtk::Dialog;
+     set_title $w "$0";
+     
+     $g = new Gtk::Table scalar@types,2,0;
+     $g->border_width(4);
+     show $g;
+     $w->vbox->pack_start($g,1,1,0);
+     
+     for(@types) {
+        my($label,$a);
+        my($type,$name,$desc,$default)=@$_;
+        my($value)=shift;
+        $value=$default unless defined $value;
+        push(@defaults,$default);
+        $label="$name: ";
+        if($type == PF_INT8	# perl just maps
+        || $type == PF_INT16	# all this crap
+        || $type == PF_INT32	# into the scalar
+        || $type == PF_FLOAT	# domain.
+        || $type == PF_STRING) {	# I love it
+           $a=new Gtk::Entry;
+           set_usize $a 0,25;
+           push(@setvals,sub{set_text $a $value ? $value : ""});
+           #select_region $a 0,1;
+           push(@getvals,sub{get_text $a});
+        } elsif($type == PF_COLOR) {
+           $a=new Gtk::ColorSelectButton (-width => 90, -height => 18);
+           $value = [216, 152, 32] unless defined $value;
+           push(@setvals,sub{$a->color(join " ",@{Gimp::canonicalize_color $value})});
+           push(@getvals,sub{[split ' ',$a->color]});
+        } elsif($type == PF_TOGGLE) {
+           $a=new Gtk::CheckButton $desc;
+           push(@setvals,sub{set_state $a ($value ? 1 : 0)});
+           push(@getvals,sub{state $a eq "active"});
+        } elsif($type == PF_IMAGE) {
+           my $res;
+           $a=new Gtk::OptionMenu;
+           $a->set_menu(new Gimp::UI::ImageMenu(sub {1},-1,$res));
+           push(@setvals,sub{});
+           push(@getvals,sub{$res});
+        } elsif($type == PF_LAYER) {
+           my $res;
+           $a=new Gtk::OptionMenu;
+           $a->set_menu(new Gimp::UI::LayerMenu(sub {1},-1,$res));
+           push(@setvals,sub{});
+           push(@getvals,sub{$res});
+        } elsif($type == PF_CHANNEL) {
+           my $res;
+           $a=new Gtk::OptionMenu;
+           $a->set_menu(new Gimp::UI::ChannelMenu(sub {1},-1,$res));
+           push(@setvals,sub{});
+           push(@getvals,sub{$res});
+        } elsif($type == PF_DRAWABLE) {
+           my $res;
+           $a=new Gtk::OptionMenu;
+           $a->set_menu(new Gimp::UI::DrawableMenu(sub {1},-1,$res));
+           push(@setvals,sub{});
+           push(@getvals,sub{$res});
+        } else {
+           $label="Unsupported argumenttype $type";
+           push(@setvals,sub{});
+           push(@getvals,sub{$value});
+        }
+        
+        $setvals[-1]->($value);
+        
+        $label=new Gtk::Label $label;
+        $label->set_alignment(0,0.5);
+        show $label;
+        $g->attach($label,0,1,$res,$res+1,{},{},4,2);
+        $a && do {
+           set_tip $t $a,$desc;
+           show $a;
+           $g->attach($a,1,2,$res,$res+1,{},{},4,2);
+        };
+        $res++;
      }
-   };
-   $g->attach($button,0,2,$res,$res+1,{},{},4,2);
-   show $button;
-   
-   $res=0;
-   
-   signal_connect $w "destroy", sub {main_quit Gtk};
-   signal_connect $w "delete_event", sub {main_quit Gtk};
+     
+     $button = new Gtk::Button "Last Values";
+     signal_connect $button "clicked", sub {
+       for my $i (0..$#defaults) {
+         $setvals[$i]->($defaults[$i]);
+       }
+     };
+     $g->attach($button,0,1,$res,$res+1,{},{},4,2);
+     show $button;
+     
+     $button = new Gtk::Button "Load an Image";
+     signal_connect $button "clicked", sub {$res = 2; main_quit Gtk};
+     $g->attach($button,1,2,$res,$res+1,{},{},4,2);
+     show $button;
+     
+     $res=0;
+     
+     signal_connect $w "destroy", sub {main_quit Gtk};
+     signal_connect $w "delete_event", sub {main_quit Gtk};
 
-   $button = new Gtk::Button "OK";
-   signal_connect $button "clicked", sub {$res = 1; main_quit Gtk};
-   $w->action_area->pack_start($button,1,1,0);
-   can_default $button 1;
-   grab_default $button;
-   show $button;
-   
-   $button = new Gtk::Button "Cancel";
-   signal_connect $button "clicked", sub {main_quit Gtk};
-   $w->action_area->pack_start($button,1,1,0);
-   show $button;
-   
-   show $w;
-   main Gtk;
-   
-   return map {&$_} @getvals if $res;
-   ();
+     $button = new Gtk::Button "OK";
+     signal_connect $button "clicked", sub {$res = 1; main_quit Gtk};
+     $w->action_area->pack_start($button,1,1,0);
+     can_default $button 1;
+     grab_default $button;
+     show $button;
+     
+     $button = new Gtk::Button "Cancel";
+     signal_connect $button "clicked", sub {main_quit Gtk};
+     $w->action_area->pack_start($button,1,1,0);
+     show $button;
+     
+     show $w;
+     main Gtk;
+     $w->destroy;
+     
+     return () if $res == 0;
+     @_ = map {&$_} @getvals;
+     return @_ if $res == 1;
+     Gimp->file_load(&Gimp::RUN_NONINTERACTIVE,"","");
+   }
+   @_;
 }
 
 sub this_script {
@@ -245,8 +265,7 @@ sub string2pf($$) {
    } elsif($type==PF_FLOAT) {
       $s*1;
    } elsif($type==PF_COLOUR) {
-      die "only #rrggbb allowed as colour argument\n" unless $s=~/^#[0-9a-f]{6,6}$/i;
-      $s;
+      $s=Gimp::canonicalize_colour($s);
    } elsif($type==PF_TOGGLE) {
       $s?1:0;
    } else {
@@ -308,9 +327,13 @@ sub net {
    }
    
    # Go for it
-   $this->[0]->($interact>0 ? &Gimp::RUN_INTERACTIVE
+   $this->[0]->($interact>0 ? &Gimp::RUN_FULLINTERACTIVE
                             : &Gimp::RUN_NONINTERACTIVE,@args);
 }
+
+# the <Image> arguments
+@image_params = ([&Gimp::PARAM_IMAGE	, "image",	"The image to work on"],
+                 [&Gimp::PARAM_DRAWABLE	, "drawable",	"The drawable to work on"]);
 
 sub query {
    my($type);
@@ -320,9 +343,7 @@ sub query {
       
       if ($menupath=~/^<Image>\//) {
          $type=&Gimp::PROC_PLUG_IN;
-         unshift(@$params,
-                 [&Gimp::PARAM_IMAGE	, "image",	"The image to work on"],
-                 [&Gimp::PARAM_DRAWABLE	, "drawable",	"The drawable to work on"]);
+         unshift(@$params,@image_params);
       } elsif ($menupath=~/^<Toolbox>\//) {
          $type=&Gimp::PROC_EXTENSION;
       } else {
@@ -330,7 +351,7 @@ sub query {
       }
       unshift(@$params,
               [&Gimp::PARAM_INT32,"run_mode","Interactive, [non-interactive]"]);
-      Gimp::gimp_install_procedure($function,$blurb,$help,$author,$copyright,$date,
+      Gimp->gimp_install_procedure($function,$blurb,$help,$author,$copyright,$date,
                                    $menupath,$imagetypes,$type,
                                    [map {
                                       $_->[0]=PARAM_INT32	if $_->[0] == PF_TOGGLE;
@@ -459,7 +480,7 @@ Please note that the Gimp has no value describing a font, so the format of
 this string is undefined (and will usually contain only the family name of
 the selected font).
 
-=item PF_TOGGLE
+=item PF_TOGGLE, PF_BOOL
 
 A boolean value (anything perl would accept as true or false). The description
 will be used for the toggle-button label!
@@ -507,6 +528,10 @@ sub register($$$$$$$$$&) {
             @_=interact($params,@_);
             return unless defined(@_);
          }
+      } elsif ($run_mode == &Gimp::RUN_FULLINTERACTIVE) {
+         @_=interact([@image_params,@{$params}],@pre,@_);
+         undef @pre;
+         return unless defined(@_);
       } elsif ($run_mode == &Gimp::RUN_NONINTERACTIVE) {
       } elsif ($run_mode == &Gimp::RUN_WITH_LAST_VALS) {
          @_=@defaults;	# FIXME
@@ -623,15 +648,15 @@ sub save_image($$) {
    my $layer = $img->get_active_layer;
    
    if ($type eq "JPG" or $type eq "JPEG") {
-      Gimp::file_jpeg_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,$quality,$smooth,1);
+      Gimp->file_jpeg_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,$quality,$smooth,1);
    } elsif ($type eq "GIF") {
-      Gimp::file_gif_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,$interlace,0,0,0);
+      Gimp->file_gif_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,$interlace,0,0,0);
    } elsif ($type eq "PNG") {
-      Gimp::file_png_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,$interlace,$compress);
+      Gimp->file_png_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,$interlace,$compress);
    } elsif ($type eq "PNM") {
-      Gimp::file_pnm_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,1);
+      Gimp->file_pnm_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,1);
    } else {
-      Gimp::gimp_file_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path);
+      Gimp->gimp_file_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path);
    }
 }
 
@@ -645,9 +670,9 @@ sub print_switches {
    }
 }
 
-sub main {
+*main = *gimp_main = sub {
    if (!@scripts) {
-      die "well, there are no scripts registered.. what do you expect?";
+      die "well, there are no scripts registered.. what do you expect?\n";
    } elsif ($Gimp::help) {
       my $this=this_script;
       print <<EOF;
@@ -658,16 +683,12 @@ sub main {
 EOF
       print_switches ($this);
    } else {
-      Gimp::gimp_main;
+      Gimp::main;
    }
-}
+};
 
 1;
 __END__
-
-=head1 STATUS
-
-This module is experimental and unfinished.
 
 =head1 AUTHOR
 

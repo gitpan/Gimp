@@ -174,6 +174,43 @@ error need_ansi_compiler__maybe_try_c89
   trace_printf ("]"); \
 }
 
+static int
+is_array (GParamType typ)
+{
+  return typ == PARAM_INT32ARRAY
+      || typ == PARAM_INT16ARRAY
+      || typ == PARAM_INT8ARRAY
+      || typ == PARAM_FLOATARRAY
+      || typ == PARAM_STRINGARRAY;
+}
+
+static int
+perl_param_count (GParam *arg, int count)
+{
+  GParam *end = arg + count;
+  
+  while (arg < end)
+    if (is_array (arg++->type))
+      count--;
+  
+  return count;
+}
+
+/*
+ * count actual parameter number
+ */
+static int
+perl_paramdef_count (GParamDef *arg, int count)
+{
+  GParamDef *end = arg + count;
+  
+  while (arg < end)
+    if (is_array (arg++->type))
+      count--;
+  
+  return count;
+}
+
 static void
 dump_params (int nparams, GParam *args, GParamDef *params)
 {
@@ -245,33 +282,67 @@ dump_params (int nparams, GParam *args, GParamDef *params)
   trace_printf (")");
 }
 
-static void
-convert_sv2paramdef (GParamDef *par, SV *sv)
+static int
+convert_array2paramdef (AV *av, GParamDef **res)
 {
-  SV *type = 0;
-  SV *name = 0;
-  SV *help = 0;
+  int count = 0;
+  GParamDef *def = 0;
   
-  if (SvROK (sv) && SvTYPE (SvRV (sv)) == SVt_PVAV)
+  if (av_len (av) < 0)
+    return 0;
+  
+  for(;;)
     {
-      AV *av = (AV *)SvRV(sv);
-      SV **x;
+      int idx;
       
-      if ((x = av_fetch (av, 0, 0))) type = *x;
-      if ((x = av_fetch (av, 1, 0))) name = *x;
-      if ((x = av_fetch (av, 2, 0))) help = *x;
-    }
-  else if (SvIOK(sv))
-    type = sv;
+      for (idx = 0; idx <= av_len (av); idx++)
+        {
+          SV *sv = *av_fetch (av, idx, 0);
+          SV *type = 0;
+          SV *name = 0;
+          SV *help = 0;
+      
+          if (SvROK (sv) && SvTYPE (SvRV (sv)) == SVt_PVAV)
+            {
+              AV *av = (AV *)SvRV(sv);
+              SV **x;
+              
+              if ((x = av_fetch (av, 0, 0))) type = *x;
+              if ((x = av_fetch (av, 1, 0))) name = *x;
+              if ((x = av_fetch (av, 2, 0))) help = *x;
+            }
+          else if (SvIOK(sv))
+            type = sv;
 
-  if (type)
-    {
-      par->type = SvIV (type);
-      par->name = name ? SvPV (name, na) : 0;
-      par->description = help ? SvPV (help, na) : 0;
+          if (type)
+            {
+              if (def)
+                {
+                  if (is_array (SvIV (type)))
+                    {
+                      def->type = PARAM_INT32;
+                      def->name = "array_size";
+                      def->description = "the size of the following array";
+                      def++;
+                    }
+                  
+                  def->type = SvIV (type);
+                  def->name = name ? SvPV (name, na) : 0;
+                  def->description = help ? SvPV (help, na) : 0;
+                  def++;
+                }
+              else
+                count += 1 + !!is_array (SvIV (type));
+            }
+          else
+            croak ("malformed paramdef, expected [PARAM_TYPE,\"NAME\",\"DESCRIPTION\"] or PARAM_TYPE");
+        }
+      
+      if (def)
+        return count;
+      
+      *res = def = g_new (GParamDef, count);
     }
-  else
-    croak ("malformed paramdef, expected [PARAM_TYPE,\"NAME\",\"DESCRIPTION\"] or PARAM_TYPE");
 }
 
 static HV *
@@ -460,7 +531,7 @@ push_gimp_sv (GParam *arg, int array_as_ref)
         arg->data.datatype[i] = svxv (*av_fetch (av, i, 0)); \
     } \
   else \
-    croak ("perl-arrayref required as datatype for a gimp-array"); \
+    sprintf (err, "perl-arrayref required as datatype for a gimp-array"); \
 }
 
 /*
@@ -538,45 +609,8 @@ destroy_params (GParam *arg, int count)
   g_free (arg);
 }
 
-static int
-is_array (GParamType typ)
-{
-  return typ == PARAM_INT32ARRAY
-      || typ == PARAM_INT16ARRAY
-      || typ == PARAM_INT8ARRAY
-      || typ == PARAM_FLOATARRAY
-      || typ == PARAM_STRINGARRAY;
-}
-
-static int
-perl_param_count (GParam *arg, int count)
-{
-  GParam *end = arg + count;
-  
-  while (arg < end)
-    if (is_array (arg++->type))
-      count--;
-  
-  return count;
-}
-
-/*
- * count actual parameter number
- */
-static int
-perl_paramdef_count (GParamDef *arg, int count)
-{
-  GParamDef *end = arg + count;
-  
-  while (arg < end)
-    if (is_array (arg++->type))
-      count--;
-  
-  return count;
-}
-
 /* first check wether the procedure exists at all.  */
-static void try_call (char *name)
+static void try_call (char *name, int req)
 {
   CV *cv = perl_get_cv (name, 0);
   
@@ -585,54 +619,141 @@ static void try_call (char *name)
     dSP;
     PUSHMARK(sp);
     perl_call_sv ((SV *)cv, G_DISCARD | G_NOARGS);
-  }
+  } else if (req)
+    croak ("required callback '%s' not found", name);
 }
 
-static void pii_init (void) { try_call ("init" ); }
-static void pii_query(void) { try_call ("query"); }
-static void pii_quit (void) { try_call ("quit" ); }
+static void pii_init (void) { try_call ("init" ,0); }
+static void pii_query(void) { try_call ("query",1); }
+static void pii_quit (void) { try_call ("quit" ,0); }
 
-static void pii_run(char *name, int nparams, GParam *param, int *nreturn_vals, GParam **return_vals)
+static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, GParam **xreturn_vals)
 {
+  static GParam *return_vals;
+  static int nreturn_vals;
+  
   dSP;
   int i, count;
-  static GParam status;
+  GParamDef *return_defs;
+  char *err_msg = 0;
   
-  ENTER;
-  SAVETMPS;
+  char *proc_blurb;
+  char *proc_help;
+  char *proc_author;
+  char *proc_copyright;
+  char *proc_date;
+  int proc_type;
+  int _nparams;
+  GParamDef *params;
   
-  PUSHMARK(sp);
-  
-  if (nparams)
+  if (return_vals) /* the libgimp is soooooooo braindamaged. */
     {
-      EXTEND (sp, perl_param_count (param, nparams));
-      PUTBACK;
-      for (i = 0; i < nparams; i++)
-        {
-          if (i < nparams-1 && is_array (param[i+1].type))
-            i++;
-          
-          push_gimp_sv (param+i, nparams > 2);
-        }
-      
-      SPAGAIN;
+      destroy_params (return_vals, nreturn_vals);
+      return_vals = 0;
     }
   
-  count = perl_call_pv (name, nparams ? 0 : G_NOARGS
-                        | *nreturn_vals == 0 ? G_VOID|G_DISCARD : *nreturn_vals == 1 ? G_SCALAR : G_ARRAY);
+  if (gimp_query_procedure (name, &proc_blurb, &proc_help, &proc_author,
+                           &proc_copyright, &proc_date, &proc_type, &_nparams, &nreturn_vals,
+                           &params, &return_defs) == TRUE)
+    {
+      g_free (proc_blurb);
+      g_free (proc_help);
+      g_free (proc_author);
+      g_free (proc_copyright);
+      g_free (proc_date);
+      g_free (params);
+      
+      ENTER;
+      SAVETMPS;
+      
+      PUSHMARK(sp);
+      
+      if (nparams)
+        {
+          EXTEND (sp, perl_param_count (param, nparams));
+          PUTBACK;
+          for (i = 0; i < nparams; i++)
+            {
+              if (i < nparams-1 && is_array (param[i+1].type))
+                i++;
+              
+              push_gimp_sv (param+i, nparams > 2);
+            }
+          
+          SPAGAIN;
+        }
+      
+      count = perl_call_pv (name, G_EVAL
+                            | (nparams ? 0 : G_NOARGS)
+                            | (nreturn_vals == 0 ? G_VOID|G_DISCARD : nreturn_vals == 1 ? G_SCALAR : G_ARRAY));
+      
+      SPAGAIN;
+      
+      if (count == 1 && !SvOK (TOPs))
+        {
+          POPs;
+          count = 0;
+        }
+      
+      if (SvTRUE (ERRSV))
+        err_msg = g_strdup (SvPV (ERRSV, PL_na));
+      else
+        {
+          int i;
+          char err_msg [1024];
+          err_msg [0] = 0;
+          
+          return_vals = (GParam *) g_new0 (GParam, nreturn_vals + 1);
+          return_vals->type = PARAM_STATUS;
+          return_vals->data.d_status = STATUS_SUCCESS;
+          *xnreturn_vals = nreturn_vals;
+          *xreturn_vals = return_vals++;
+          
+          for (i = nreturn_vals; i-- && count; )
+             {
+               return_vals[i].type = return_defs[i].type;
+               if ((i >= nreturn_vals-1 || !is_array (return_defs[i+1].type))
+                   && convert_sv2gimp (err_msg, &return_vals[i], TOPs))
+                 {
+                   --count;
+                   POPs;
+                 }
+               
+               if (err_msg [0])
+                 croak (err_msg);
+             }
+          
+          if (count)
+            croak ("callback returned %s more values than expected", count);
+        }
+      
+      while (count--)
+        POPs;
+      
+      g_free (return_defs);
+      
+      FREETMPS;
+      LEAVE;
+    }
+  else
+    croak ("being called as '%s', but '%s' not registered in the pdb", name, name);
   
-  SPAGAIN;
+  if (err_msg)
+    {
+      gimp_message (err_msg);
+      g_free (err_msg);
+      
+      if (return_vals)
+        destroy_params (return_vals, nreturn_vals);
+      
+      nreturn_vals = 1;
+      return_vals = g_new (GParam, 1);
+      return_vals->type = PARAM_STATUS;
+      return_vals->data.d_status = STATUS_EXECUTION_ERROR;
+      *xnreturn_vals = nreturn_vals;
+      *xreturn_vals = return_vals;
+    }
   
-  FREETMPS;
-  LEAVE;
-  
-/*  printf ("call_pv returned with %d results\n", count);*//*D*/
-/*  printf ("nreturn = %d\n", *nreturn_vals);*//*D*/
-  
-  status.type = PARAM_STATUS;
-  status.data.d_status = STATUS_SUCCESS;
-  *return_vals = &status;
-  *nreturn_vals = 1;
 }
 
 GPlugInInfo PLUG_IN_INFO = { pii_init, pii_quit, pii_query, pii_run };
@@ -682,6 +803,8 @@ _autobless (sv,type)
 	OUTPUT:
 	RETVAL
 
+PROTOTYPES: DISABLE
+
 int
 gimp_main(...)
 	PREINIT:
@@ -717,6 +840,8 @@ gimp_main(...)
 	OUTPUT:
 	RETVAL
 
+PROTOTYPES: ENABLE
+
 # checks wether a gimp procedure exists
 int
 _gimp_procedure_available(proc_name)
@@ -731,7 +856,6 @@ _gimp_procedure_available(proc_name)
 		int proc_type;
 		int nparams;
 		int nreturn_vals;
-		int nvalues;
 		GParamDef *params;
 		GParamDef *return_vals;
 		
@@ -804,6 +928,12 @@ gimp_call_procedure (proc_name, ...)
 		          j++;
 		      }
 		    
+		    if (trace & TRACE_CALL)
+		      {
+		        dump_params (i, args, params);
+		        trace_printf (" = ");
+		      }
+    		    
 		    if (j != items-1)
 		      {
 		        if (trace & TRACE_CALL)
@@ -817,12 +947,6 @@ gimp_call_procedure (proc_name, ...)
 		      }
 		    else
 		      {
-		        if (trace & TRACE_CALL)
-		          {
-		            dump_params (nparams, args, params);
-		            trace_printf (" = ");
-		          }
-    		    
                         values = gimp_run_procedure2 (proc_name, &nvalues, nparams, args);
                         
     		        if (nparams)
@@ -895,18 +1019,11 @@ gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, im
 		if (SvROK(params) && SvTYPE(SvRV(params)) == SVt_PVAV
 		    && SvROK(return_vals) && SvTYPE(SvRV(return_vals)) == SVt_PVAV)
 		  {
-		    AV *args = (AV *)SvRV(params);
-		    AV *ret = (AV *)SvRV(return_vals);
-		    int nparams = av_len(args)+1;
-		    int nreturn_vals = av_len(ret)+1;
-		    GParamDef *apd = g_new (GParamDef, nparams);
-		    GParamDef *rpd = g_new (GParamDef, nreturn_vals);
-		    int i;
+		    GParamDef *apd; int nparams;
+		    GParamDef *rpd; int nreturn_vals;
 		    
-		    for (i = 0; i < nparams; i++)
-		      convert_sv2paramdef (&apd[i], *av_fetch(args, i, 0));
-		    for (i = 0; i < nreturn_vals; i++)
-		      convert_sv2paramdef (&rpd[i], *av_fetch(ret, i, 0));
+		    nparams      = convert_array2paramdef ((AV *)SvRV(params)     , &apd);
+		    nreturn_vals = convert_array2paramdef ((AV *)SvRV(return_vals), &rpd);
 		    
 		    if (ix)
 		      gimp_install_temp_proc(name,blurb,help,author,copyright,date,menu_path,image_types,
@@ -1003,38 +1120,6 @@ gimp_get_data(id)
 	}
 	OUTPUT:
 	RETVAL
-
-void
-gimp_query_database(name_regexp, blurb_regexp, help_regexp, author_regexp, copyright_regexp, date_regexp, proc_type_regexp)
-	char *	name_regexp
-	char *	blurb_regexp
-	char *	help_regexp
-	char *	author_regexp
-	char *	copyright_regexp
-	char *	date_regexp
-	char *	proc_type_regexp
-	PPCODE:
-	{
-		int *nprocs;
-		char ***proc_names;
-		abort ();
-	}
-
-# ??? should be implemented
-
-#gint
-#gimp_query_procedure(proc_name, proc_blurb, proc_help, proc_author, proc_copyright, proc_date, proc_type, nparams, nreturn_vals, params, return_vals)
-#	char *	proc_name
-#	char **	proc_blurb
-#	char **	proc_help
-#	char **	proc_author
-#	char **	proc_copyright
-#	char **	proc_date
-#	int *	proc_type
-#	int *	nparams
-#	int *	nreturn_vals
-#	GParamDef **	params
-#	GParamDef **	return_vals
 
 void
 gimp_register_magic_load_handler(name, extensions, prefixes, magics)

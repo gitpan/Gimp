@@ -1085,6 +1085,7 @@ CPPFLAGS="$ac_save_CPPFLAGS"
 
 
 
+
 trap '' 1 2 15
 cat > confcache <<\EOF
 # This file is a shell script that caches the results of configure
@@ -1221,6 +1222,7 @@ s%@GIMPTOOL@%$GIMPTOOL%g
 s%@GIMP_CFLAGS@%$GIMP_CFLAGS%g
 s%@GIMP_LIBS@%$GIMP_LIBS%g
 s%@CPP@%$CPP%g
+s%@EXTENSIVE_TESTS@%$EXTENSIVE_TESTS%g
 s%@PERL@%$PERL%g
 
 CEOF
@@ -1438,5 +1440,4 @@ test "$no_create" = yes || ${CONFIG_SHELL-/bin/sh} $CONFIG_STATUS || exit 1
 
 
 echo "now invoking perl to complete the configuration..."
-set -x
 exec $PERL $MAKEFILE_PL --writemakefile PREFIX="$prefix"

@@ -6,6 +6,12 @@ example-fu.pl
 	a very small, bare-bones Gimp::Fu script. it is useful
 	as a starting point for experiments.
 
+webify.pl
+	a small plugin that flattens an image, makes the background
+	transparent, converts it to indexed and then crops it
+	to the right size. Useful to save small & transparent gifs
+	from a higher-quality source.
+
 windy.pl
 	this will windify your image. curious? well then ...
 

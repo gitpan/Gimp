@@ -35,9 +35,9 @@ PREREQUISITES
        
        Optionally, you can install PDL (the perl data language), to easily
        manipulate pixel data. PDL is available at any CPAN mirror, version
-       1.9905 or higher is recommended.
+       1.9906 or higher is recommended.
        
-       General Information about the Gimp can be found at
+       General Information about The Gimp can be found at
        http://www.gimp.org/
 
 INSTALLATION
@@ -58,6 +58,7 @@ INSTALLATION
        <Toolbox>/Xtns/Perl-Server
        <Image>/Filters/Artistic/Windify
        <Image>/Filters/Misc/Prepare for GIF
+       <Image>/Filters/Misc/Webify
        
        If you don't have unix, you can install linux instead
        (http://www.linux.org)

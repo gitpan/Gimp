@@ -11,7 +11,8 @@ Makefile.PL
 typemap
 Gimp.pm
 Gimp.xs
-test.pl
+t/load.t
+t/run.t
 extradefs.h
 Perl-Server
 etc/configure
@@ -30,6 +31,7 @@ Gimp/PDL.pm
 Gimp/Pixel.pod
 Gimp/UI.pm
 examples/README
+examples/webify.pl
 examples/Create_Images
 examples/image_list
 examples/example-oo.pl
