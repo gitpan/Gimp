@@ -1,7 +1,12 @@
 Revision history for Gimp-Perl extension.
 
-1.21  Fri Mar  9 18:33:04 CET 2001
-        - this version will only compile with 1.1. versions of the
+1.211 Sat Dec  1 00:35:07 CET 2001
+	- callback return values were still broken. yes, I am an idiot.
+
+1.21  Fri Nov 30 23:54:20 CET 2001
+	- callback return values were broken(!).
+        - fixed typo in examples/xachvision
+        - this version will only compile with 1.2 versions of the
           Gimp. If you need to compile gimp-perl with gimp-1.0 please use
           version 1.201 from CPAN.
         - first round of mega-api-change.
@@ -27,7 +32,7 @@ Revision history for Gimp-Perl extension.
           than inside the gimp).
         - docfix by Alexander Kurz.
         - save_image now saves png again (reported by Michael Guntsche).
-        - perlotine updated (patches by Michael Guntsche and Seth).
+        - perlotine updated (poatch by Michael Guntsche).
 
 1.201 Thu Aug 24 23:44:43 CEST 2000
 	** LAST VERSION THAT WORKS WITH 1.0 **

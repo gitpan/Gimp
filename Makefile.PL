@@ -173,7 +173,7 @@ sub MY::install {
    my $install = $self->SUPER::install(@_);
    ($install =~ s/\b(un)?install\b/really-$1install/g) or return $install;
    '
-install ::
+install :: install-po
 	@for dir in \
 	   $(INSTALLPRIVLIB) \
 	   $(INSTALLARCHLIB) \
@@ -195,7 +195,7 @@ install ::
 	$main::dont_embed || (cd embed && \$(MAKE) install)
 
 install-po:
-	cd po && \$(MAKE) install
+	if test -d po; then cd po && \$(MAKE) install; else true; fi
         
 ".$install;
 }
