@@ -170,7 +170,6 @@ sub start_server {
               "--no-splash",
               @args,
               "-b",
-              "(extension-perl-server $args)",
               "(extension_perl_server $args)",
               "(gimp_quit 0)",
               "(gimp-quit 0)";
@@ -220,7 +219,7 @@ sub gimp_init {
    } else {
       $server_fh = try_connect ("");
    }
-   defined $server_fh or croak "could not connect to the gimp server server (make sure Net-Server is running)";
+   defined $server_fh or croak "could not connect to the gimp server (make sure Net-Server is running)";
    { my $fh = select $server_fh; $|=1; select $fh }
    
    my @r = response;
