@@ -169,16 +169,6 @@ void trace_printf (char *frmt, ...)
 error need_ansi_compiler__maybe_try_c89
 #endif
 
-/* horrors!  c wasn't designed for this!  */
-#define dump_printarray(args,index,ctype,datatype,frmt) {\
-  int j; \
-  trace_printf ("["); \
-  for (j = 0; j < args[index-1].data.d_int32; j++) \
-    trace_printf (frmt ## "%s", (ctype) args[index].data.datatype[j], \
-                  j < args[index-1].data.d_int32 - 1 ? ", " : ""); \
-  trace_printf ("]"); \
-}
-
 static int
 is_array (GParamType typ)
 {
@@ -214,6 +204,21 @@ perl_paramdef_count (GParamDef *arg, int count)
       count--;
   
   return count;
+}
+
+/* horrors!  c wasn't designed for this!  */
+#define dump_printarray(args,index,ctype,datatype,frmt) {\
+  int j; \
+  trace_printf ("["); \
+  if (args[index].data.datatype || !args[index-1].data.d_int32) \
+    { \
+      for (j = 0; j < args[index-1].data.d_int32; j++) \
+        trace_printf (frmt ## "%s", (ctype) args[index].data.datatype[j], \
+                      j < args[index-1].data.d_int32 - 1 ? ", " : ""); \
+    } \
+  else \
+    trace_printf ("(UNINITIALIZED)"); \
+  trace_printf ("]"); \
 }
 
 static void
@@ -541,7 +546,10 @@ push_gimp_sv (GParam *arg, int array_as_ref)
         arg->data.datatype[i] = svxv (*av_fetch (av, i, 0)); \
     } \
   else \
-    sprintf (croak_str, "perl-arrayref required as datatype for a gimp-array"); \
+    { \
+      sprintf (croak_str, "perl-arrayref required as datatype for a gimp-array"); \
+      arg->data.datatype = 0; \
+    } \
 }
 
 /*
@@ -567,16 +575,18 @@ convert_sv2gimp (char *croak_str, GParam *arg, SV *sv)
       case PARAM_PATH:		arg->data.d_path	= SvIV(sv); break;
       case PARAM_STATUS:	arg->data.d_status	= SvIV(sv); break;
       case PARAM_IMAGE:
-        if (sv_derived_from (sv, PKG_IMAGE))
-          {
-      	                        arg->data.d_image	= unbless(sv, PKG_IMAGE  , croak_str); break;
-      	  }
-      	else if (sv_derived_from (sv, PKG_DRAWABLE))
+      	if (sv_derived_from (sv, PKG_DRAWABLE))
       	  arg->data.d_image = gimp_drawable_image_id    (unbless(sv, PKG_DRAWABLE, croak_str));
       	else if (sv_derived_from (sv, PKG_LAYER   ))
       	  arg->data.d_image = gimp_layer_get_image_id   (unbless(sv, PKG_LAYER   , croak_str));
       	else if (sv_derived_from (sv, PKG_CHANNEL ))
       	  arg->data.d_image = gimp_channel_get_image_id (unbless(sv, PKG_CHANNEL , croak_str));
+        else if (sv_derived_from (sv, PKG_IMAGE) || !SvROK (sv))
+          {
+      	                        arg->data.d_image	=unbless(sv, PKG_IMAGE   , croak_str); break;
+      	  }
+      	else
+      	  strcpy (croak_str, "argument incompatible with type IMAGE");
       	
       	return 0;
       	break;
@@ -721,7 +731,6 @@ static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, 
           
           for (i = nreturn_vals; i-- && count; )
              {
-               printf ("i%d, count%d, nr%d, type%d\n", i, count, nreturn_vals, return_defs[i].type);
                return_vals[i].type = return_defs[i].type;
                if ((i >= nreturn_vals-1 || !is_array (return_defs[i+1].type))
                    && convert_sv2gimp (err_msg, &return_vals[i], TOPs))
@@ -934,9 +943,20 @@ gimp_call_procedure (proc_name, ...)
     		    for (i = j = 0; i < nparams && j < items; i++)
 		      {
 		        args[i].type = params[i].type;
-		        if ((i >= nparams-1 || !is_array (params[i+1].type))
+		        if ((!SvROK (ST(j+1)) || i >= nparams-1 || !is_array (params[i+1].type))
 		            && convert_sv2gimp (croak_str, &args[i], ST(j+1)))
 		          j++;
+		        
+		        if (croak_str [0])
+		          {
+		            if (trace & TRACE_CALL)
+		              {
+		                dump_params (i, args, params);
+		                trace_printf (" = [argument error]\n");
+		              }
+		            
+		            goto error;
+		          }
 		      }
 		    
 		    if (trace & TRACE_CALL)
@@ -996,6 +1016,8 @@ gimp_call_procedure (proc_name, ...)
                           sprintf (croak_str, "gimp returned, well.. dunno how to interpret that...");
 		        
                       }
+		    
+		    error:
 		    
 		    if (values)
 		      gimp_destroy_params (values, nreturn_vals);

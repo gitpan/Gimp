@@ -42,6 +42,7 @@ Do you want me to make these tests [n]? ";
 
 eval "use Gtk;"; $GTK = $@ eq "";
 eval "use PDL;"; $PDL = $@ eq "";
+eval "use Parse::RecDescent;"; $PRD = $@ eq "";
 
 $GTK or print <<EOF;
 
@@ -49,7 +50,7 @@ WARNING: unable to use the Perl-Gtk interface.  Some features (like
          Gimp::Fu) rely on this extension.  You can try to build without it,
          but it's better to install it (version 0.3 or higher is required,
          you can get it from ftp://ftp.gimp.org/pub/gtk/perl/ or any
-         CPAN mirror).
+         CPAN mirror.
 
 EOF
 
@@ -59,7 +60,7 @@ WARNING: unable to use PDL (the perl data language).  This means that
          Gimp::PDL is non-functional.  Unless you plan to use Tile/PixelRgn
          functions together with PDL, this is harmless.  Gimp::PDL will be
          installed, just in case you later install PDL.  You can get PDL
-         from any CPAN mirror).
+         from any CPAN mirror.
 
 EOF
 
@@ -68,6 +69,16 @@ EOF
 WARNING: PDL version $PDL::Version::VERSION is installed. Gimp::PDL was only
          tested with 1.99 and higher.  In case of problems its advisable to
          upgrade PDL to at least version 2.
+
+EOF
+
+$PRD or print <<EOF;
+
+WARNING: Parse::RecDescent is not installed (correctly) on your system. This
+         means scm2perl (the Scheme->Perl translator) isn't usable. If you
+         don't need this functionality there is nothing to worry about. 
+         Should the need arise you can install Parse::RecDescent later; it
+         is available from any CPAN mirror.
 
 EOF
 

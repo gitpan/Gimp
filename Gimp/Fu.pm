@@ -77,6 +77,7 @@ sub PF_TOGGLE	() { &PARAM_END+1	};
 sub PF_SLIDER	() { &PARAM_END+2	};
 sub PF_FONT	() { &PARAM_END+3	};
 sub PF_SPINNER	() { &PARAM_END+4	};
+sub PF_ADJUSTMENT(){ &PARAM_END+5	}; # compatibility fix for script-fu
 
 sub PF_BOOL	() { PF_TOGGLE		};
 sub PF_INT	() { PF_INT32		};
@@ -95,6 +96,7 @@ sub Gimp::RUN_FULLINTERACTIVE { &Gimp::RUN_INTERACTIVE+100 };	# you don't want t
          &PF_TOGGLE	=> 'boolean',
          &PF_SLIDER	=> 'integer',
          &PF_SPINNER	=> 'integer',
+         &PF_ADJUSTMENT	=> 'integer',
          &PF_IMAGE	=> 'NYI',
          &PF_LAYER	=> 'NYI',
          &PF_CHANNEL	=> 'NYI',
@@ -104,7 +106,7 @@ sub Gimp::RUN_FULLINTERACTIVE { &Gimp::RUN_INTERACTIVE+100 };	# you don't want t
 @_params=qw(PF_INT8 PF_INT16 PF_INT32 PF_FLOAT PF_VALUE
             PF_STRING PF_COLOR PF_COLOUR PF_TOGGLE PF_IMAGE
             PF_DRAWABLE PF_FONT PF_LAYER PF_CHANNEL PF_BOOL
-            PF_SLIDER PF_INT PF_SPINNER);
+            PF_SLIDER PF_INT PF_SPINNER PF_ADJUSTMENT);
 
 @ISA = qw(Exporter);
 @EXPORT = (qw(register main gimp_main xlfd_size),@_params);
@@ -169,6 +171,14 @@ sub interact($$$@) {
         my($label,$a);
         my($type,$name,$desc,$default,$extra)=@$_;
         my($value)=shift;
+        
+        if($type == PF_ADJUSTMENT) { # support for scm2perl
+           my(@x)=@$default;
+           $default=shift @x;
+           $type = pop(@x) ? PF_SPINNER : PF_SLIDER;
+           $extra=[@x];
+        }
+        
         $value=$default unless defined $value;
         $label="$name: ";
         

@@ -1,5 +1,16 @@
 Revision history for Gimp-Perl extension.
 
+1.042 Mon Oct  5 00:50:04 CEST 1998
+	- implemented PF_ADJUSTMENT to aid scm2perl's job, its undocumented
+	  and should not be used by new code.
+	- Fixed a coredump problem when tracing.
+	- Removed debugging code I accidently left in. Yuck Yuck!
+	- An array size parameter in argument lists is now accepted and
+	  silently ignored. This is for script-fu compatibility.
+	- better error handling (I'm on the right track!)
+	- added scm2perl (scheme to perl) to the distribution. Look at
+	  "perldoc scm2perl". Needs Parse::RecDescent from CPAN.
+
 1.041 Sat Oct  3 21:58:09 CEST 1998
 	- a 5.004 compatibility fix. Another one and I'll simply "require
 	  5.005".

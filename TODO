@@ -1,6 +1,10 @@
 this is mostly my personal worksheet and notepad, which may not be
 up-to-date and may not even be readable ;)
 
+shortcuts (don't ask)
+
+  gimp pix/ka001.jpg -b "(extension_perl_server 0 0 0)" "(extension-perl-server 0 0 0)"
+
 bugs
 
   * perl_fu_webify in homepage-logo.pl
@@ -9,19 +13,18 @@ bugs
 [DONE]  * return values do not at all work
   * enable t/run.t again (but how? different solutions
     for gimp-1.0 and gimp-1.1???)
-[DONE]  * Gimp::main vs. Gimp::Fu::main (!)
   * wait for working gimp_file_load (or do it myself?)
-[DONE]  * Gimp::Net, <Image>-scripts should always ask for Image & Drawable(!)
   * block display_new &c when Net
   * Gimp::import should croak on import "garbage".
   * memory leak on croak()? de-croakify the code!
   
 important issues
 
-  * reset to defaults button
+[DONE]  * reset to defaults button
+  * --function localfunc to select one of the registered scripts
+  * brush etc. buttons (maybe use gimp's interface, but
+    only when local(?))
   * help button ;)
-[DONE]  * adjustment, spinner &c..
-[DONE]  * doc update: return vals, return undef, main() etc.
   * create working progress when Net and $verbose
   * require Storable soon(!)
   * Gimp::Fu::command(?)
@@ -30,7 +33,7 @@ important issues
   * try to deduce default parameters
 [DONE}  * return values for run()
 
-not-so-important issues and ideas
+long term issues and ideas
 
   * default function parameters (with hash %defaults?)
   * gimp_text(text => "hallo", family => "engraver", size => 20);
