@@ -5,8 +5,6 @@
 # it's really easy
 
 use Gimp qw( :auto );
-use Gimp::Util;
-use Gimp::OO;
 
 # the extension that's called.
 sub plug_in_example_oo {

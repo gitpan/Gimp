@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 
 use Gimp qw(:consts);
-use Gimp::OO;
 use Gimp::Fu;
 
 register "my_first_gimp_fu",				# fill in name

@@ -1,42 +1,19 @@
-GPrintFunc					T_PTROBJ
-GSList *					T_PTROBJ
-GTree *						T_PTROBJ
-gdouble						T_DOUBLE
 gchar						T_IV
+gint						T_IV
+gint32						T_IV
+guchar						T_U_CHAR
 guint						T_IV
-gpointer					T_PTROBJ
+gulong						T_U_LONG
+guint32						T_IV
+gdouble						T_DOUBLE
+gchar *						T_PV
+gint *						T_PTROBJ
+guchar *					T_PV
+
 GLayerMode					T_IV
 GDrawableType					T_IV
-gdouble *					T_PTROBJ
-guint32						T_IV
-gchar *						T_PV
-GParamDef *					T_PTROBJ
-char **						T_PTROBJ
-gint						T_IV
-int *						T_PTROBJ
-gchar const *					T_PV
-const gchar *					T_PV
-gint32						T_IV
-gchar **					T_PTROBJ
-GPixelRgn *					T_PTROBJ
-guchar						T_U_CHAR
-GParamDef **					T_PTROBJ
-gint *						T_PTROBJ
-GHashTable *					T_PTROBJ
-GTile *						T_PTROBJ
-gint32 *					T_PTROBJ
-GParam *					T_PTROBJ
-guchar *					T_PV
-GValue						T_PTROBJ
-GCache *					T_PTROBJ
-gboolean					T_IV
 GImageType					T_IV
-gulong						T_U_LONG
-const gpointer					T_PTROBJ
-GRunProc					T_PTROBJ
-GDrawable *					T_PTROBJ
-gulong *					T_PTROBJ
-char ***					T_PTROBJ
+
 IMAGE						T_PREF
 LAYER						T_PREF
 COLOR						T_PREF
@@ -45,14 +22,38 @@ DRAWABLE					T_PREF
 DISPLAY						T_PREF
 REGION						T_PREF
 
-OUTPUT
-
-T_PREF
-	$arg = autobless (newSViv($var), PARAM_$ntype);
+GDrawable *					T_GDRAWABLE
+GTile *						T_TILE
+GPixelRgn *					T_PIXELRGN
 
 INPUT
 
 T_PREF
 	$var = unbless ($arg)
+
+T_GDRAWABLE
+	$var = old_gdrawable ($arg)
+
+T_TILE
+	$var = old_tile ($arg)
+
+T_PIXELRGN
+	$var = old_pixelrgn ($arg)
+
+OUTPUT
+
+T_PREF
+	$arg = autobless (newSViv($var), PARAM_$ntype);
+
+T_GDRAWABLE
+	sv_setref_pv ($arg, PKG_GDRAWABLE, (void*)$var);
+	sv_magic (SvRV($arg), 0, \'~\', 0, 0);
+	{
+	    MAGIC *mg = mg_find (SvRV($arg), \'~\');
+	    mg->mg_virtual = &vtbl_gdrawable;
+	}
+
+T_TILE
+	$arg = new_tile ($var);
 
 

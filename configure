@@ -560,9 +560,9 @@ if test "${with_libs+set}" = set; then
 fi
 
 
-# Check whether --with-includes or --without-includes was given.
-if test "${with_includes+set}" = set; then
-  withval="$with_includes"
+# Check whether --with-glib-prefix or --without-glib-prefix was given.
+if test "${with_glib_prefix+set}" = set; then
+  withval="$with_glib_prefix"
   CFLAGS="$CFLAGS -I$with_glib_prefix/include" LIBS="$LIBS -L$with_glib_prefix/libs"
 fi
 

@@ -1,54 +1,3 @@
-package Gimp::OO;
-
-use strict;
-use Carp;
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @EXPORT_FAIL @PREFIXES);
-use Gimp;
-
-require Exporter;
-require DynaLoader;
-require AutoLoader;
-
-@ISA = qw(Exporter);
-@EXPORT = ();
-@EXPORT_OK = ();
-@PREFIXES = ();
-
-sub AUTOLOAD {
-  no strict 'refs';
-  my ($class,$subname) = ($AUTOLOAD =~ /^(.*)::(.*?)$/);
-  for(@{"${class}::PREFIXES"}) {
-    if (Gimp::_gimp_procedure_available ($_.$subname)) {
-      *{$AUTOLOAD} = eval "sub { ".($_[0] eq $class ? "shift;" : "").
-                          "Gimp::gimp_call_procedure '$_$subname',\@_ }";
-      goto &$AUTOLOAD;
-    }
-  }
-  croak "function $subname not found in $class";
-}
-
-sub pseudoclass {
-  no strict 'refs';
-  my ($class, @prefixes)= @_;
-  @prefixes=map { $_."_" } @prefixes;
-  @{"Gimp::${class}::ISA"}	= @{"${class}::ISA"}		= ('Gimp::OO');
-  @{"Gimp::${class}::PREFIXES"}	= @{"${class}::PREFIXES"}	= @prefixes;
-}
-
-sub DESTROY {};
-
-pseudoclass qw(Layer	gimp_layer gimp_drawable gimp);
-pseudoclass qw(Image	gimp_image gimp_drawable gimp);
-pseudoclass qw(Drawable	gimp_drawable gimp);
-pseudoclass qw(Selection gimp_selection);
-pseudoclass qw(Channel	gimp_channel gimp_drawable gimp);
-pseudoclass qw(Display	gimp_display gimp);
-pseudoclass qw(Palette	gimp_palette);
-pseudoclass qw(Plugin	plug_in);
-pseudoclass qw(Gradients gimp_gradients);
-pseudoclass qw(Edit	gimp_edit);
-pseudoclass qw(Progress	gimp_progress);
-
 1;
 __END__
 
@@ -58,12 +7,14 @@ Gimp::OO - Pseudo-OO for Gimp functions.
 
 =head1 SYNOPSIS
 
-  use Gimp::OO;
+  use Gimp;
+  
+  [yes, the functionality has been moved into the Gimp module]
 
 =head1 DESCRIPTION
 
-After use'ing this module, the following classes are available to the user. 
-You can drop the Gimp:: prefix from all packages, too.
+The following classes are available to the user (you can drop the Gimp::
+prefix from all packages):
 
 All gimp functions can be called through these modules, there is some simple
 rewriting going on, for example Gimp::Edit::gimp_quit is the same as
@@ -139,6 +90,14 @@ gimp_edit_*
 =item Progress
 
 gimp_progress_*
+
+=item Tile
+
+gimp_tile_*
+
+=item Region
+
+gimp_region_*
 
 =back
 

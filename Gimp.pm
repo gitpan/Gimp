@@ -11,7 +11,7 @@ use vars qw($help $verbose $host);
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '0.91';
+$VERSION = '0.92';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -93,14 +93,19 @@ $VERSION = '0.91';
 	gimp_drawable_channel		gimp_drawable_color		gimp_drawable_gray
 	gimp_drawable_has_alpha		gimp_drawable_indexed		gimp_drawable_layer
 	gimp_drawable_layer_mask	gimp_drawable_fill		gimp_drawable_set_name
-	gimp_drawable_set_visible
+	gimp_drawable_set_visible	gimp_drawable_get_tile		gimp_drawable_get_tile2
 	
 	gimp_tile_cache_size		gimp_tile_cache_ntiles		gimp_tile_width
-	gimp_tile_height
+	gimp_tile_height		gimp_tile_flush
 	
 	gimp_gradients_get_active	gimp_gradients_set_active
 	
 	gimp_set_data			gimp_get_data
+
+	gimp_pixel_rgn_init		gimp_pixel_rgn_resize		gimp_pixel_rgn_get_pixel
+	gimp_pixel_rgn_get_row		gimp_pixel_rgn_get_col		gimp_pixel_rgn_get_rect
+	gimp_pixel_rgn_set_pixel	gimp_pixel_rgn_set_row		gimp_pixel_rgn_set_col
+	gimp_pixel_rgn_set_rect
 );
 
 # internal procedure not to be exported
@@ -144,28 +149,9 @@ sub import($;@) {
       } elsif ($_ eq ":param") {
          push(@export,@_param);
       } elsif (/^interface=(\S+)$/) {
-         $interface_type=$1;
+         croak "interface=... tag is no longer supported\n";
       } else {
          croak "$_ is not a valid import tag for package $pkg";
-      }
-   }
-   
-   if ($interface_type=~/^lib$/i) {
-      $interface_pkg="Gimp::Lib";
-   } elsif ($interface_type=~/^net$/i) {
-      $interface_pkg="Gimp::Net";
-   } else {
-      croak "interface '$interface_type' unsupported, use either 'lib' or 'net'";
-   }
-   
-   # has to be done first. the "eval EXPR" form is necessary.
-   use vars qw($interface_imported);
-   if ($interface_imported ne $interface_pkg) {
-      $interface_imported=$interface_pkg;
-      eval "require $interface_pkg" or croak "$@";
-      import $interface_pkg ();
-      for((@_procs,@_internals)) {
-         *$_ = \&{"${interface_pkg}::$_"};
       }
    }
    
@@ -237,7 +223,96 @@ EOF
    }
 }
 
+if ($interface_type=~/^lib$/i) {
+   $interface_pkg="Gimp::Lib";
+} elsif ($interface_type=~/^net$/i) {
+   $interface_pkg="Gimp::Net";
+} else {
+   croak "interface '$interface_type' unsupported.";
+}
+
+eval "require $interface_pkg" or croak "$@";
+$interface_pkg->import();
+for(@_procs,@_internals) {
+   no strict 'refs';
+   *$_ = \&{"${interface_pkg}::$_"};
+}
+
 bootstrap Gimp $VERSION;
+
+package Gimp::OO;
+
+use vars qw($AUTOLOAD);
+use Carp;
+
+sub AUTOLOAD {
+   no strict 'refs';
+   my ($class,$subname) = $AUTOLOAD =~ /^(.*)::(.*?)$/;
+   for(@{"${class}::PREFIXES"}) {
+      my $sub = $_.$subname;
+      if (defined(&{"Gimp::$sub"})) {
+         my $ref = \&{"Gimp::$sub"};
+         *{$AUTOLOAD} = sub {
+            shift if $_[0] eq $class;
+            goto &$ref;
+         };
+         goto &$AUTOLOAD;
+      } elsif (Gimp::_gimp_procedure_available ($_.$subname)) {
+         *{$AUTOLOAD} = sub {
+            shift if $_[0] eq $class;
+            Gimp::gimp_call_procedure $sub,@_;
+         };
+         goto &$AUTOLOAD;
+      }
+   }
+   croak "function $subname not found in $class";
+}
+
+sub _pseudoclass {
+  no strict 'refs';
+  my ($class, @prefixes)= @_;
+  @prefixes=("",map { $_."_" } @prefixes);
+  @{"Gimp::${class}::ISA"}	= @{"${class}::ISA"}		= ('Gimp::OO');
+  @{"Gimp::${class}::PREFIXES"}	= @{"${class}::PREFIXES"}	= @prefixes;
+}
+
+_pseudoclass qw(Layer		gimp_layer gimp_drawable gimp);
+_pseudoclass qw(Image		gimp_image gimp_drawable gimp);
+_pseudoclass qw(Drawable	gimp_drawable gimp);
+_pseudoclass qw(Selection 	gimp_selection);
+_pseudoclass qw(Channel		gimp_channel gimp_drawable gimp);
+_pseudoclass qw(Display		gimp_display gimp);
+_pseudoclass qw(Palette		gimp_palette);
+_pseudoclass qw(Plugin		plug_in);
+_pseudoclass qw(Gradients	gimp_gradients);
+_pseudoclass qw(Edit		gimp_edit);
+_pseudoclass qw(Progress	gimp_progress);
+_pseudoclass qw(Region		);
+
+_pseudoclass qw(GDrawable	gimp_drawable);
+_pseudoclass qw(PixelRgn	gimp_pixel_rgn);
+_pseudoclass qw(Tile		gimp_tile);
+
+package Gimp::Tile;
+
+*Tile:: = *Gimp::Tile::;
+
+sub data {
+   my $self = shift;
+   $self->set_data(@_) if @_;
+   defined(wantarray) ? $self->get_data : undef;
+}
+
+package Gimp::PixelRgn;
+
+*PixelRgn:: =  *Gimp::PixelRgn::;
+
+sub new($$$$$$$$) {
+   shift;
+   goto &Gimp::gimp_pixel_rgn_init;
+}
+
+1;
 
 __END__
 

@@ -1,21 +1,28 @@
+bugs:
+
+* tile ewidth has the e for a reason! which one? check!
+
 important issues:
 
 * implement PF_IMAGE, PF_DRAWABLE etc... either in perl or make
   gimpui.h somehow available (hmm...)
+  (wait for the next Gtk version)
+
+*drawable* functions
+*tile* functions
+*region* functions
 
 not-so-important issues:
 
-* tile & region functions -> make them piddles! (PDL)
 * return values for run()
-* unimplemented functions:
-gimp_drawable_mask_bounds
-gimp_drawable_offsets
-*tile* functions
-*rgn* functions
-gimp_gradients_get_list
-gimp_gradients_sample_uniform
-gimp_gradients_sample_custom
-
 * default function parameters (with hash %defaults?)
 * gimp_text(text => "hallo", family => "engraver", size => 20);
+
+* unimplemented functions:
+  
+  gimp_query_procedure(proc_name, proc_blurb, proc_help, proc_author, proc_copyright, proc_date, proc_type, nparams, nreturn_vals, params, return_vals)
+  gimp_channel_get_show_masked(channel_ID)
+  gimp_channel_set_show_masked(channel_ID, show_masked)
+  gimp_pixel_rgns_register(nrgns, ...)
+  gimp_pixel_rgns_process(pri_ptr)
 

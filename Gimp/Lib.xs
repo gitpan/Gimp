@@ -27,6 +27,11 @@ extern "C" {
 #define PKG_CHANNEL	GIMP_PKG "Channel"
 #define PKG_DRAWABLE	GIMP_PKG "Drawable"
 #define PKG_SELECTION	GIMP_PKG "Selection"
+#define PKG_REGION	GIMP_PKG "Region"
+
+#define PKG_GDRAWABLE	GIMP_PKG "GDrawable"
+#define PKG_TILE	GIMP_PKG "Tile"
+#define PKG_PIXELRGN	GIMP_PKG "PixelRgn"
 
 static int trace = TRACE_NONE;
 
@@ -39,6 +44,72 @@ typedef guint32 DISPLAY;
 typedef guint32 REGION;
 typedef guint32 COLOR;
 
+/* new SV with len len.  There _must_ be a better way, but newSV doesn't work.  */
+SV *newSVn (int len)
+{
+  SV *sv = newSVpv ("", 0);
+  
+  SvUPGRADE (sv, SVt_PV);
+  SvGROW (sv, len);
+  SvCUR_set (sv, len);
+  
+  return sv;
+}
+
+/* magic stuff.  literally.  */
+int gdrawable_free (SV *obj, MAGIC *mg)
+{
+  return gimp_drawable_detach ((GDrawable *)SvIV(obj)), 0;
+}
+
+MGVTBL vtbl_gdrawable = {0, 0, 0, 0, gdrawable_free};
+
+/* drawable/tile/region stuff.  */
+SV *new_tile (GTile *tile)
+{
+  static HV *stash;
+  HV *hv = newHV ();
+  
+  hv_store (hv, "_tile"		, 5, newSViv ((IV)tile)		, 0);
+  hv_store (hv, "ewidth"	, 6, newSViv (tile->ewidth)	, 0);
+  hv_store (hv, "eheight"	, 7, newSViv (tile->eheight)	, 0);
+  hv_store (hv, "bpp"		, 3, newSViv (tile->bpp)	, 0);
+  hv_store (hv, "shadow"	, 6, newSViv (tile->shadow)	, 0);
+  
+  if (!stash)
+    stash = gv_stashpv (PKG_TILE, 1);
+  
+  return sv_bless (newRV_noinc ((SV*)hv), stash);
+}
+
+GDrawable *old_gdrawable (SV *sv)
+{
+  if (!sv_derived_from (sv, PKG_GDRAWABLE))
+    croak ("argument is not of type " PKG_GDRAWABLE);
+  
+  /* the next line lacks any type of checking.  */
+  return (GDrawable *)SvIV((SV*)SvRV(sv));
+}
+
+GTile *old_tile (SV *sv)
+{
+  if (!sv_derived_from (sv, PKG_TILE))
+    croak ("argument is not of type " PKG_TILE);
+  
+  /* the next line lacks any type of checking.  */
+  return (GTile *)SvIV(*(hv_fetch ((HV*)SvRV(sv), "_tile", 5, 0)));
+}
+
+GPixelRgn *old_pixelrgn (SV *sv)
+{
+  if (!sv_derived_from (sv, PKG_PIXELRGN))
+    croak ("argument is not of type " PKG_PIXELRGN);
+  
+  /* the next line lacks any type of checking.  */
+  return (GPixelRgn *)SvPV(*(hv_fetch ((HV*)SvRV(sv), "_rgn", 4, 0)),na);
+}
+
+/* tracing stuff.  */
 static SV *trace_var = 0;
 static PerlIO *trace_file = PerlIO_stderr (); /* FIXME: unportable.  */
 
@@ -51,7 +122,7 @@ trace_init ()
 
 #ifndef __STDC_VERSION__
 #warn You need to compile with an ansi-c compiler!!!
-#warn Compile will continue at your own risk!!
+#warn Compilation will continue at your own risk!!
 #define __STDC_VERSION__ 0
 #endif
 
@@ -207,7 +278,7 @@ autobless (SV *sv, int type)
                             0		, 0		, 0		, 0		, 0		,
                             0		, 0		, 0		, 0		, 0		,
                             PKG_COLOR	, PKG_REGION	, PKG_DISPLAY	, PKG_IMAGE	, PKG_LAYER	,
-                            PKG_CHANNEL, PKG_DRAWABLE	, PKG_SELECTION	, 0		, 0		,
+                            PKG_CHANNEL	, PKG_DRAWABLE	, PKG_SELECTION	, 0		, 0		,
                             0		, 0
                            };
   
@@ -843,6 +914,8 @@ gimp_query_database(name_regexp, blurb_regexp, help_regexp, author_regexp, copyr
 		abort ();
 	}
 
+# ??? should be implemented
+
 #gint
 #gimp_query_procedure(proc_name, proc_blurb, proc_help, proc_author, proc_copyright, proc_date, proc_type, nparams, nreturn_vals, params, return_vals)
 #	char *	proc_name
@@ -856,10 +929,6 @@ gimp_query_database(name_regexp, blurb_regexp, help_regexp, author_regexp, copyr
 #	int *	nreturn_vals
 #	GParamDef **	params
 #	GParamDef **	return_vals
-
-#gint32 *
-#gimp_query_images(nimages)
-#	int *	nimages
 
 void
 gimp_register_magic_load_handler(name, extensions, prefixes, magics)
@@ -879,23 +948,6 @@ gimp_register_save_handler(name, extensions, prefixes)
 	char *	name
 	char *	extensions
 	char *	prefixes
-
-#GParam *
-#gimp_run_procedure(name, nreturn_vals, ...)
-#	char *	name
-#	int *	nreturn_vals
-
-#GParam *
-#gimp_run_procedure2(name, nreturn_vals, nparams, params)
-#	char *	name
-#	int *	nreturn_vals
-#	int	nparams
-#	GParam *	params
-
-#void
-#gimp_destroy_params(params, nparams)
-#	GParam *	params
-#	int	nparams
 
 gdouble
 gimp_gamma()
@@ -1035,18 +1087,6 @@ LAYER
 gimp_image_get_active_layer(image_ID)
 	IMAGE	image_ID
 
-# different calling conventions
-#gint32 *
-#gimp_image_get_channels(image_ID, nchannels)
-#	IMAGE	image_ID
-#	gint *	nchannels
-
-# different calling conventions
-#guchar *
-#gimp_image_get_cmap(image_ID, ncolors)
-#	IMAGE	image_ID
-#	gint *	ncolors
-
 gint
 gimp_image_get_component_active(image_ID, component)
 	IMAGE	image_ID
@@ -1061,12 +1101,6 @@ gimp_image_get_component_visible(image_ID, component)
 char *
 gimp_image_get_filename(image_ID)
 	IMAGE	image_ID
-
-# different calling conventions
-#gint32 *
-#gimp_image_get_layers(image_ID, nlayers)
-#	IMAGE	image_ID
-#	gint *	nlayers
 
 gint32
 gimp_image_get_selection(image_ID)
@@ -1115,21 +1149,6 @@ gimp_display_delete(display_ID)
 
 void
 gimp_displays_flush()
-
-# different calling convention (who the heck does so dumb things?)
-#gint32
-#gimp_layer_new(image_ID, name, width, height, type, opacity, mode)
-#	gint32	image_ID
-#	char *	name
-#	guint	width
-#	guint	height
-#	GDrawableType	type
-#	gdouble	opacity
-#	GLayerMode	mode
-
-#gint32
-#gimp_layer_copy(layer_ID)
-#	gint32	layer_ID
 
 void
 gimp_layer_delete(layer_ID)
@@ -1319,7 +1338,7 @@ gdouble
 gimp_channel_get_opacity(channel_ID)
 	CHANNEL	channel_ID
 
-# not in libgimp!
+# ??? !!! NYI: not in libgimp!
 #gint
 #gimp_channel_get_show_masked(channel_ID)
 #	gint32	channel_ID
@@ -1327,17 +1346,6 @@ gimp_channel_get_opacity(channel_ID)
 gint
 gimp_channel_get_visible(channel_ID)
 	CHANNEL	channel_ID
-
-#
-# more orthogonality: use pdb version instead,
-# which uses a d_color argument.
-#
-#void
-#gimp_channel_set_color(channel_ID, red, green, blue)
-#	gint32	channel_ID
-#	guchar	red
-#	guchar	green
-#	guchar	blue
 
 void
 gimp_channel_set_name(channel_ID, name)
@@ -1349,7 +1357,7 @@ gimp_channel_set_opacity(channel_ID, opacity)
 	CHANNEL	channel_ID
 	gdouble	opacity
 
-# not in libgimp!
+# ??? !!! NYI: not in libgimp!
 #void
 #gimp_channel_set_show_masked(channel_ID, show_masked)
 #	gint32	channel_ID
@@ -1445,20 +1453,6 @@ gint
 gimp_drawable_layer_mask(drawable_ID)
 	DRAWABLE	drawable_ID
 
-gint
-gimp_drawable_mask_bounds(drawable_ID, x1, y1, x2, y2)
-	DRAWABLE	drawable_ID
-	gint *	x1
-	gint *	y1
-	gint *	x2
-	gint *	y2
-
-void
-gimp_drawable_offsets(drawable_ID, offset_x, offset_y)
-	DRAWABLE	drawable_ID
-	gint *	offset_x
-	gint *	offset_y
-
 void
 gimp_drawable_fill(drawable_ID, fill_type)
 	DRAWABLE	drawable_ID
@@ -1474,36 +1468,36 @@ gimp_drawable_set_visible(drawable_ID, visible)
 	DRAWABLE	drawable_ID
 	gint	visible
 
-#GTile *
-#gimp_drawable_get_tile(drawable, shadow, row, col)
-#	GDrawable *	drawable
-#	gint	shadow
-#	gint	row
-#	gint	col
+GTile *
+gimp_drawable_get_tile(drawable, shadow, row, col)
+	GDrawable *	drawable
+	gint	shadow
+	gint	row
+	gint	col
 
-#GTile *
-#gimp_drawable_get_tile2(drawable, shadow, x, y)
-#	GDrawable *	drawable
-#	gint	shadow
-#	gint	x
-#	gint	y
+GTile *
+gimp_drawable_get_tile2(drawable, shadow, x, y)
+	GDrawable *	drawable
+	gint	shadow
+	gint	x
+	gint	y
 
-#void
-#gimp_tile_ref(tile)
-#	GTile *	tile
+void
+gimp_tile_ref(tile)
+	GTile *	tile
 
-#void
-#gimp_tile_ref_zero(tile)
-#	GTile *	tile
+void
+gimp_tile_ref_zero(tile)
+	GTile *	tile
 
-#void
-#gimp_tile_unref(tile, dirty)
-#	GTile *	tile
-#	int	dirty
+void
+gimp_tile_unref(tile, dirty)
+	GTile *	tile
+	int	dirty
 
-#void
-#gimp_tile_flush(tile)
-#	GTile *	tile
+void
+gimp_tile_flush(tile)
+	GTile *	tile
 
 void
 gimp_tile_cache_size(kilobytes)
@@ -1519,88 +1513,159 @@ gimp_tile_width()
 guint
 gimp_tile_height()
 
-#void
-#gimp_pixel_rgn_init(pr, drawable, x, y, width, height, dirty, shadow)
-#	GPixelRgn *	pr
-#	GDrawable *	drawable
-#	int	x
-#	int	y
-#	int	width
-#	int	height
-#	int	dirty
-#	int	shadow
+SV *
+gimp_pixel_rgn_init(drawable, x, y, width, height, dirty, shadow)
+	GDrawable *	drawable
+	int	x
+	int	y
+	int	width
+	int	height
+	int	dirty
+	int	shadow
+	CODE:
+	{
+		static HV *stash;
+		HV *hv = newHV ();
+		SV *sv = newSVn (sizeof(GPixelRgn));
+		GPixelRgn *pr = (GPixelRgn *)SvPV (sv,na);
+		
+		gimp_pixel_rgn_init (pr, drawable, x, y, width, height, dirty, shadow);
+		
+		hv_store (hv, "_rgn"	, 4, sv				, 0);
+		hv_store (hv, "x"	, 1, newSViv (pr->x)		, 0);
+		hv_store (hv, "y"	, 1, newSViv (pr->y)		, 0);
+		hv_store (hv, "w"	, 1, newSViv (pr->w)		, 0);
+		hv_store (hv, "h"	, 1, newSViv (pr->h)		, 0);
+		hv_store (hv, "rowstride",9, newSViv (pr->rowstride)	, 0);
+		hv_store (hv, "bpp"	, 3, newSViv (pr->bpp)		, 0);
+		hv_store (hv, "shadow"	, 6, newSViv (pr->shadow)	, 0);
+		
+		if (!stash)
+		  stash = gv_stashpv (PKG_PIXELRGN, 1);
+		
+		RETVAL = sv_bless (newRV_noinc ((SV*)hv), stash);
+	}
+	OUTPUT:
+	RETVAL
 
-#void
-#gimp_pixel_rgn_resize(pr, x, y, width, height)
-#	GPixelRgn *	pr
-#	int	x
-#	int	y
-#	int	width
-#	int	height
+void
+gimp_pixel_rgn_resize(sv, x, y, width, height)
+	SV *	sv
+	int	x
+	int	y
+	int	width
+	int	height
+	CODE:
+	{
+		GPixelRgn *pr = old_pixelrgn (sv);
+		HV *hv = (HV*)SvRV(sv);
+		
+		gimp_pixel_rgn_resize (pr, x, y, width, height);
+		
+		hv_store (hv, "x"	, 1, newSViv (pr->x)		, 0);
+		hv_store (hv, "y"	, 1, newSViv (pr->y)		, 0);
+		hv_store (hv, "w"	, 1, newSViv (pr->w)		, 0);
+		hv_store (hv, "h"	, 1, newSViv (pr->h)		, 0);
+		hv_store (hv, "rowstride",9, newSViv (pr->rowstride)	, 0);
+	}
 
-#void
-#gimp_pixel_rgn_get_pixel(pr, buf, x, y)
-#	GPixelRgn *	pr
-#	guchar *	buf
-#	int	x
-#	int	y
+SV *
+gimp_pixel_rgn_get_pixel(pr, x, y)
+	GPixelRgn *	pr
+	int	x
+	int	y
+	CODE:
+	RETVAL = newSVn (pr->bpp);
+	gimp_pixel_rgn_get_pixel (pr, SvPV(RETVAL,na), x, y);
+	OUTPUT:
+	RETVAL
 
-#void
-#gimp_pixel_rgn_get_row(pr, buf, x, y, width)
-#	GPixelRgn *	pr
-#	guchar *	buf
-#	int	x
-#	int	y
-#	int	width
+SV *
+gimp_pixel_rgn_get_row(pr, x, y, width)
+	GPixelRgn *	pr
+	int	x
+	int	y
+	int	width
+	CODE:
+	RETVAL = newSVn (pr->bpp * width);
+	gimp_pixel_rgn_get_row (pr, SvPV(RETVAL,na), x, y, width);
+	OUTPUT:
+	RETVAL
 
-#void
-#gimp_pixel_rgn_get_col(pr, buf, x, y, height)
-#	GPixelRgn *	pr
-#	guchar *	buf
-#	int	x
-#	int	y
-#	int	height
+SV *
+gimp_pixel_rgn_get_col(pr, x, y, height)
+	GPixelRgn *	pr
+	int	x
+	int	y
+	int	height
+	CODE:
+	RETVAL = newSVn (pr->bpp * height);
+	gimp_pixel_rgn_get_col (pr, SvPV(RETVAL,na), x, y, height);
+	OUTPUT:
+	RETVAL
 
-#void
-#gimp_pixel_rgn_get_rect(pr, buf, x, y, width, height)
-#	GPixelRgn *	pr
-#	guchar *	buf
-#	int	x
-#	int	y
-#	int	width
-#	int	height
+SV *
+gimp_pixel_rgn_get_rect(pr, x, y, width, height)
+	GPixelRgn *	pr
+	int	x
+	int	y
+	int	width
+	int	height
+	CODE:
+	RETVAL = newSVn (pr->bpp * width * height);
+	gimp_pixel_rgn_get_rect (pr, SvPV(RETVAL,na), x, y, width, height);
+	OUTPUT:
+	RETVAL
 
-#void
-#gimp_pixel_rgn_set_pixel(pr, buf, x, y)
-#	GPixelRgn *	pr
-#	guchar *	buf
-#	int	x
-#	int	y
+void
+gimp_pixel_rgn_set_pixel(pr, data, x, y)
+	GPixelRgn *	pr
+	SV *	data
+	int	x
+	int	y
+	CODE:
+	if (SvCUR (data) != pr->bpp)
+	  croak ("gimp_pixel_rgn_set_pixel called with incorrect datasize");
+	gimp_pixel_rgn_set_pixel (pr, SvPV(data,na), x, y);
 
-#void
-#gimp_pixel_rgn_set_row(pr, buf, x, y, width)
-#	GPixelRgn *	pr
-#	guchar *	buf
-#	int	x
-#	int	y
-#	int	width
+void
+gimp_pixel_rgn_set_row(pr, data, x, y, width)
+	GPixelRgn *	pr
+	SV *		data
+	int	x
+	int	y
+	int	width
+	CODE:
+	if (SvCUR (data) != pr->bpp * width)
+	  croak ("gimp_pixel_rgn_set_row called with incorrect datasize");
+	gimp_pixel_rgn_set_row (pr, SvPV(data,na), x, y, width);
 
-#void
-#gimp_pixel_rgn_set_col(pr, buf, x, y, height)
-#	GPixelRgn *	pr
-#	guchar *	buf
-#	int	x
-#	int	y
-#	int	height
+void
+gimp_pixel_rgn_set_col(pr, data, x, y, height)
+	GPixelRgn *	pr
+	SV *		data
+	int	x
+	int	y
+	int	height
+	CODE:
+	if (SvCUR (data) != pr->bpp * height)
+	  croak ("gimp_pixel_rgn_set_col called with incorrect datasize");
+	gimp_pixel_rgn_set_col (pr, SvPV(data,na), x, y, height);
 
-#void
-#gimp_pixel_rgn_set_rect(pr, buf, x, y, width, height)
-#	GPixelRgn *	pr
-#	guchar *	buf
-#	int	x
-#	int	y
-#	int	width
-#	int	height
+void
+gimp_pixel_rgn_set_rect(pr, data, x, y, width, height)
+	GPixelRgn *	pr
+	SV *		data
+	int	x
+	int	y
+	int	width
+	int	height
+	CODE:
+	if (SvCUR (data) != pr->bpp * width * height)
+	  croak ("gimp_pixel_rgn_set_rect called with incorrect datasize");
+	gimp_pixel_rgn_set_rect (pr, SvPV(data,na), x, y, width, height);
+
+# ??? any possibility to implement these in perl? maybe replacement functions in Gimp.pm?
 
 #gpointer
 #gimp_pixel_rgns_register(nrgns, ...)
@@ -1610,38 +1675,6 @@ gimp_tile_height()
 #gimp_pixel_rgns_process(pri_ptr)
 #	gpointer	pri_ptr
 
-# use pdb equivalent
-#void
-#gimp_palette_get_background(red, green, blue)
-#	guchar *	red
-#	guchar *	green
-#	guchar *	blue
-
-# use pdb equivalent
-#void
-#gimp_palette_get_foreground(red, green, blue)
-#	guchar *	red
-#	guchar *	green
-#	guchar *	blue
-
-# use pdb equivalent
-#void
-#gimp_palette_set_background(red, green, blue)
-#	guchar	red
-#	guchar	green
-#	guchar	blue
-
-# use pdb equivalent
-#void
-#gimp_palette_set_foreground(red, green, blue)
-#	guchar	red
-#	guchar	green
-#	guchar	blue
-
-#char **
-#gimp_gradients_get_list(num_gradients)
-#	gint *	num_gradients
-
 char *
 gimp_gradients_get_active()
 
@@ -1649,14 +1682,85 @@ void
 gimp_gradients_set_active(name)
 	char *	name
 
-# dropped in favour of the pdb function
-#gdouble *
-#gimp_gradients_sample_uniform(num_samples)
-#	gint	num_samples
+MODULE = Gimp::Lib	PACKAGE = Gimp::Tile
 
-# dropped in favour of the pdb function
-#gdouble *
-#gimp_gradients_sample_custom(num_samples, positions)
-#	gint	num_samples
-#	gdouble *	positions
+# ??? optimize these two functions so tile_*ref will only be called once on
+# construction/destruction.
+
+SV *
+get_data(tile)
+	GTile *	tile
+	CODE:
+	gimp_tile_ref (tile);
+	RETVAL = newSVpvn (tile->data, tile->ewidth * tile->eheight * tile->bpp);
+	gimp_tile_unref (tile, 0);
+	OUTPUT:
+	RETVAL
+
+void
+set_data(tile, data)
+	GTile *	tile
+	SV *	data
+	CODE:
+	if (SvCUR (data) != tile->ewidth * tile->eheight * tile->bpp)
+	  croak ("set_data called with incorrect datasize");
+	
+	gimp_tile_ref_zero (tile);
+	memcpy (tile->data, SvPV (data, na), SvCUR (data));
+	gimp_tile_unref (tile, 1);
+
+# functions using different calling conventions:
+#gint32 *
+#gimp_image_get_channels(image_ID, nchannels)
+#	IMAGE	image_ID
+#	gint *	nchannels
+#guchar *
+#gimp_image_get_cmap(image_ID, ncolors)
+#	IMAGE	image_ID
+#	gint *	ncolors
+#gint32 *
+#gimp_image_get_layers(image_ID, nlayers)
+#	IMAGE	image_ID
+#	gint *	nlayers
+#gint32
+#gimp_layer_new(image_ID, name, width, height, type, opacity, mode)
+#	gint32	image_ID
+#	char *	name
+#	guint	width
+#	guint	height
+#	GDrawableType	type
+#	gdouble	opacity
+#	GLayerMode	mode
+#gint32
+#gimp_layer_copy(layer_ID)
+#	gint32	layer_ID
+#void
+#gimp_channel_set_color(channel_ID, red, green, blue)
+#	gint32	channel_ID
+#	guchar	red
+#	guchar	green
+#	guchar	blue
+#gint
+#gimp_drawable_mask_bounds(drawable_ID, x1, y1, x2, y2)
+#	DRAWABLE	drawable_ID
+#	gint *	x1
+#	gint *	y1
+#	gint *	x2
+#	gint *	y2
+#void
+#gimp_drawable_offsets(drawable_ID, offset_x, offset_y)
+#	DRAWABLE	drawable_ID
+#	gint *	offset_x
+#	gint *	offset_y
+
+# ??? almost synonymous to gimp_list_images
+
+#gint32 *
+#gimp_query_images(nimages)
+#	int *	nimages
+
+
+
+
+
 

@@ -14,7 +14,7 @@ AC_ARG_WITH(includes,[  --with-includes=DIR     Additionally search for includes
 AC_ARG_WITH(libs,    [  --with-libs=DIR         Additionally search for libraries in dir in DIR (optional)],
    LIBS="$LIBS -L$with_libs")
 
-AC_ARG_WITH(includes,[  --with-glib-prefix=DIR  Prefix where GLIB is installed (optional)],
+AC_ARG_WITH(glib-prefix,[  --with-glib-prefix=DIR  Prefix where GLIB is installed (optional)],
    CFLAGS="$CFLAGS -I$with_glib_prefix/include" LIBS="$LIBS -L$with_glib_prefix/libs")
 
 AC_CHECK_PROGS(PERL,perl5.004_01 perl5.004 perl5 perl,perl)

@@ -15,7 +15,7 @@ use IO::Socket;
 use strict;
 use vars qw($use_unix $use_tcp $trace_res $server_quit $max_pkt $unix $tcp
             $ps_flags);
-use Gimp 'interface=lib';
+use Gimp;
 use Gimp::Net;
 
 Gimp::set_trace(\$trace_res);

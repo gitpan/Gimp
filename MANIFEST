@@ -9,13 +9,12 @@ COPYING
 MANIFEST
 TODO
 AUTHORS
+typemap
 Gimp.pm
 Gimp.xs
 test.pl
-typemap
 extradefs.h
 Perl-Server
-Perl-Fu
 Gimp/Makefile.PL.in
 Gimp/Lib.xs
 Gimp/Lib.pm
@@ -23,6 +22,7 @@ Gimp/OO.pm
 Gimp/Net.pm
 Gimp/Data.pm
 Gimp/Fu.pm
+Gimp/PDL.pm
 examples/Create_Images
 examples/image_list
 examples/example-oo.pl

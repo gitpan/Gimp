@@ -87,6 +87,8 @@ sub interact($@) {
    my($w,$t,$button,$box,$bot,$g);
    my $res=0;
    
+   parse Gtk::Rc Gimp::gimp_gtkrc;
+   
    $t = new Gtk::Tooltips;
    
    $w = new Gtk::Dialog;
@@ -374,7 +376,7 @@ sub register($$$$$$$$$&) {
       print $function,"(",join(",",(@pre,@_)),")\n" if $Gimp::verbose;
       
       for my $img (&$code(@pre,@_)) {
-         Gimp::gimp_display_new($img);
+         Gimp::gimp_display_new($img) if defined $img;
       }
    };
    push(@scripts,[$function,$blurb,$help,$author,$copyright,$date,

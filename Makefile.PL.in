@@ -1,20 +1,53 @@
 use ExtUtils::MakeMaker;
 
 eval "use Gtk;"; $GTK = $@ eq "";
+eval "use PDL;"; $PDL = $@ eq "";
 
 qx(@GIMP@ --version) =~ /GIMP version ([0-9.]+)/i
    or die "unable to find gimp, make sure it's in your path (version 0.99+ required!)";
+$gimp_version = $1;
 
 $GTK or print <<EOF;
 
-WARNING: unable to use the Perl-Gtk interface. Some features (like Gimp::Fu)
-         rely on this extension. You can try to build without it, but it's
+WARNING: unable to use the Perl-Gtk interface.  Some features (like Gimp::Fu)
+         rely on this extension.  You can try to build without it, but it's
          better to install it (version 0.2.1 is required, you can get it
-         from ftp://ftp.gimp.org/pub/gtk/ or any CPAN mirror).
+         from ftp://ftp.gimp.org/pub/gtk/perl/ or any CPAN mirror).
 
 EOF
 
-print "using gimp version $1\n";
+$PDL or print <<EOF;
+
+WARNING: unable to use PDL (the perl data language).  This means that
+         Gimp::PDL is non-functional.  Unless you plan to use Tile/PixelRgn
+         functions together with PDL, this is harmless.  Gimp::PDL will be
+         installed, just in case you later install PDL.  You can get PDL
+         from any CPAN mirror).
+
+EOF
+
+!$PDL or $PDL::Version::VERSION > 1.99 or print <<EOF;
+
+WARNING: PDL version $PDL::Version::VERSION is installed. Gimp::PDL was only tested with
+         1.9905.  In case of problems its advisable to upgrade PDL.
+
+EOF
+
+($major,$minor,$patch)=split /\./,$gimp_version;
+print "using gimp version $gimp_version\n";
+
+unless ($major > 0
+        || ($major == 0 && $minor > 99)
+        || ($major == 0 && $minor == 99 && $patch > 30)) {
+   print <<EOF;
+
+WARNING: the version of gimp you have installed on your machine is "very"
+         old.  Version 0.99.31 is _required_ for this version to build
+         properly.  You _will_ run into problems with older versions.
+         You can get the Gimp from ftp://ftp.gimp.org/pub/gimp.
+
+EOF
+}
 
 sub MY::postamble {
    <<EOF;
@@ -29,11 +62,14 @@ EOF
 # the contents of the Makefile that is written.
 WriteMakefile(
     'dist'	=> {
-                    'PREOP'     => 'chmod -R u=rwX,go= . &&'.
-                                   'pod2man Gimp.pm | groff -man -P-buo -Tascii > README',
+                    'PREOP'     => 'chmod -R u=rwX,go= .',
+#                                   '&& pod2man Gimp.pm | groff -man -P-buo -Tascii > README',
                     'COMPRESS'	=> 'gzip -9v',
                     'SUFFIX'	=> '.gz',
                    },
+#    'PREREQ_PM'	=> {
+#    		    "Gtk"	=> 0.212,
+#		   },
     'DIR'	=> ['Gimp'],
     'NAME'	=> 'Gimp',
     'VERSION_FROM' => 'Gimp.pm',

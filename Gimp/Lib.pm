@@ -13,8 +13,6 @@ $VERSION = $Gimp::VERSION;
 use subs @Gimp::_procs;
 use subs @Gimp::_internals;
 
-# Preloaded methods go here.
-
 sub AUTOLOAD {
   my $constname;
   ($constname = $AUTOLOAD) =~ s/.*:://;
@@ -29,7 +27,11 @@ sub AUTOLOAD {
 
 bootstrap Gimp::Lib $VERSION;
 
-# Autoload methods go after =cut, and are processed by the autosplit program.
+package Gimp::Tile;
+
+sub DESTROY {
+#   print "destroying tile ",keys(%{$_[0]}),"\n";
+}
 
 1;
 __END__
@@ -40,7 +42,7 @@ Gimp::Lib - Interface to libgimp (as opposed to Gimp::Net)
 
 =head1 SYNOPSIS
 
-  use Gimp qw( interface=lib );
+  use Gimp; # internal use only
 
 =head1 DESCRIPTION
 
