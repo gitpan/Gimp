@@ -1,5 +1,27 @@
 Revision history for Gimp-Perl extension.
 
+1.046 Thu Nov  5 01:53:34 CET 1998
+	- the syntax really gets tricky - references to INT32 and similar
+	  types are no longer accepted (was buggy anyway).
+	- added plug_in_ prefix to layer, darwable, image and channel. We
+	  can now write $layer->sharpen(50), and gimp infers function name,
+	  run_mode and image
+	- enhanced the testuite, it now checks much more features
+	- gimp_end() now correctly closes the connection
+	- implemented Gimp::lock and unlock functions, giving exclusive
+	  access to the Perl-Server
+
+1.045 Sun Nov  1 23:40:20 CET 1998
+	- more configuration cleanups
+	- fixed Gimp::Fu to respect RUN_WITH_LAST_VALS again
+	- added more oo-prefixes to channels and layers (see Gimp::OO)
+	- added preliminary gimp_init/gimp_end functions, see Gimp(3).
+	- 'require 5.004_04' and added use base declarations
+	- improved future compatibility
+	- improved constant inlining
+	- fixed a serious bug in argument handling when not all arguments
+	  were given
+
 1.0441 Sat Oct 24 22:52:05 CEST 1998
 	- t/run.t does much less when no tests are requested
 	- cleaned up Gimp::UI learned much about Gtk (but still not much)

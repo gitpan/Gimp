@@ -8,10 +8,11 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
             @gimp_gui_functions
             $help $verbose $host $gimp_main);
 
+use base qw(DynaLoader);
+
 require DynaLoader;
 
-@ISA = qw(DynaLoader);
-$VERSION = 1.0441;
+$VERSION = 1.046;
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -217,7 +218,12 @@ for(qw(_gimp_procedure_available gimp_call_procedure set_trace)) {
    *$_ = \&{"${interface_pkg}::$_"};
 }
 
-*main = *gimp_main = \&{"${interface_pkg}::gimp_main"};
+*main  = *gimp_main = \&{"${interface_pkg}::gimp_main"};
+*init  = *gimp_init = \&{"${interface_pkg}::gimp_init"};
+*end   = *gimp_end  = \&{"${interface_pkg}::gimp_end" };
+
+*lock  = \&{"${interface_pkg}::lock" };
+*unlock= \&{"${interface_pkg}::unlock" };
 
 @PREFIXES=("gimp_", "");
 
@@ -291,11 +297,11 @@ sub _pseudoclass {
   push(@{"${class}::PREFIXES"}		, @prefixes); @prefixes=@{"${class}::PREFIXES"};
 }
 
-_pseudoclass qw(Layer		gimp_layer_ gimp_drawable_ gimp_image_ gimp_);
-_pseudoclass qw(Image		gimp_image_ gimp_drawable_ gimp_);
-_pseudoclass qw(Drawable	gimp_drawable_ gimp_layer_ gimp_image_ gimp_);
+_pseudoclass qw(Layer		gimp_layer_ gimp_drawable_ gimp_floating_sel_ gimp_image_ gimp_ plug_in_);
+_pseudoclass qw(Image		gimp_image_ gimp_drawable_ gimp_ plug_in_);
+_pseudoclass qw(Drawable	gimp_drawable_ gimp_layer_ gimp_image_ gimp_ plug_in_);
 _pseudoclass qw(Selection 	gimp_selection_);
-_pseudoclass qw(Channel		gimp_channel_ gimp_drawable_ gimp_image_ gimp_);
+_pseudoclass qw(Channel		gimp_channel_ gimp_drawable_ gimp_selection_ gimp_image_ gimp_ plug_in_);
 _pseudoclass qw(Display		gimp_display_ gimp_);
 _pseudoclass qw(Plugin		plug_in_);
 _pseudoclass qw(Gradients	gimp_gradients_);
@@ -576,6 +582,28 @@ speak for you), or just plain interesting functions.
 
 Should be called immediately when perl is initialized. Arguments are not yet
 supported. Initializations can later be done in the init function.
+
+=item init(), end (), gimp_init(), gimp_end()
+
+These is an alternative and experimental interface that replaces the call to
+gimp_main and the net callback. At the moment it only works for the Net
+interface (L<Gimp::Net>), and not as a native plug-in. Here's an example:
+
+ use Gimp;
+ 
+ Gimp::init;
+ <do something with the gimp>
+ Gimp::end;
+
+=item Gimp::lock(), Gimp::unlock()
+
+These functions can be used to gain exclusive access to the Gimp. After
+calling lock, all accesses by other clients will be blocked and executed
+after the call to unlock. Calls to lock and unlock can be nested.
+
+Currently, these functions only lock the current Perl-Server instance
+against exclusive access, they are nops when used via the Gimp::Lib
+interface.
 
 =item gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, image_types, type, [params], [return_vals])
 
