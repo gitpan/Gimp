@@ -1,38 +1,55 @@
 #!/usr/bin/perl
 
-# this extension shows some oo-like calls
-
-# it's really easy
-
-use Gimp qw( :auto );
-use Gimp::Util;
+use Gimp qw(:consts);
 use Gimp::OO;
+use Gimp::Fu;
 
-# the extension that's called.
-sub plug_in_example_fu {
-  
-  my $img=new Image(300,200,RGB);
-  
-  my $bg=new Layer($img,300,200,RGB_IMAGE,"Background",100,NORMAL_MODE);
-  
-  Palette::set_background([200,100,200]);
-  
-  $bg->fill(BG_IMAGE_FILL);
-  $img->add_layer($bg,1);
-  
-  new Display($img);
-}
+register "my_first_gimp_fu",				# fill in name
+         "My very first Gimp::Fu script",		# and a small description,
+         "Just a starting point to derive new scripts",	# a help text
+         "My name",					# don't forget your name (author)
+         "My name (my copyright)",			# and your copyright!
+         "19980506",					# the date this script was written
+         "<Toolbox>/Xtns/MY Very First",		# the menu path
+         "*",						# which image types do I accept (all)
+         [
+          [PF_STRING	, "text"	, "The Message"			, "example text"],
+          [PF_FONT	, "font"	, "The Font Family"		, "helvetica"],
+          [PF_INT32	, "size"	, "Font Size"			, 20],
+          [PF_COLOR	, "text colour"	, "The (foreground) text colour", [10,10,10]],
+          [PF_COLOR	, "bg colour"	, "The background colour"	, "#ff8000"],
+          [PF_TOGGLE	, "ignore cols" , "Ignore colours"		, 0],
+         ],
+         sub {
+   
+   print "Hello there, this is the very first Gimp::Fu script!\n";
+   print "called with these arguments: ",join(":",@_),"\n";
+   
+   # now do sth. useful with the garbage we got ;)
+   my($text,$font,$size,$fg,$bg,$ignore)=@_;
+   
+   my $img=new Image(300,200,RGB);
+   
+   my $l=new Layer($img,300,200,RGB_IMAGE,"Background",100,NORMAL_MODE);
+   $img->add_layer($l,0);
+   
+   Palette::set_foreground($fg) unless $ignore;
+   Palette::set_background($bg) unless $ignore;
+   
+   fill $l BG_IMAGE_FILL;
+   $t=$img->text(-1,10,10,$text,5,1,$size,PIXELS,"*",$font,"*","*","*","*");
+   
+   $img;	# return the image, or undef
+};
 
-sub net {
-  plug_in_example_fu;
-}
+exit main;
 
-sub query {
-  gimp_install_procedure("plug_in_example_fu", "an example perl-fu script",
-                         "try it out", "Marc Lehmann", "Marc Lehmann", "1998-04-21",
-                         "<Toolbox>/Xtns/Perl-Fu/Example Plug-in", "*", PROC_PLUGIN,
-                         [[PARAM_INT32, "run_mode", "Interactive, [non-interactive]"]], []);
-}
 
-exit gimp_main;
+
+
+
+
+
+
+
 

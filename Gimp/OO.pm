@@ -15,10 +15,12 @@ require AutoLoader;
 @PREFIXES = ();
 
 sub AUTOLOAD {
+  no strict 'refs';
   my ($class,$subname) = ($AUTOLOAD =~ /^(.*)::(.*?)$/);
-  for(eval "\@${class}::PREFIXES") {
+  for(@{"${class}::PREFIXES"}) {
     if (Gimp::_gimp_procedure_available ($_.$subname)) {
-      eval "sub $AUTOLOAD { ".($_[0] eq $class ? "shift;" : "")."Gimp::gimp_call_procedure '$_$subname',\@_ }";
+      *{$AUTOLOAD} = eval "sub { ".($_[0] eq $class ? "shift;" : "").
+                          "Gimp::gimp_call_procedure '$_$subname',\@_ }";
       goto &$AUTOLOAD;
     }
   }
@@ -26,16 +28,17 @@ sub AUTOLOAD {
 }
 
 sub pseudoclass {
+  no strict 'refs';
   my ($class, @prefixes)= @_;
   @prefixes=map { $_."_" } @prefixes;
-  eval "\@Gimp::${class}::ISA		= \@${class}::ISA	= ('Gimp::OO')";
-  eval "\@Gimp::${class}::PREFIXES	= \@${class}::PREFIXES	= \@prefixes";
+  @{"Gimp::${class}::ISA"}	= @{"${class}::ISA"}		= ('Gimp::OO');
+  @{"Gimp::${class}::PREFIXES"}	= @{"${class}::PREFIXES"}	= @prefixes;
 }
 
 sub DESTROY {};
 
 pseudoclass qw(Layer	gimp_layer gimp_drawable gimp);
-pseudoclass qw(Image	gimp_image gimp);
+pseudoclass qw(Image	gimp_image gimp_drawable gimp);
 pseudoclass qw(Drawable	gimp_drawable gimp);
 pseudoclass qw(Selection gimp_selection);
 pseudoclass qw(Channel	gimp_channel gimp_drawable gimp);
@@ -139,16 +142,12 @@ gimp_progress_*
 
 =back
 
-=head1 STATUS
-
-This module is experimental, the API is subject to change.
-
 =head1 AUTHOR
 
-Marc Lehmann, pcg@goof.com
+Marc Lehmann <pcg@goof.com>
 
 =head1 SEE ALSO
 
-perl(1), Gimp(1),
+perl(1), Gimp(3),
 
 =cut

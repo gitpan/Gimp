@@ -3,13 +3,15 @@ package Gimp;
 use strict;
 use Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL);
-use vars qw(@_consts @_procs @_internals $interface_pkg $interface_type
-            @_param);
+use vars qw(@_consts @_procs @_internals $interface_pkg $interface_type @_param);
+
+# vars used in argument processing
+use vars qw($help $verbose $host);
 
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '0.87';
+$VERSION = '0.89';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -117,65 +119,121 @@ sub CYAN_HUES		{ 4 };
 sub BLUE_HUES		{ 5 };
 sub MAGENTA_HUES	{ 6 };
 
+# internal constants shared with Perl-Server
+
+sub _PS_FLAG_QUIET	{ 0000000001 };	# do not output messages
+sub _PS_FLAG_BATCH	{ 0000000002 }; # started via Gimp::Net, extra = filehandle
+
 # we really abuse the import facility..
 sub import($;@) {
-  my $pkg = shift;
-  my $up = caller();
-  my @export;
-  
-  # make a quick but dirty guess ;)
-  $interface_type = "net";
-  $interface_type = "lib" if @ARGV && $ARGV[0] eq "-gimp";
-  
-  for(@_) {
-    if ($_ eq ":auto") {
-      push(@export,@_consts);
-      push(@export,@_procs);
-      eval "push \@{${up}::ISA},'Gimp'";
-    } elsif ($_ eq ":param") {
-      push(@export,@_param);
-    } elsif (/^interface=(\S+)$/) {
-      $interface_type=$1;
-    } else {
-      croak "$_ is not a valid import tag for package $pkg";
-    }
-  }
-  
-  if ($interface_type=~/^lib$/i) {
-    $interface_pkg="Gimp::Lib";
-  } elsif ($interface_type=~/^net$/i) {
-    $interface_pkg="Gimp::Net";
-  } else {
-    croak "interface '$interface_type' unsupported, use either 'lib' or 'net'";
-  }
-  
-  # has to be done first. the "eval EXPR" form is necessary.
-  eval "require $interface_pkg" or croak "$@";
-  import $interface_pkg ();
-  for((@_procs,@_internals)) {
-    eval "*$_ = \\&${interface_pkg}::$_";
-  }
-  
-  for(@export) {
-    eval "*${up}::$_ = \\&$_";
-  }
+   no strict 'refs';
+   
+   my $pkg = shift;
+   my $up = caller();
+   my @export;
+   
+   # make a quick but dirty guess ;)
+   
+   for(@_) {
+      if ($_ eq ":auto") {
+         push(@export,@_consts);
+         push(@export,@_procs);
+         push @{"${up}::ISA"},'Gimp';
+      } elsif ($_ eq ":consts") {
+         push(@export,@_consts);
+      } elsif ($_ eq ":param") {
+         push(@export,@_param);
+      } elsif (/^interface=(\S+)$/) {
+         $interface_type=$1;
+      } else {
+         croak "$_ is not a valid import tag for package $pkg";
+      }
+   }
+   
+   if ($interface_type=~/^lib$/i) {
+      $interface_pkg="Gimp::Lib";
+   } elsif ($interface_type=~/^net$/i) {
+      $interface_pkg="Gimp::Net";
+   } else {
+      croak "interface '$interface_type' unsupported, use either 'lib' or 'net'";
+   }
+   
+   # has to be done first. the "eval EXPR" form is necessary.
+   use vars qw($interface_imported);
+   if ($interface_imported ne $interface_pkg) {
+      $interface_imported=$interface_pkg;
+      eval "require $interface_pkg" or croak "$@";
+      import $interface_pkg ();
+      for((@_procs,@_internals)) {
+         *$_ = \&{"${interface_pkg}::$_"};
+      }
+   }
+   
+   for(@export) {
+      *{"${up}::$_"} = \&$_;
+   }
 }
 
 sub AUTOLOAD {
-  my $constname;
-  ($constname = $AUTOLOAD) =~ s/.*:://;
-  my $val = constant($constname, @_ ? $_[0] : 0);
-  if ($! != 0) {
-    if ($! =~ /Invalid/) {
-      no strict 'refs';
-      ${"${interface_pkg}::AUTOLOAD"}=$AUTOLOAD;
-      goto &{"${interface_pkg}::AUTOLOAD"};
-    } else {
-      croak "Your vendor has not defined Gimp macro $constname";
-    }
-  }
-  eval "sub $AUTOLOAD { $val }";
-  goto &$AUTOLOAD;
+   my $constname;
+   ($constname = $AUTOLOAD) =~ s/.*:://;
+   my $val = constant($constname, @_ ? $_[0] : 0);
+   if ($! != 0) {
+      if ($! =~ /Invalid/) {
+         no strict 'refs';
+         ${"${interface_pkg}::AUTOLOAD"}=$AUTOLOAD;
+         goto &{"${interface_pkg}::AUTOLOAD"};
+      } else {
+         croak "Your vendor has not defined Gimp macro $constname";
+      }
+   }
+   eval "sub $AUTOLOAD { $val }";
+   goto &$AUTOLOAD;
+}
+
+# this is duplicated in Gimp/Lib.xs.. FIX!
+sub canonicalize_colour {
+   if (@_ == 3) {
+      [@_];
+   } elsif (ref $_[0]) {
+      $_[0];
+   } elsif ($_[0] =~ /^#([0-9a-f]{2,2})([0-9a-f]{2,2})([0-9a-f]{2,2})$/) {
+      [map {eval "0x$_"} ($1,$2,$3)];
+   } else {
+      croak "Unable to grok ".join(",",@_)," as colour specifier";
+   }
+}
+
+*canonicalize_color = \&canonicalize_colour;
+
+$interface_type = "net";
+if (@ARGV) {
+   if ($ARGV[0] eq "-gimp") {
+      $interface_type = "lib";
+      # ignore other parameters completely
+   } else {
+      while(@ARGV) {
+         $_=shift(@ARGV);
+         if (/^-h$|^--?help$|^-\?$/) {
+            $help=1;
+            print <<EOF;
+Usage: $0 [gimp-args..] [interface-args..] [script-args..]
+       gimp-arguments are
+           -gimp <anything>           used internally only
+           -h | -help | --help | -?   print some help
+           -v | --verbose             be more verbose in what you do
+           --host|--tcp HOST[:PORT]   connect to HOST (optionally using PORT)
+EOF
+         } elsif (/^-v$|^--verbose$/) {
+            $verbose++;
+         } elsif (/^--host$|^--tcp$/) {
+            $host=shift(@ARGV);
+         } else {
+            unshift(@ARGV,$_);
+            last;
+         }
+      }
+   }
 }
 
 bootstrap Gimp $VERSION;
@@ -185,6 +243,9 @@ __END__
 =head1 NAME
 
 Gimp - Perl extension for writing Gimp Extensions/Plug-ins/Load & Save-Handlers
+
+This is mostly a reference manual. For a quick intro, look at the Gimp::Fu
+manpage.
 
 =head1 RATIONALE
 
@@ -206,6 +267,7 @@ too.
   
   use Gimp::Util;
   use Gimp::OO;
+  use Gimp::Fu;
   
   these have their own manpage.
 
@@ -224,7 +286,11 @@ This will overwrite your AUTOLOAD function, if you have one!
 
 =item :param
 
-Import PARAM_* constants (PARAM_INT32, PARAM_STRING &c).
+Import PARAM_* constants (PARAM_INT32, PARAM_STRING etc.)
+
+=item :consts
+
+The constants from gimpenums.h (BG_IMAGE_FILL, RUN_NONINTERACTIVE etc.)
 
 =item interface=lib
 
@@ -238,9 +304,9 @@ Use network interface using Net-Server and Gimp::Net.
   
 =head1 GETTING STARTED
 
-Dov Grobgeld has written a preliminary version of a tutorial for Gimp-Perl.
-While not finished, it's definitely better than this section currently. You
-can find it at http://imagic.weizmann.ac.il/~dov/gimp/perl-tut.html
+Dov Grobgeld has written an excellent tutorial for Gimp-Perl. While not
+finished, it's definitely better than this section currently. You can find
+it at http://imagic.weizmann.ac.il/~dov/gimp/perl-tut.html
 
 =head1 DESCRIPTION
 
@@ -427,10 +493,10 @@ me with the documentation, or write scripts etc... ;) thanks!
 
 =head1 AUTHOR
 
-Marc Lehmann, pcg@goof.com
+Marc Lehmann <pcg@goof.com>
 
 =head1 SEE ALSO
 
-perl(1), gimp(1), Gimp:OO, Gimp::Data, Gimp::Util.
+perl(1), gimp(1), Gimp:OO(3), Gimp::Data(3), Gimp::Util(3).
 
 =cut

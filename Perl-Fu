@@ -6,8 +6,6 @@ use Gimp 'interface=lib';
 use Gimp::Lib;
 use Gimp::Fu;
 
-print "\n\n\n\n\n\n\n";
-
 $real_install_procedure = \&Gimp::Lib::gimp_install_procedure;
 *Gimp::Lib::gimp_install_procedure = \&fu_install_procedure;
 
@@ -30,7 +28,7 @@ sub fu_install_procedure($$$$$$$$$$$) {
 sub perl_fu_refresh {
   &$real_install_procedure("perl_fu_refreshx", "xRefresh the Perl-Fu scripts",
                            "Refresh all Perl-Fu sxcripts",
-                           "Marc Lehmanxn", "Marc Lxehmann", "1998-04-21x",
+                           "Marc Lehmann <pcg\@goof.com>", "Marc Lehmann", "1998-04-21",
                            "<Toolbox>/Xtns/Perl-Fu/Refresxh", "*",&Gimp::PROC_EXTENSION,
                            [[&Gimp::PARAM_INT32, "run_mode", "Interactive, [non-interactive]"]],[]);
    my $gimp_data_dir = eval { Gimp::gimp_gimprc_query ("gimp_data_dir") };
@@ -56,7 +54,7 @@ sub perl_fu_refresh {
 sub query {
   &$real_install_procedure("perl_fu_refresh", "Refresh the Perl-Fu scripts",
                            "Refresh all Perl-Fu scripts",
-                           "Marc Lehmann", "Marc Lehmann", "1998-04-21",
+                           "Marc Lehmann <pcg\@goof.com>", "Marc Lehmann", "1998-04-21",
                            "<Toolbox>/Xtns/Perl-Fu/Refresh", "*",&Gimp::PROC_EXTENSION,
                            [[&Gimp::PARAM_INT32, "run_mode", "Interactive, [non-interactive]"]],[]);
 }

@@ -9,8 +9,10 @@ use Carp;
 use vars qw(
    $VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @EXPORT_FAIL %EXPORT_TAGS
    $default_tcp_port $default_unix_dir $default_unix_sock
-   $server_fh $trace_level $trace_res
+   $server_fh $trace_level $trace_res $auth $gimp_pid
 );
+use subs qw(gimp_call_procedure);
+use Gimp;
 
 use IO::Socket;
 
@@ -26,7 +28,8 @@ $trace_level = 0;
 sub AUTOLOAD {
   my $constname;
   ($constname = $AUTOLOAD) =~ s/.*:://;
-  eval "sub $AUTOLOAD { gimp_call_procedure '$constname',\@_ }";
+  no strict "refs";
+  *{$AUTOLOAD} = sub { Gimp::Net::gimp_call_procedure $constname,@_ };
   goto &$AUTOLOAD;
 }
 
@@ -95,29 +98,76 @@ sub gimp_progress_init {};
 sub gimp_progress_update {};
 
 sub set_trace {
-  my($trace)=@_;
-  if(ref $trace) {
-    $trace_res=$trace;
-  } else {
-    $trace_level=$trace;
-  }
+   my($trace)=@_;
+   if(ref $trace) {
+      $trace_res=$trace;
+   } else {
+      $trace_level=$trace;
+   }
+}
+
+sub try_connect {
+   $_=$_[0];
+   $auth = s/^(.*)\@// ? $1 : undef;	# get authorization
+   if ($_ ne "") {
+      if (s{^udp/}{/}) {
+         return new IO::Socket::UNIX (Peer => $_);
+      } else {
+         s{^tcp/}{};
+         my($host,$port)=split /:/,$_;
+         $port=$default_tcp_port unless $port;
+         return new IO::Socket::INET (PeerAddr => $host, PeerPort => $port);
+      }
+   };
+   undef $auth;
 }
 
 sub gimp_main {
-  $server_fh = new IO::Socket::UNIX (Peer => $default_unix_dir.$default_unix_sock);
-  unless($server_fh) {
-    my($host,$port);
-    $host = $ARGV[0] ? $ARGV[0] : "localhost";
-    $port = $ARGV[1] ? $ARGV[1] : $default_tcp_port;
-    $server_fh = new IO::Socket::INET (PeerAddr => $host, PeerPort => $port);
-    unless($server_fh) {
-      croak "unable to contact server (make sure Net-Server is running)";
-    }
-  }
-  $server_fh or croak "could not connect to the gimp server server (make sure Net-Server is running)";
-  $server_fh->autoflush(1); # for compatibility with very old perls..
-  no strict 'refs';
-  &{caller()."::net"};
+   return if $Gimp::help;
+   if (defined($Gimp::host)) {
+      $server_fh = try_connect ($Gimp::host);
+   } elsif (defined($ENV{GIMP_HOST})) {
+      $server_fh = try_connect ($ENV{GIMP_HOST});
+   } else {
+      $server_fh = new IO::Socket::UNIX (Peer => $default_unix_dir.$default_unix_sock);
+      unless(defined($server_fh)) {
+         $server_fh = new IO::Socket::INET (PeerAddr => "localhost", PeerPort => $default_tcp_port);
+         unless (defined($server_fh)) {
+            print "trying to start gimp\n" if $Gimp::verbose;
+            $server_fh=*SERVER_SOCKET;
+            socketpair $server_fh,GIMP_FH,AF_UNIX,SOCK_STREAM,PF_UNIX
+               or croak "unable to create socketpair for gimp communications: $!";
+            $gimp_pid = fork;
+            if ($gimp_pid > 0) {
+               *gimp_display_new=sub {};
+               # well, we now have out perl-server listening, don't we?
+            } elsif ($gimp_pid == 0) {
+               close $server_fh;
+               unless ($Gimp::verbose) {
+                  open STDOUT,">/dev/null";
+                  open STDERR,">&1";
+                  close STDIN;
+               }
+               exec "gimp","-n","-b","(extension_perl_server ".&Gimp::RUN_NONINTERACTIVE." ".
+                                     (&Gimp::_PS_FLAG_BATCH | &Gimp::_PS_FLAG_QUIET)." ".
+                                     fileno(GIMP_FH).")";
+                                     print "\n";
+               exit; # just to be sure..
+            } else {
+               croak "unable to fork: $!";
+            }
+         }
+      }
+   }
+   defined($server_fh)
+      or croak "could not connect to the gimp server server (make sure Net-Server is running)";
+   $server_fh->autoflush(1); # for compatibility with very old perls..
+   no strict 'refs';
+   &{caller()."::net"};
+}
+
+END {
+   kill -TERM,$gimp_pid if $gimp_pid;
 }
 
 1;
@@ -140,6 +190,21 @@ You first have to install the "Server" extension somewhere where Gimp can
 find it. Then have a look at example-net.pl (and run it!), or homepage-logo.pl
 (which is a hybrid: works as plug-in and as
 
+=head1 ENVIRONMENT
+
+The environment variable C<GIMP_HOST> specifies the default server to contact. The syntax
+is [auth@][tcp/]hostname[:port] for tcp or [auth@]udp/local/socket/path. Examples are:
+
+www.yahoo.com               # just kidding ;)
+yahoo.com:11100             # non-standard port
+tcp/yahoo.com               # make sure it uses tcp
+authorize@tcp/yahoo.com:123 # full-fledged specification
+
+udp/tmp/mysocket            # use unix domain socket /tmp/mysocket
+password@udp/tmp/test       # additionally use a password
+
+authorize@                  # specify authorization only
+
 =head1 CALLBACKS
 
 net
@@ -160,10 +225,10 @@ wether I should implement it in perl or C, since perl is soo fast.
 
 =head1 AUTHOR
 
-Marc Lehmann, pcg@goof.com
+Marc Lehmann <pcg@goof.com>
 
 =head1 SEE ALSO
 
-perl(1), Gimp(1),
+perl(1), Gimp(3),
 
 =cut

@@ -203,16 +203,13 @@ static SV *
 autobless (SV *sv, int type)
 {
   static HV *bless_hv[22]; /* initialized to zero */
-   static char *bless[22] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                             PKG_COLOR,
-                             PKG_REGION,
-                             PKG_DISPLAY,
-                             PKG_IMAGE,
-                             PKG_LAYER,
-                             PKG_CHANNEL,
-                             PKG_DRAWABLE,
-                             PKG_SELECTION,
-                             0, 0, 0, 0 };
+  static char *bless[22] = {
+                            0		, 0		, 0		, 0		, 0		,
+                            0		, 0		, 0		, 0		, 0		,
+                            PKG_COLOR	, PKG_REGION	, PKG_DISPLAY	, PKG_IMAGE	, PKG_LAYER	,
+                            PKG_CHANNEL, PKG_DRAWABLE	, PKG_SELECTION	, 0		, 0		,
+                            0		, 0
+                           };
   
   if (bless [type])
     {
@@ -240,14 +237,16 @@ unbless (SV *sv)
     return SvIV (sv);
 }
 
+/* replacement newSVpv with only one argument.  */
 #define neuSVpv(arg) newSVpv((arg),0)
 
+/* create sv's using newsv, from the array arg.  */
 #define gimp2av(arg,datatype,newsv) { \
   int j; \
   av = newAV (); \
   for (j = 0; j < arg[-1].data.d_int32; j++) \
     av_push (av, newsv (arg->data.datatype[j])); \
-  sv = newRV_inc ((SV *)av); \
+  sv = (SV *)av; \
 }
 
 static SV *
@@ -262,7 +261,6 @@ convert_gimp2sv (GParam *arg)
       case PARAM_INT16:		sv = newSViv(arg->data.d_int16	); break;
       case PARAM_INT8:		sv = newSViv(arg->data.d_int8	); break;
       case PARAM_FLOAT:		sv = newSVnv(arg->data.d_float	); break;
-      case PARAM_STRING:	sv = neuSVpv(arg->data.d_string	); break;
       case PARAM_DISPLAY:	sv = newSViv(arg->data.d_display); break;
       case PARAM_IMAGE:		sv = newSViv(arg->data.d_image	); break;
       case PARAM_LAYER:		sv = newSViv(arg->data.d_layer	); break;
@@ -272,13 +270,18 @@ convert_gimp2sv (GParam *arg)
       case PARAM_BOUNDARY:	sv = newSViv(arg->data.d_boundary); break;
       case PARAM_PATH:		sv = newSViv(arg->data.d_path	); break;
       case PARAM_STATUS:	sv = newSViv(arg->data.d_status	); break;
+      case PARAM_STRING:
+        sv = arg->data.d_string ? neuSVpv(arg->data.d_string)
+                                : sv_newmortal ();
+        break;
+        
       case PARAM_COLOR:
         /* difficult */
         av = newAV ();
         av_push (av, newSViv (arg->data.d_color.red));
         av_push (av, newSViv (arg->data.d_color.green));
         av_push (av, newSViv (arg->data.d_color.blue));
-        sv = newRV_inc ((SV *)av);
+        sv = (SV *)av; /* no newRV, since we're getting autoblessed! */
         break;
       
       /* did I say difficult before????  */
@@ -453,6 +456,7 @@ static void pii_run(char *name, int nparams, GParam *param, int *nreturn_vals, G
 {
   dSP;
   int i, count;
+  static GParam status;
   
   ENTER;
   SAVETMPS;
@@ -484,7 +488,10 @@ static void pii_run(char *name, int nparams, GParam *param, int *nreturn_vals, G
 /*  printf ("call_pv returned with %d results\n", count);*//*D*/
 /*  printf ("nreturn = %d\n", *nreturn_vals);*//*D*/
   
-  *nreturn_vals = 0;
+  status.type = PARAM_STATUS;
+  status.data.d_status = STATUS_SUCCESS;
+  *return_vals = &status;
+  *nreturn_vals = 1;
 }
 
 GPlugInInfo PLUG_IN_INFO = { pii_init, pii_quit, pii_query, pii_run };
@@ -529,13 +536,20 @@ int
 gimp_main(...)
 	PREINIT:
 	CODE:
-		if (items == 0)
-		  {
-		  }
-		else
-		  croak ("arguments to main not yet supported!");
+		SV *sv;
 		
-		RETVAL = gimp_main (origargc-1, origargv+1);
+		if ((sv = perl_get_sv ("Gimp::help", FALSE)) && SvTRUE (sv))
+		  RETVAL = 0;
+		else
+		  {
+		    if (items == 0)
+		      {
+		      }
+		    else
+		      croak ("arguments to main not yet supported!");
+		
+		    RETVAL = gimp_main (origargc-1, origargv+1);
+		  }
 	OUTPUT:
 	RETVAL
 
@@ -556,8 +570,12 @@ _gimp_procedure_available(proc_name)
 		int nvalues;
 		GParamDef *params;
 		GParamDef *return_vals;
+		char prefixed[80+6];
 		
-		if (gimp_query_procedure (proc_name, &proc_blurb, &proc_help, &proc_author,
+		sprintf (prefixed, GIMP_PKG "%0.80s", proc_name);
+		if (perl_get_cv (prefixed, 0))
+		  RETVAL = TRUE;
+		else if (gimp_query_procedure (proc_name, &proc_blurb, &proc_help, &proc_author,
 		    &proc_copyright, &proc_date, &proc_type, &nparams, &nreturn_vals,
 		    &params, &return_vals) == TRUE)
 		  {
@@ -738,7 +756,9 @@ gimp_uninstall_temp_proc(name)
 	char *	name
 
 void
-gimp_quit()
+gimp_lib_quit()
+	CODE:
+	gimp_quit ();
 
 void
 gimp_set_data(id, data)

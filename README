@@ -8,6 +8,9 @@ NAME
        Gimp - Perl extension for writing Gimp Extensions/Plug-
        ins/Load & Save-Handlers
 
+       This is mostly a reference manual. For a quick intro, look
+       at the Gimp::Fu manpage.
+
 RATIONALE
        Well, scheme (which is used by script-fu), is IMnsHO the
        crappiest language ever (well, the crappiest language that
@@ -29,6 +32,7 @@ SYNOPSIS
 
          use Gimp::Util;
          use Gimp::OO;
+         use Gimp::Fu;
 
          these have their own manpage.
 
@@ -48,20 +52,16 @@ SYNOPSIS
 
        :param
            Import PARAM_* constants (PARAM_INT32, PARAM_STRING
-           &c).
+           etc.)
 
-       interface=lib
-           Use direct interface via libgimp.
-
-       interface=net
-           Use network interface using Net-Server and Gimp::Net.
-
-       Dov Grobgeld has written a preliminary version of a
-       tutorial for Gimp-Perl.  While not finished, it's
+       :consts
+           The constants from gimpenums.h (BG_IMAGE_FILL,
+           RUN_NONINTERACTIVE etc.)
 
 
 
-28/Apr/98              perl 5.004, patch 64                     1
+
+11/May/98              perl 5.004, patch 64                     1
 
 
 
@@ -70,9 +70,16 @@ SYNOPSIS
 Gimp(3)        User Contributed Perl Documentation        Gimp(3)
 
 
-       definitely better than this section currently. You can
-       find it at http://imagic.weizmann.ac.il/~dov/gimp/perl-
-       tut.html
+       interface=lib
+           Use direct interface via libgimp.
+
+       interface=net
+           Use network interface using Net-Server and Gimp::Net.
+
+       Dov Grobgeld has written an excellent tutorial for Gimp-
+       Perl. While not finished, it's definitely better than this
+       section currently. You can find it at
+       http://imagic.weizmann.ac.il/~dov/gimp/perl-tut.html
 
 DESCRIPTION
        Look at the sample plug-ins that come with this module. If
@@ -118,16 +125,9 @@ CALLBACKS
            missing, because this module will directly call the
            function you registered with gimp_install_procedure.
 
-       net ()
-           this is called when the plug-in is not started from
-           within Gimp, but is using Net-Server (the perl network
-           server extension you hopefully have installed and
-           started ;)
 
 
-
-
-28/Apr/98              perl 5.004, patch 64                     2
+11/May/98              perl 5.004, patch 64                     2
 
 
 
@@ -135,6 +135,12 @@ CALLBACKS
 
 Gimp(3)        User Contributed Perl Documentation        Gimp(3)
 
+
+       net ()
+           this is called when the plug-in is not started from
+           within Gimp, but is using Net-Server (the perl network
+           server extension you hopefully have installed and
+           started ;)
 
 FUNCTIONS
        set_trace (tracemask)
@@ -184,16 +190,10 @@ FUNCTIONS
            and return values for the functions are specified as
            an array ref containing either integers or array-refs
            with three elements, [PARAM_TYPE, \"NAME\",
-           \"DESCRIPTION\"].
-
-       gimp_progress_init(message)
-           Initializes a progress bar. In networked modules this
-           is a no-op.
 
 
 
-
-28/Apr/98              perl 5.004, patch 64                     3
+11/May/98              perl 5.004, patch 64                     3
 
 
 
@@ -201,6 +201,12 @@ FUNCTIONS
 
 Gimp(3)        User Contributed Perl Documentation        Gimp(3)
 
+
+           \"DESCRIPTION\"].
+
+       gimp_progress_init(message)
+           Initializes a progress bar. In networked modules this
+           is a no-op.
 
        gimp_progress_update(percentage)
            Updates the progress bar. No-op in networked modules.
@@ -244,22 +250,16 @@ PLEASE
        scripts etc... ;) thanks!
 
 AUTHOR
-       Marc Lehmann, pcg@goof.com
+       Marc Lehmann <pcg@goof.com>
 
 SEE ALSO
-       perl(1), gimp(1), Gimp:OO, Gimp::Data, Gimp::Util.
+       perl(1), gimp(1), Gimp:OO(3), Gimp::Data(3),
+       Gimp::Util(3).
 
 
 
 
-
-
-
-
-
-
-
-28/Apr/98              perl 5.004, patch 64                     4
+11/May/98              perl 5.004, patch 64                     4
 
 
 
@@ -325,6 +325,6 @@ Gimp(3)        User Contributed Perl Documentation        Gimp(3)
 
 
 
-28/Apr/98              perl 5.004, patch 64                     5
+11/May/98              perl 5.004, patch 64                     5
 
 

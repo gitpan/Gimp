@@ -9,10 +9,12 @@
 $use_unix	= 1;
 $use_tcp	= 0;	# don't enable tcp.  security...
 
+use IO::Handle;
 use IO::Socket;
 
 use strict;
-use vars qw($use_unix $use_tcp $trace_res $server_quit $max_pkt $unix $tcp);
+use vars qw($use_unix $use_tcp $trace_res $server_quit $max_pkt $unix $tcp
+            $ps_flags);
 use Gimp 'interface=lib';
 use Gimp::Net;
 
@@ -41,6 +43,7 @@ $server_quit = 0;
 $max_pkt = 1024*1024;
 
 sub slog {
+  return if $ps_flags & &Gimp::_PS_FLAG_QUIET;
   print time(),": ",@_,"\n";
 }
 
@@ -48,7 +51,7 @@ sub handle_request($) {
   my($fh)=@_;
   my($length,$req,$data,@args,$trace_level);
   
-  $fh->timeout(4);
+  $fh->timeout(6) unless $ps_flags & &Gimp::_PS_FLAG_BATCH;
   $fh->sysread($length,4) == 4 or return 0;
   $length=unpack("N",$length);
   $length>0 && $length<$max_pkt or return 0;
@@ -56,8 +59,9 @@ sub handle_request($) {
   $fh->sysread($data,$length-4) == $length-4 or return 0;
   
   if($req eq "EXEC") {
+    no strict 'refs';
     ($req,@args)=Gimp::Net::net2args($data);
-    @args=eval { Gimp::gimp_call_procedure($req,@args) };
+    @args=eval { &{"Gimp::$req"}(@args) };
     $data=Gimp::Net::args2net($@,@args);
     print $fh pack("N",length($data)).$data;
   } elsif ($req eq "TEST") {
@@ -65,7 +69,7 @@ sub handle_request($) {
   } elsif($req eq "TRCE") {
     ($trace_level,$req,@args)=Gimp::Net::net2args($data);
     Gimp::set_trace($trace_level);
-    @args=eval { Gimp::gimp_call_procedure($req,@args) };
+    @args=eval { &{"Gimp::$req"}(@args) };
     $data=Gimp::Net::args2net($trace_res,$@,@args);
     print $fh pack("N",length($data)).$data;
     Gimp::set_trace(0);
@@ -79,7 +83,32 @@ sub handle_request($) {
   return 1;
 }
 
-sub extension_perl_net_server_start {
+sub extension_perl_server {
+  my $run_mode=$_[0];
+  $ps_flags=$_[1];
+  my $extra=$_[2];
+  
+  if ($run_mode == &Gimp::RUN_NONINTERACTIVE) {
+     if ($ps_flags & &Gimp::_PS_FLAG_BATCH) {
+        my($fh)=new_from_fd IO::Handle $extra,"r+";
+        $fh or die "unable to open Gimp::Net communications socket\n";
+        $fh->autoflush(1); # compatibility for old perls
+        while(!$server_quit) {
+           print "about to handle command\n";
+           last unless handle_request($fh);
+           print "handled command\n";
+        }
+#        Gimp::gimp_quit(0);	# borken in libgimp #FIXME#
+        kill 'TERM',getppid();	# borken do not do this.. #FIXME#
+        exit(0);		# borken
+        close $fh;
+        return;
+     }
+  } else {
+     $run_mode=&Gimp::RUN_INTERACTIVE;
+     $ps_flags=0;
+  }
+  
   slog "server started";
   
   $SIG{PIPE}='IGNORE'; # may not work, since libgimp (eech) overwrites it.        
@@ -143,14 +172,18 @@ sub extension_perl_net_server_start {
 }
 
 sub query {
-  Gimp::gimp_install_procedure("extension_perl_net_server_start", "Start the Gimp-Perl Net-Server",
+  Gimp::gimp_install_procedure("extension_perl_server", "Start the Gimp-Perl Server",
                                "This is the server for plug-ins written using the Gimp::Net module",
-                               "Marc Lehmann", "Marc Lehmann", "1998-04-02",
-                               "<Toolbox>/Xtns/Gimp Net-Server", "*",&Gimp::PROC_EXTENSION,
-                               [[&Gimp::PARAM_INT32, "run_mode", "Interactive, [non-interactive]"]],[]);
+                               "Marc Lehmann <pcg\@goof.com>", "Marc Lehmann", "1998-04-02",
+                               "<Toolbox>/Xtns/Perl Server", "*",&Gimp::PROC_EXTENSION,
+                               [
+                                [&Gimp::PARAM_INT32, "run_mode", "Interactive, [non-interactive]"],
+                                [&Gimp::PARAM_INT32, "flags", "internal flags (must be 0)"],
+                                [&Gimp::PARAM_INT32, "extra", "multi-purpose ;)"],
+                               ],[]);
 #  Gimp::gimp_install_procedure("extension_perl_net_server_config", "Configure the Gimp-Perl Net-Server",
 #                               "This is the server for plug-ins written using the Gimp::Net module",
-#                               "Marc Lehmann", "Marc Lehmann", "1998-04-02",
+#                               "Marc Lehmann <pcg\@goof.com>", "Marc Lehmann", "1998-04-02",
 #                               "<Toolbox>/Xtns/Gimp-Perl/Configure Server", "*",&Gimp::PROC_EXTENSION,
 #                               [[&Gimp::PARAM_INT32, "run_mode", "Interactive, [non-interactive]"]],[]);
 }

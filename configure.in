@@ -2,15 +2,33 @@ AC_INIT(Gimp.pm)
 
 AC_CONFIG_HEADER(config.h)
 
+AC_ARG_WITH(cflags,  [  --with-cflags=FLAGS     Set CFLAGS to FLAGS (optional)],
+   CFLAGS="$with_cflags")
+
+AC_ARG_WITH(ldflags, [  --with-ldflags=FLAGS    Set LDFLAGS to FLAGS (optional)],
+   LDFLAGS="$with_ldflags")
+
+AC_ARG_WITH(includes,[  --with-includes=DIR     Additionally search for includes in dir DIR (optional)],
+   CFLAGS="$CFLAGS -I$with_includes")
+
+AC_ARG_WITH(libs,    [  --with-libs=DIR         Additionally search for libraries in dir in DIR (optional)],
+   LIBS="$LIBS -L$with_libs")
+
+AC_ARG_WITH(includes,[  --with-glib-prefix=DIR  Prefix where GLIB is installed (optional)],
+   CFLAGS="$CFLAGS -I$with_glib_prefix/include" LIBS="$LIBS -L$with_glib_prefix/libs")
+
 AC_CHECK_PROGS(PERL,perl5.004_01 perl5.004 perl5 perl,perl)
+AC_CHECK_PROGS(GIMP,gimp,gimp)
+
+eval `$PERL -V:cc`
+: ${CC=$cc}
 
 AC_CHECK_FUNCS(vsnprintf,,[
    AC_MSG_WARN(vsnprintf not found.. I hope you are using gcc...)
 ])
 
-AC_CHECK_LIB(glib,g_malloc,,[
-   AC_MSG_ERROR(unable to find glib)
-])
+AC_CHECK_LIB(glib-1.1,g_malloc,[LIBS="$LIBS -lglib-1.1"],
+             [AC_CHECK_LIB(glib,g_malloc,[LIBS="$LIBS -lglib"],[AC_MSG_ERROR(unable to find glib)])])
 
 AC_HEADER_STDC
 AC_CHECK_HEADERS(libgimp/gimp.h)
@@ -19,12 +37,15 @@ AC_CHECK_HEADERS(libgimp/gimp.h)
 LIBS="$LIBS -lgimp"
 dnl AC_CHECK_LIB(gimp,gimp_main)
 
+AC_SUBST(LDFLAGS)
+AC_SUBST(CFLAGS)
 AC_OUTPUT(Makefile.PL Gimp/Makefile.PL)
 
 echo invoking $PERL for configuration...
-$PERL Makefile.PL
-echo
-echo now enter \"make\", \"make test\" and \"make install\"
-echo
+if test -z "$prefix"; then
+   $PERL Makefile.PL
+else
+   $PERL Makefile.PL prefix="$prefix"
+fi
 
 

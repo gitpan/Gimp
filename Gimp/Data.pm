@@ -56,10 +56,10 @@ the keys (with keys, values or each).
 
 =head1 AUTHOR
 
-Marc Lehmann, pcg@goof.com
+Marc Lehmann <pcg@goof.com>
 
 =head1 SEE ALSO
 
-perl(1), Gimp(1),
+perl(1), Gimp(3),
 
 =cut

@@ -3,6 +3,7 @@ package Gimp::Lib;
 use strict;
 use Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @_consts @_procs %EXPORT_TAGS @EXPORT_FAIL);
+use Gimp;
 
 require DynaLoader;
 
@@ -18,7 +19,8 @@ sub AUTOLOAD {
   my $constname;
   ($constname = $AUTOLOAD) =~ s/.*:://;
   if (_gimp_procedure_available ($constname)) {
-     eval "sub $AUTOLOAD { gimp_call_procedure '$constname',\@_ }";
+     no strict "refs";
+     *{$AUTOLOAD} = sub { gimp_call_procedure $constname,@_ };
      goto &$AUTOLOAD;
   } else {
      croak "$constname not defined in Gimp";
@@ -43,16 +45,15 @@ Gimp::Lib - Interface to libgimp (as opposed to Gimp::Net)
 =head1 DESCRIPTION
 
 This is package that uses libgimp to interface with the Gimp, i.e. the
-normal interface to use with the Gimp. You don't normally use
-this module directly, look at the documentation for the
-package "Gimp".
+normal interface to use with the Gimp. You don't normally use this module
+directly, look at the documentation for the package "Gimp".
 
 =head1 AUTHOR
 
-Marc Lehmann, pcg@goof.com
+Marc Lehmann <pcg@goof.com>
 
 =head1 SEE ALSO
 
-perl(1), gimp(1).
+perl(1), Gimp(3)
 
 =cut

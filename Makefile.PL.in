@@ -1,4 +1,30 @@
 use ExtUtils::MakeMaker;
+
+eval "use Gtk;"; $GTK = $@ eq "";
+
+qx(@GIMP@ --version) =~ /GIMP version ([0-9.]+)/i
+   or die "unable to find gimp, make sure it's in your path (version 0.99+ required!)";
+
+$GTK or print <<EOF;
+
+WARNING: unable to use the Perl-Gtk interface. Some features (like Gimp::Fu)
+         rely on this extension. You can try to build without it, but it's
+         better to install it (you can get it from
+         ftp://ftp.gimp.org/pub/gtk/ or any CPAN mirror).
+
+EOF
+
+print "using gimp version $1\n";
+
+sub MY::postamble {
+   <<EOF;
+install :: install-plugins
+
+install-plugins:
+	\@echo 'sorry, install-plugins not yet implemented ;('
+EOF
+}
+
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile(
@@ -11,9 +37,30 @@ WriteMakefile(
     'DIR'	=> ['Gimp'],
     'NAME'	=> 'Gimp',
     'VERSION_FROM' => 'Gimp.pm',
+    'PM'	=> {
+    		    'Gimp.pm'		=> '$(INST_LIBDIR)/Gimp.pm',
+    		    'Gimp/Data.pm'	=> '$(INST_LIBDIR)/Gimp/Data.pm',
+    		    'Gimp/Fu.pm'	=> '$(INST_LIBDIR)/Gimp/Fu.pm',
+    		    'Gimp/Lib.pm'	=> '$(INST_LIBDIR)/Gimp/Lib.pm',
+    		    'Gimp/Net.pm'	=> '$(INST_LIBDIR)/Gimp/Net.pm',
+    		    'Gimp/OO.pm'	=> '$(INST_LIBDIR)/Gimp/OO.pm',
+    		    'Gtk/ColorSelectButton.pm'=> '$(INST_LIBDIR)/Gtk/ColorSelectButton.pm',
+    		   },
     'LIBS'	=> [''],
     'INC'	=> '',
     'DEFINE'	=> '',
-    'clean'	=> { FILES => "config.status config.cache config.log ".
-                              "config.h Makefile.PL Gimp/Makefile.PL"},
+    'clean'	=> { FILES => "config.log config.h Makefile.PL Gimp/Makefile.PL" },
+    'realclean'	=> { FILES => "config.status config.cache" },
 );
+
+print <<EOF;
+
+
+Hopefully, Gimp is now correctly configured. you can now enter "make", "make
+test" and "make install" and, to install the Perl-Server and various
+other plugins, "make install-plugins".
+
+EOF
+
+
+

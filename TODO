@@ -1,9 +1,12 @@
-* duh' progressbar does not work through Gimp::Net
+important issues:
 
+* implement PF_IMAGE, PF_DRAWABLE etc... either in perl or make
+  gimpui.h somehow available (hmm...)
+
+not-so-important issues:
+
+* tile & region functions -> make them piddles! (PDL)
 * return values for run()
-
-* tracing through Gimp::Net (tough ;)
-
 * unimplemented functions:
 gimp_drawable_mask_bounds
 gimp_drawable_offsets
@@ -14,6 +17,5 @@ gimp_gradients_sample_uniform
 gimp_gradients_sample_custom
 
 * default function parameters (with hash %defaults?)
-
-gimp_text(text => "hallo", family => "engraver", size => 20);
+* gimp_text(text => "hallo", family => "engraver", size => 20);
 
