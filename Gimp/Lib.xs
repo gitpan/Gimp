@@ -24,6 +24,7 @@
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
+#include "patchlevel.h"
 
 /* I actually do care a bit about older perls... */
 #ifndef ERRSV
@@ -31,7 +32,10 @@
 #endif
 /* And also for newer perls... */
 #ifndef dTHR
-#define dTHR
+#define dTHR (void)0
+#endif
+#if (PATCHLEVEL < 5)
+#define newSVpvn(data,len) ((len) ? newSVpv ((data), (len)) : newSVpv ("", 0))
 #endif
 #ifndef PL_sv_undef
 #define PL_sv_undef sv_undef
@@ -140,8 +144,8 @@ GTile *old_tile (SV *sv)
 
 GPixelRgn *old_pixelrgn (SV *sv)
 {
-  dTHR;
   STRLEN dc;
+  dTHR;
   
   if (!sv_derived_from (sv, PKG_PIXELRGN))
     croak ("argument is not of type " PKG_PIXELRGN);
@@ -352,10 +356,10 @@ dump_params (int nparams, GParam *args, GParamDef *params)
 static int
 convert_array2paramdef (AV *av, GParamDef **res)
 {
-  dTHR;
   STRLEN dc;
   int count = 0;
   GParamDef *def = 0;
+  dTHR;
   
   if (av_len (av) >= 0)
     for(;;)
@@ -454,7 +458,7 @@ autobless (SV *sv, int type)
 static gint32
 unbless (SV *sv, char *type, char *croak_str)
 {
-  if (SvROK (sv))
+  if (sv_isobject (sv))
     if (type == PKG_ANY
         || (type == PKG_ANYABLE && (sv_derived_from (sv, PKG_DRAWABLE)
                                     || sv_derived_from (sv, PKG_LAYER)
@@ -468,7 +472,7 @@ unbless (SV *sv, char *type, char *croak_str)
       }
     else
       if (croak_str)
-        sprintf (croak_str, "argument type %s expected", type);
+        sprintf (croak_str, "argument type %s expected (not %s)", type, HvNAME(SvSTASH(sv)));
       else
         croak ("argument type %s expected", type);
   else
@@ -644,8 +648,8 @@ push_gimp_sv (GParam *arg, int array_as_ref)
 static int
 convert_sv2gimp (char *croak_str, GParam *arg, SV *sv)
 {
-  dTHR;
   STRLEN dc;
+  dTHR;
   
   switch (arg->type)
     {
@@ -1287,7 +1291,7 @@ gimp_set_data(id, data)
 		dta = SvPV (data, dlen);
 
 		/* do not remove this comment */
-#ifdef HAVE_GET_DATA_SIZE
+#ifdef GIMP_HAVE_PROCEDURAL_DB_GET_DATA_SIZE
 		gimp_set_data (SvPV (id, dc), dta, dlen);
 #else
 		{
@@ -1302,10 +1306,10 @@ gimp_set_data(id, data)
 #endif
 	}
 
-SV *
+void
 gimp_get_data(id)
 	SV *	id;
-	CODE:
+	PPCODE:
 	{
 		SV *data;
 		STRLEN dlen;
@@ -1313,14 +1317,13 @@ gimp_get_data(id)
 		STRLEN dc;
 		
 		/* do not remove this comment */
-#ifdef HAVE_GET_DATA_SIZE
+#ifdef GIMP_HAVE_PROCEDURAL_DB_GET_DATA_SIZE
 		dlen = gimp_get_data_size (SvPV (id, dc));
 		/* I count on dlen being zero if "id" doesn't exist.  */
 		data = newSVpv ("", 0);
 		gimp_get_data (SvPV (id, dc), SvGROW (data, dlen+1));
 		SvCUR_set (data, dlen);
 		*((char *)SvPV (data, dc) + dlen) = 0;
-		RETVAL = data;
 #else
 		{
 		  char str[1024]; /* hack */
@@ -1332,21 +1335,18 @@ gimp_get_data(id)
 		  dlen = (STRLEN) -1;
 		  str[len] = 'S'; gimp_get_data (str, &dlen);
 		  
+		  data = newSVpv ("", 0);
 		  if (dlen != (STRLEN)-1)
 		    {
-		      data = newSVpv ("", 0);
 		      str[len] = 'C'; gimp_get_data (str, SvGROW (data, dlen+1));
 		      SvCUR_set (data, dlen);
 		      *((char *)SvPV (data, dc) + dlen) = 0;
-		      RETVAL = data;
 		    }
-		  else
-		    RETVAL = &PL_sv_undef;
+
 		}
 #endif
+                XPUSHs (data);
 	}
-	OUTPUT:
-	RETVAL
 
 void
 gimp_register_magic_load_handler(name, extensions, prefixes, magics)

@@ -1,4 +1,4 @@
-#!/usr/app/bin/perl
+#!/tmp/bin/perl
 
 use strict 'subs';
 use Gimp;

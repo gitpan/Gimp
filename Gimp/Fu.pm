@@ -212,7 +212,7 @@ sub interact($$$@) {
            
         } elsif($type == PF_FONT) {
            my $fs=new Gtk::FontSelectionDialog "Font Selection Dialog ($desc)";
-           my $def = "-*-helvetica-o-normal--34-*-*-*-*-*-*-*";
+           my $def = "-*-helvetica-medium-r-normal-*-*-240-*-*-p-*-iso8859-1";
            my $val;
            
            my $l=new Gtk::Label "!error!";
@@ -224,7 +224,7 @@ sub interact($$$@) {
                  $fs->set_font_name ($val);
               }
               
-              my($n,$t)=xlfd_size($val);
+              my($n,$t)=Gimp::xlfd_size($val);
               $l->set((split(/-/,$val))[2]."\@$n".($t ? "p" : ""));
            };
            
@@ -679,20 +679,11 @@ which will open a colour selection box when clicked.
 
 =item PF_IMAGE
 
-A gimp image. Not yet supported in dialogs :(
+A gimp image.
 
 =item PF_DRAWABLE
 
-A gimp drawable (image, channel or layer). Not yet supported in dialogs :(
-
-=item PF_FONT
-
-An experimental value used to denote fonts. At the moment, this is just
-a C<PF_STRING>. It might be replaced by a font selection dialog in the future.
-
-Please note that the Gimp has no value describing a font, so the format of
-this string is undefined (and will usually contain only the family name of
-the selected font, but in the future it will contain a XLFD).
+A gimp drawable (image, channel or layer).
 
 =item PF_TOGGLE, PF_BOOL
 
@@ -719,6 +710,8 @@ The default argument, if specified, must be a full XLFD specification, or a
 warning will be printed. Please note that the gimp text functions using
 these fontnames (gimp_text_..._fontname) ignore the size. You can extract
 the size and dimension by using the C<xlfd_size> function.
+
+In older Gimp-Versions a user-supplied string is returned.
 
 =item PF_BRUSH, PF_PATTERN, PF_GRADIENT
 
@@ -900,8 +893,10 @@ sub save_image($$) {
    my $layer = $img->get_active_layer;
    
    if ($type eq "JPG" or $type eq "JPEG") {
-      Gimp->file_jpeg_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,$quality,$smooth,1);
+      eval { Gimp->file_jpeg_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,$quality,$smooth,1) };
+      Gimp->file_jpeg_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,$quality,$smooth,1,1,"") if $@;
    } elsif ($type eq "GIF") {
+      $img->convert_indexed (1,256) unless $layer->indexed;
       Gimp->file_gif_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,$interlace,0,0,0);
    } elsif ($type eq "PNG") {
       Gimp->file_png_save(&Gimp::RUN_NONINTERACTIVE,$img,$layer,$path,$path,$interlace,$compress);

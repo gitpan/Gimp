@@ -1,4 +1,4 @@
-#!/usr/app/bin/perl
+#!/tmp/bin/perl
 
 BEGIN { $^W=1 }
 use strict;

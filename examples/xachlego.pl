@@ -1,4 +1,4 @@
-#!/usr/app/bin/perl
+#!/tmp/bin/perl
 # This is (hopefully) a demonstration of how pathetically easy it is to script
 # a neato effect you've come up with.  This lil' effect was created by xach,
 # and translated by sjburges (me).  You can consider it released under the GPL
@@ -37,7 +37,7 @@ register "xach_blocks",
           building block creation",
          "Seth Burgess",
          "Seth Burgess",
-         "1.3",
+         "1.4",
          "<Image>/Filters/Misc/Xach Blocks",
          "*",
          [
