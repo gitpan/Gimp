@@ -11,4 +11,3 @@ $GIMPTOOL	= q[@GIMPTOOL@];
 $GIMP_INC	= q[@GIMP_CFLAGS@];
 $GIMP_LIBS	= q[@GIMP_LIBS@];
 
-

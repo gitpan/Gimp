@@ -107,7 +107,7 @@ sub interact($@) {
    my($w,$t,$button,$box,$bot,$g);
    my $res=0;
    
-   parse Gtk::Rc Gimp::gimp_gtkrc;
+   parse Gtk::Rc Gimp->gtkrc;
    
    $t = new Gtk::Tooltips;
    
@@ -123,7 +123,7 @@ sub interact($@) {
       my($label,$a);
       my($type,$name,$desc,$default)=@$_;
       my($value)=shift;
-      $value=$default unless defined($value);
+      $value=$default unless defined $value;
       push(@defaults,$default);
       $label="$name: ";
       if($type == PF_INT8	# perl just maps
@@ -133,17 +133,17 @@ sub interact($@) {
       || $type == PF_STRING) {	# I love it
          $a=new Gtk::Entry;
          set_usize $a 0,25;
-         push(@setvals,sub{set_text $a $_[0]});
+         push(@setvals,sub{set_text $a $value});
          #select_region $a 0,1;
          push(@getvals,sub{get_text $a});
       } elsif($type == PF_COLOR) {
-         my $res;
-         $a=new Gtk::ColorSelectButton (-width => 60, -height => 15);
-         push(@setvals,sub{$a->color(join " ",@{Gimp::canonicalize_color $_[0]})});
+         $a=new Gtk::ColorSelectButton (-width => 90, -height => 18);
+         $value = [216, 152, 32] unless defined $value;
+         push(@setvals,sub{$a->color(join " ",@{Gimp::canonicalize_color $value})});
          push(@getvals,sub{[split ' ',$a->color]});
       } elsif($type == PF_TOGGLE) {
          $a=new Gtk::CheckButton $desc;
-         push(@setvals,sub{set_state $a ($_[0] ? 1 : 0)});
+         push(@setvals,sub{set_state $a ($value ? 1 : 0)});
          push(@getvals,sub{state $a eq "active"});
       } elsif($type == PF_IMAGE) {
          my $res;
@@ -485,8 +485,11 @@ sub register($$$$$$$$$&) {
          die "menupath _must_ start with <Image> or <Toolbox>!";
       }
       
-      my $VAR1; # Data::Dumper is braindamaged
-      @defaults=@{eval $Gimp::Data{"_fu_data"}};
+      {
+         my $VAR1; # Data::Dumper is braindamaged
+         local $^W=0; # perl -w is braindamaged
+         @defaults=@{eval $Gimp::Data{"$function/_fu_data"}};
+      }
       if (@defaults) {
          for (0..$#{$params}) {
 	    $params->[$_]->[3]=$defaults[$_];
@@ -511,7 +514,7 @@ sub register($$$$$$$$$&) {
          die "run_mode must be INTERACTIVE, NONINTERACTIVE or WITH_LAST_VALS\n";
       }
       
-      $Gimp::Data{"_fu_data"}=Dumper([@_]);
+      $Gimp::Data{"$function/_fu_data"}=Dumper([@_]);
       
       print $function,"(",join(",",(@pre,@_)),")\n" if $Gimp::verbose;
       
@@ -538,7 +541,7 @@ sub register($$$$$$$$$&) {
             }
 	 }
       }
-      Gimp::gimp_displays_flush();
+      Gimp->displays_flush;
    };
    push(@scripts,[$function,$blurb,$help,$author,$copyright,$date,
                   $menupath,$imagetypes,$params,$code]);

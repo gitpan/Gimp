@@ -29,8 +29,8 @@ register "my_first_gimp_fu",				# fill in name
    my $l=new Layer($img,300,200,RGB_IMAGE,"Background",100,NORMAL_MODE);
    $img->add_layer($l,0);
    
-   Palette::set_foreground($fg) unless $ignore;
-   Palette::set_background($bg) unless $ignore;
+   Palette->set_foreground($fg) unless $ignore;
+   Palette->set_background($bg) unless $ignore;
    
    fill $l BG_IMAGE_FILL;
    $t=$img->text(-1,10,10,$text,5,1,$size,PIXELS,"*",$font,"*","*","*","*");

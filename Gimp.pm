@@ -10,7 +10,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '1.01';
+$VERSION = '1.02';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -51,10 +51,10 @@ $VERSION = '1.01';
 	
 ));
 
-# procs an interface module must(!) implement somehow
+# some _common_ procedures, the only ones supported by the Gimp::function
+# syntax. Use Gimp->function to access all functions.
 @_procs = qw(
 	gimp_main			gimp_install_procedure		gimp_call_procedure
-	
 	gimp_quit			gimp_progress_init		gimp_progress_update
 	gimp_register_save_handler	gimp_register_magic_load_handler
 	gimp_register_load_handler	gimp_gamma			gimp_install_cmap
@@ -129,7 +129,6 @@ $VERSION = '1.01';
 );
 
 use subs @_consts;
-use subs @_procs;
 
 sub ALL_HUES		{ 0 };
 sub RED_HUES		{ 1 };
@@ -168,8 +167,8 @@ sub import($;@) {
             sub AUTOLOAD {
                no strict 'vars';
                local \@PREFIXES=('');
-               \$Gimp::OO::AUTOLOAD=\$AUTOLOAD;
-               &Gimp::OO::AUTOLOAD;
+               \$Gimp::AUTOLOAD=\$AUTOLOAD;
+               &Gimp::AUTOLOAD;
             }";
          die $@ if $@;
       } elsif ($_ eq ":consts") {
@@ -186,14 +185,6 @@ sub import($;@) {
    for(@export) {
       *{"${up}::$_"} = \&$_;
    }
-}
-
-@PREFIXES=("gimp_", "");
-
-# we need a fake autoload to calm down -w
-sub AUTOLOAD {
-   $Gimp::OO::AUTOLOAD=$AUTOLOAD;
-   goto &Gimp::OO::AUTOLOAD;
 }
 
 my %rgb_db;
@@ -275,23 +266,19 @@ if ($interface_type=~/^lib$/i) {
 
 eval "require $interface_pkg" or croak "$@";
 $interface_pkg->import();
-for(@_procs,@_internals) {
+
+# create some common aliases
+for(qw(_gimp_procedure_available gimp_call_procedure set_trace gimp_main)) {
    no strict 'refs';
    *$_ = \&{"${interface_pkg}::$_"};
 }
-
-bootstrap Gimp $VERSION;
-
-package Gimp::OO;
-
-use Carp 'croak';
-
-unshift(@Gimp::ISA, "Gimp::OO");
 
 sub _croak($) {
   $_[0] =~ s/ at .*? line \d+.*$//s;
   Carp::croak $_[0];
 }
+
+@PREFIXES=("gimp_", "");
 
 sub AUTOLOAD {
    no strict;
@@ -300,18 +287,19 @@ sub AUTOLOAD {
    if ($!) {
       for(@{"${class}::PREFIXES"}) {
          my $sub = $_.$name;
-         if (Gimp::_gimp_procedure_available ($_.$name)) {
+         if (Gimp::_gimp_procedure_available ($sub)) {
             *{$AUTOLOAD} = sub {
-               shift if $_[0] eq $class;
+               shift if @_ && $_[0] eq $class;
+#               unshift & goto, FIXME!!! PERLBUG!!
                my @r=eval { Gimp::gimp_call_procedure($sub,@_) };
                _croak $@ if $@;
                wantarray ? @r : $r[0];
             };
             goto &$AUTOLOAD;
-         } elsif (defined($Gimp::{$sub}{CODE})) {
-            my $ref = \&{"Gimp::$sub"};
+         } elsif (defined(*{"${interface_pkg}::$sub"}{CODE})) {
+            my $ref = \&{"${interface_pkg}::$sub"};
             *{$AUTOLOAD} = sub {
-               shift if $_[0] eq $class;
+               shift if @_ && $_[0] eq $class;
 #               goto &$ref;	# does not work always, PERLBUG! #FIXME
                my @r = eval { &$ref };
                _croak $@ if $@;
@@ -320,7 +308,7 @@ sub AUTOLOAD {
             goto &$AUTOLOAD;
          }
       }
-      croak "function/macro $name not found in $class";
+      croak "function/macro \"$name\" not found in $class";
    }
    *{$AUTOLOAD} = sub { $val };
    $val;
@@ -331,7 +319,7 @@ sub _pseudoclass {
   my ($class, @prefixes)= @_;
   unshift(@prefixes,"");
   push(@{"${class}::ISA"}		, "Gimp::${class}");
-  push(@{"Gimp::${class}::ISA"}		, 'Gimp::OO');
+  push(@{"Gimp::${class}::ISA"}		, 'Gimp');
   push(@{"Gimp::${class}::PREFIXES"}	, @prefixes);
   push(@{"${class}::PREFIXES"}		, @prefixes);
 }
@@ -362,6 +350,9 @@ _pseudoclass qw(Palette		gimp_palette_);
 _pseudoclass qw(Brushes		gimp_brushes_);
 _pseudoclass qw(Edit		gimp_edit_);
 _pseudoclass qw(Gradients	gimp_gradients_);
+_pseudoclass qw(Patterns	gimp_patterns_);
+
+bootstrap Gimp $VERSION;
 
 package Gimp::Tile;
 
@@ -385,7 +376,7 @@ push(@PixelRgn::ISA, "Gimp::PixelRgn");
 
 sub new($$$$$$$$) {
    shift;
-   goto &Gimp::gimp_pixel_rgn_init;
+   init Gimp::PixelRgn(@_);
 }
 
 sub DESTROY {

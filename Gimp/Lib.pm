@@ -17,11 +17,11 @@ sub AUTOLOAD {
    my $constname;
    ($constname = $AUTOLOAD) =~ s/.*:://;
    if (_gimp_procedure_available ($constname)) {
-       no strict "refs";
-       *{$AUTOLOAD} = sub { gimp_call_procedure $constname,@_ };
-       goto &$AUTOLOAD;
+      no strict "refs";
+      *{$AUTOLOAD} = sub { gimp_call_procedure $constname,@_ };
+      goto &$AUTOLOAD;
    } else {
-       croak "$constname not defined in Gimp";
+      croak "$constname not defined in Gimp";
    }
 }
 

@@ -30,15 +30,13 @@ $old_w = $^W; $^W = 0;
 };
 
 # this tries to overwrite a function with another one. this is quite tricky
-# (almost impossible in general), we only overwrite Gimp::Lib::function and
-# Gimp::function and hope no other references are around.
+# (almost impossible in general), we only overwrite Gimp::<iface>::function
+# and hope no other references are around.
 sub rep ($&) {
    my($name,$sub)=@_;
-   *{"old_$name"}=\&{"${interface_pkg}::gimp_pixel_rgn_$name"};
-   undef *{"${interface_pkg}::gimp_pixel_rgn_$name"};
-   undef *{"Gimp::gimp_pixel_rgn_$name"};
-   *{"${interface_pkg}::gimp_pixel_rgn_$name"}=
-   *{"Gimp::gimp_pixel_rgn_$name"}=$sub;
+   *{"old_$name"}=\&{"${Gimp::interface_pkg}::gimp_pixel_rgn_$name"};
+   undef *{"${Gimp::interface_pkg}::gimp_pixel_rgn_$name"};
+   *{"${Gimp::interface_pkg}::gimp_pixel_rgn_$name"}=$sub;
 }
 
 rep "get_pixel", sub($$$) {

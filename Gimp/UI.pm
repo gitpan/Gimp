@@ -28,21 +28,21 @@ reimplement it in perl.
 
 sub Gimp::UI::ImageMenu::_items {
   map [[$_],$_,$_->get_filename],
-      Gimp::gimp_list_images ();
+      Gimp->list_images ();
 }
 sub Gimp::UI::LayerMenu::_items {
   map { my $i = $_; map [[$i,$_],$_,$i->get_filename."/".$_->get_name],$i->get_layers }
-      Gimp::gimp_list_images ();
+      Gimp->list_images ();
 }
 
 sub Gimp::UI::ChannelMenu::_items {
   map { my $i = $_; map [[$i,$_],$_,$i->get_filename."/".$_->get_name],$i->get_channels }
-      Gimp::gimp_list_images ();
+      Gimp->list_images ();
 }
 
 sub Gimp::UI::DrawableMenu::_items {
   map { my $i = $_; map [[$i,$_],$_,$i->get_filename."/".$_->get_name],($i->get_layers, $i->get_channels) }
-      Gimp::gimp_list_images ();
+      Gimp->list_images ();
 }
 
 sub new($$$$) {

@@ -31,12 +31,12 @@ C<Gimp::Palette> (please note that B<all> these classes appear with the
 C<Gimp::> prefix as well as without, i.e. C<Gimp::Palette> is the same class
 as C<Palette>).
 
-If you call a method, C<Gimp::OO> tries to find a gimp function by
+If you call a method, C<Gimp> tries to find a gimp function by
 prepending a number of prefixes until it finds a valid function:
 
- $image = Image::new(...);	# calls gimp_image_new(...)
+ $image = Image->new(...);	# calls gimp_image_new(...)
  $image = new Image(...);	# the same in green
- Palette::set_foreground(...)	# calls gimp_palette_set_foreground(..)
+ Palette->set_foreground(...)	# calls gimp_palette_set_foreground(..)
 
 Return values from functions are automatically blessed (through
 the magic autobless feature ;) to their corresponding classes, i.e.
@@ -163,6 +163,10 @@ that are checked are shown as well (the null prefix "" is implicit).
 =item Selection
 
  gimp_selection_
+
+=item Patterns
+
+ gimp_patterns_
 
 =back
 

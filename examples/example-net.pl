@@ -17,9 +17,9 @@ sub net {
   new Gimp::Display($img);
   
   for $i (0..255) {
-     Palette::set_background([$i,255-$i,$i]);
+     Palette->set_background([$i,255-$i,$i]);
      $img->edit_fill ($bg);
-     Display::displays_flush ();
+     Display->displays_flush ();
   }
   
 #  Gimp::Net::server_quit;  # kill the gimp-perl-server-extension (ugly name)

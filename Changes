@@ -1,5 +1,12 @@
 Revision history for Gimp-Perl extension.
 
+1.02 Wed Sep  2 23:35:37 CEST 1998
+	- added Gimp::Patterns
+	- Gimp::Fu now doesn't gratitiously share LAST_VALS with other
+	  Gimp::Fu-plugins anymore ;)
+	- reworked AUTOLOAD again, no it even seems to work.
+	- fixed Fu::interact
+
 1.01 Tue Sep  1 23:18:25 CEST 1998
 	- PARAM_IMAGEs (et al.) can now be passed into an INT32ARRAY
 	  (*shudder*)

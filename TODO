@@ -1,16 +1,17 @@
-this is mostly my internal worksheet, and may not be up-to-date ;)
+this is mostly my internal worksheet, which may not be up-to-date and may
+not even be readable ;)
 
 bugs
 
-[DONE]  * pass IMAGEs as INT32 in arrays(?)
-[DONE]  * modification of read-only variable attempted in Gimp::Data
-[DONE]  * croak where croak to croak is croaked
-[DONE]  * colour descriptions also for GtkColorSelectButton(!!)
+  * check Perl-Server(subito)
+  * -rdynamic is being ignored by MakeMaker.
+[DONE]  * too many vs. not enough
+  * Gimp::Net, <Image>-scripts should always ask for Image & Drawable(!)
+  * create working progress when Net and $verbose
+  * block display_new &c when Net
   
 important issues
 
-[DONE]  * add realclean
-[DONE]  * make traceable
   * Untitled/0 Untitled/1 etc..
   * default parameters at end(!)
   * try to deduce default parameters
@@ -22,7 +23,6 @@ not-so-important issues
   * memory leaks on many croak()'s
   * default function parameters (with hash %defaults?)
   * gimp_text(text => "hallo", family => "engraver", size => 20);
-[DONE]  * RUN_WITH_LAST_VALS
   
   * unimplemented functions:
     
