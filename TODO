@@ -2,29 +2,31 @@ this is mostly my internal worksheet, and may not be up-to-date ;)
 
 bugs
 
-  * modification of read-only variable attempted in Gimp::Data
+[DONE]  * pass IMAGEs as INT32 in arrays(?)
+[DONE]  * modification of read-only variable attempted in Gimp::Data
 [DONE]  * croak where croak to croak is croaked
 [DONE]  * colour descriptions also for GtkColorSelectButton(!!)
   
-  * ???too many/not enough
-  * ???gimp_layer_new
-
 important issues
 
 [DONE]  * add realclean
 [DONE]  * make traceable
   * Untitled/0 Untitled/1 etc..
+  * default parameters at end(!)
+  * try to deduce default parameters
+  * return values for run()
+  * more colour codes allowed on commandline.
 
 not-so-important issues
 
   * memory leaks on many croak()'s
-  * return values for run()
   * default function parameters (with hash %defaults?)
   * gimp_text(text => "hallo", family => "engraver", size => 20);
 [DONE]  * RUN_WITH_LAST_VALS
   
   * unimplemented functions:
     
+    these are superseded anyway:
     gimp_query_procedure(proc_name, proc_blurb, proc_help, proc_author, proc_copyright, proc_date, proc_type, nparams, nreturn_vals, params, return_vals)
     gimp_query_database
     gimp_channel_get_show_masked(channel_ID)

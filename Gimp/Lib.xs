@@ -3,6 +3,11 @@
 
 #include <libgimp/gimp.h>
 
+/* FIXME */
+/* sys/param.h is redefining these! */
+#undef MIN
+#undef MAX
+
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
@@ -31,18 +36,18 @@
 #define PKG_TILE	GIMP_PKG "Tile"
 #define PKG_PIXELRGN	GIMP_PKG "PixelRgn"
 
-#define PKG_ANY		0
+#define PKG_ANY		((char *)0)
 
 static int trace = TRACE_NONE;
 
-typedef guint32 IMAGE;
-typedef guint32 LAYER;
-typedef guint32 CHANNEL;
-typedef guint32 DRAWABLE;
-typedef guint32 SELECTION;
-typedef guint32 DISPLAY;
-typedef guint32 REGION;
-typedef guint32 COLOR;
+typedef gint32 IMAGE;
+typedef gint32 LAYER;
+typedef gint32 CHANNEL;
+typedef gint32 DRAWABLE;
+typedef gint32 SELECTION;
+typedef gint32 DISPLAY;
+typedef gint32 REGION;
+typedef gint32 COLOR;
 
 /* new SV with len len.  There _must_ be a better way, but newSV doesn't work.  */
 SV *newSVn (int len)
@@ -162,11 +167,11 @@ error need_ansi_compiler__maybe_try_c89
 #endif
 
 /* horrors!  c wasn't designed for this!  */
-#define dump_printarray(args,index,datatype,frmt) {\
+#define dump_printarray(args,index,ctype,datatype,frmt) {\
   int j; \
   trace_printf ("["); \
   for (j = 0; j < args[index-1].data.d_int32; j++) \
-    trace_printf (frmt ## "%s", args[index].data.datatype[j], \
+    trace_printf (frmt ## "%s", (ctype) args[index].data.datatype[j], \
                   j < args[index-1].data.d_int32 - 1 ? ", " : ""); \
   trace_printf ("]"); \
 }
@@ -203,7 +208,7 @@ dump_params (int nparams, GParam *args, GParamDef *params)
         {
           case PARAM_INT32:	trace_printf ("%d", args[i].data.d_int32); break;
           case PARAM_INT16:	trace_printf ("%d", args[i].data.d_int16); break;
-          case PARAM_INT8:	trace_printf ("%d", args[i].data.d_int8); break;
+          case PARAM_INT8:	trace_printf ("%d", (guint8) args[i].data.d_int8); break;
           case PARAM_FLOAT:	trace_printf ("%f", args[i].data.d_float); break;
           case PARAM_STRING:	trace_printf ("\"%s\"", args[i].data.d_string); break;
           case PARAM_DISPLAY:	trace_printf ("%d", args[i].data.d_display); break;
@@ -215,11 +220,11 @@ dump_params (int nparams, GParam *args, GParamDef *params)
           case PARAM_BOUNDARY:	trace_printf ("%d", args[i].data.d_boundary); break;
           case PARAM_PATH:	trace_printf ("%d", args[i].data.d_path); break;
           case PARAM_STATUS:	trace_printf ("%d", args[i].data.d_status); break;
-          case PARAM_INT32ARRAY:	dump_printarray (args, i, d_int32array, "%d"); break;
-          case PARAM_INT16ARRAY:	dump_printarray (args, i, d_int16array, "%d"); break;
-          case PARAM_INT8ARRAY:		dump_printarray (args, i, d_int8array, "%d"); break;
-          case PARAM_FLOATARRAY:	dump_printarray (args, i, d_floatarray, "%f"); break;
-          case PARAM_STRINGARRAY:	dump_printarray (args, i, d_stringarray, "'%s'"); break;
+          case PARAM_INT32ARRAY:	dump_printarray (args, i, gint32, d_int32array, "%d"); break;
+          case PARAM_INT16ARRAY:	dump_printarray (args, i, gint16, d_int16array, "%d"); break;
+          case PARAM_INT8ARRAY:		dump_printarray (args, i, guint8, d_int8array , "%d"); break;
+          case PARAM_FLOATARRAY:	dump_printarray (args, i, gfloat, d_floatarray, "%f"); break;
+          case PARAM_STRINGARRAY:	dump_printarray (args, i, char* , d_stringarray, "'%s'"); break;
           
           case PARAM_COLOR:
             trace_printf ("[%d,%d,%d]",
@@ -366,26 +371,38 @@ canonicalize_colour (char *err, SV *sv, GParamColor *c)
 /* replacement newSVpv with only one argument.  */
 #define neuSVpv(arg) newSVpv((arg),0)
 
+/* replacement newSViv which casts to unsigned char.  */
+#define newSVu8(arg) newSViv((unsigned char)(arg))
+
 /* create sv's using newsv, from the array arg.  */
-#define gimp2av(arg,datatype,newsv) { \
-  int j; \
-  av = newAV (); \
-  for (j = 0; j < arg[-1].data.d_int32; j++) \
-    av_push (av, newsv (arg->data.datatype[j])); \
-  sv = (SV *)av; \
+#define push_gimp_av(arg,datatype,newsv,as_ref) {		\
+  int j;							\
+  AV *av;							\
+  if (as_ref)							\
+    av = newAV ();						\
+  else								\
+    EXTEND (sp, arg[-1].data.d_int32);				\
+  for (j = 0; j < arg[-1].data.d_int32; j++)			\
+    if (as_ref)							\
+      av_push (av, newsv (arg->data.datatype[j]));		\
+    else							\
+      PUSHs (sv_2mortal (newsv (arg->data.datatype[j])));	\
+  if (as_ref)							\
+    PUSHs (sv_2mortal (newRV_noinc ((SV *)av)));		\
+  sv = 0;							\
 }
 
-static SV *
-convert_gimp2sv (GParam *arg)
+void
+push_gimp_sv (GParam *arg, int array_as_ref)
 {
   SV *sv;
-  AV *av;
+  dSP;
   
   switch (arg->type)
     {
       case PARAM_INT32:		sv = newSViv(arg->data.d_int32	); break;
       case PARAM_INT16:		sv = newSViv(arg->data.d_int16	); break;
-      case PARAM_INT8:		sv = newSViv(arg->data.d_int8	); break;
+      case PARAM_INT8:		sv = newSVu8(arg->data.d_int8	); break;
       case PARAM_FLOAT:		sv = newSVnv(arg->data.d_float	); break;
       case PARAM_DISPLAY:	sv = newSViv(arg->data.d_display); break;
       case PARAM_IMAGE:		sv = newSViv(arg->data.d_image	); break;
@@ -402,20 +419,22 @@ convert_gimp2sv (GParam *arg)
         break;
         
       case PARAM_COLOR:
-        /* difficult */
-        av = newAV ();
-        av_push (av, newSViv (arg->data.d_color.red));
-        av_push (av, newSViv (arg->data.d_color.green));
-        av_push (av, newSViv (arg->data.d_color.blue));
-        sv = (SV *)av; /* no newRV, since we're getting autoblessed! */
+        {
+          /* difficult */
+          AV *av = newAV ();
+          av_push (av, newSViv (arg->data.d_color.red));
+          av_push (av, newSViv (arg->data.d_color.green));
+          av_push (av, newSViv (arg->data.d_color.blue));
+          sv = (SV *)av; /* no newRV, since we're getting autoblessed! */
+        }
         break;
       
       /* did I say difficult before????  */
-      case PARAM_INT32ARRAY:	gimp2av (arg, d_int32array , newSViv); break;
-      case PARAM_INT16ARRAY:	gimp2av (arg, d_int16array , newSViv); break;
-      case PARAM_INT8ARRAY:	gimp2av (arg, d_int8array  , newSViv); break;
-      case PARAM_FLOATARRAY:	gimp2av (arg, d_floatarray , newSVnv); break;
-      case PARAM_STRINGARRAY:	gimp2av (arg, d_stringarray, neuSVpv); break;
+      case PARAM_INT32ARRAY:	push_gimp_av (arg, d_int32array , newSViv, array_as_ref); break;
+      case PARAM_INT16ARRAY:	push_gimp_av (arg, d_int16array , newSViv, array_as_ref); break;
+      case PARAM_INT8ARRAY:	push_gimp_av (arg, d_int8array  , newSVu8, array_as_ref); break;
+      case PARAM_FLOATARRAY:	push_gimp_av (arg, d_floatarray , newSVnv, array_as_ref); break;
+      case PARAM_STRINGARRAY:	push_gimp_av (arg, d_stringarray, neuSVpv, array_as_ref); break;
         
       default:
         croak ("dunno how to return param type %d", arg->type);
@@ -423,10 +442,14 @@ convert_gimp2sv (GParam *arg)
         abort ();
     }
   
-  return autobless (sv, arg->type);
+  if (sv)
+    PUSHs (sv_2mortal (autobless (sv, arg->type)));
+  
+  PUTBACK;
 }
 
 #define SvPv(sv) SvPV((sv), na)
+#define Sv32(sv) unbless ((sv), PKG_ANY)
 
 #define av2gimp(arg,sv,datatype,type,svxv) { \
   if (SvROK (sv) && SvTYPE(SvRV(sv)) == SVt_PVAV) \
@@ -483,7 +506,7 @@ convert_sv2gimp (char *err, GParam *arg, SV *sv)
         canonicalize_colour (err, sv, &arg->data.d_color);
         break;
       
-      case PARAM_INT32ARRAY:	av2gimp (arg, sv, d_int32array , gint32 , SvIV); break;
+      case PARAM_INT32ARRAY:	av2gimp (arg, sv, d_int32array , gint32 , Sv32); break;
       case PARAM_INT16ARRAY:	av2gimp (arg, sv, d_int16array , gint16 , SvIV); break;
       case PARAM_INT8ARRAY:	av2gimp (arg, sv, d_int8array  , gint8  , SvIV); break;
       case PARAM_FLOATARRAY:	av2gimp (arg, sv, d_floatarray , gdouble, SvNV); break;
@@ -585,15 +608,16 @@ static void pii_run(char *name, int nparams, GParam *param, int *nreturn_vals, G
   if (nparams)
     {
       EXTEND (sp, perl_param_count (param, nparams));
+      PUTBACK;
       for (i = 0; i < nparams; i++)
         {
           if (i < nparams-1 && is_array (param[i+1].type))
             i++;
           
-          PUSHs(convert_gimp2sv(param+i));
+          push_gimp_sv (param+i, nparams > 2);
         }
       
-      PUTBACK;
+      SPAGAIN;
     }
   
   count = perl_call_pv (name, nparams ? 0 : G_NOARGS
@@ -825,13 +849,16 @@ gimp_call_procedure (proc_name, ...)
                             else if (values[0].data.d_status == STATUS_SUCCESS)
                               {
                                 EXTEND(sp, perl_paramdef_count (return_vals, nvalues-1));
+                                PUTBACK;
                                 for (i = 0; i < nvalues-1; i++)
                                   {
 	                            if (i < nvalues-2 && is_array (values[i+2].type))
 	                              i++;
 	                            
-                                    PUSHs(sv_2mortal (convert_gimp2sv (values+i+1)));
+	                            push_gimp_sv (values+i+1, nvalues > 2+1);
                                   }
+                                
+                                SPAGAIN;
                               }
                             else
                               sprintf (croak_str, "unsupported status code: %d\n", values[0].data.d_status);

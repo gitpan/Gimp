@@ -2,16 +2,15 @@ package Gimp;
 
 use strict;
 use Carp;
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL);
-use vars qw(@_consts @_procs @_internals $interface_pkg $interface_type @_param);
-
-# vars used in argument processing
-use vars qw($help $verbose $host);
+use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
+            @_consts @_procs @_internals $interface_pkg $interface_type @_param
+            @PREFIXES
+            $help $verbose $host);
 
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '1.005';
+$VERSION = '1.01';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -164,8 +163,15 @@ sub import($;@) {
    
    for(@_) {
       if ($_ eq ":auto") {
-         push(@export,@_consts,@_procs,"AUTOLOAD");
-#         push @{"${up}::ISA"},'Gimp';
+         push(@export,@_consts,@_procs);
+         eval "package ${up};
+            sub AUTOLOAD {
+               no strict 'vars';
+               local \@PREFIXES=('');
+               \$Gimp::OO::AUTOLOAD=\$AUTOLOAD;
+               &Gimp::OO::AUTOLOAD;
+            }";
+         die $@ if $@;
       } elsif ($_ eq ":consts") {
          push(@export,@_consts);
       } elsif ($_ eq ":param") {
@@ -182,21 +188,12 @@ sub import($;@) {
    }
 }
 
+@PREFIXES=("gimp_", "");
+
+# we need a fake autoload to calm down -w
 sub AUTOLOAD {
-   my $constname;
-   ($constname = $AUTOLOAD) =~ s/.*:://;
-   my $val = constant($constname);
-   if ($! != 0) {
-      if ($! =~ /Invalid/) {
-         no strict 'refs';
-         ${"${interface_pkg}::AUTOLOAD"}=$AUTOLOAD;
-         goto &{"${interface_pkg}::AUTOLOAD"};
-      } else {
-         croak "Your vendor has not defined Gimp macro $constname";
-      }
-   }
-   eval "sub $AUTOLOAD { $val }";
-   goto &$AUTOLOAD;
+   $Gimp::OO::AUTOLOAD=$AUTOLOAD;
+   goto &Gimp::OO::AUTOLOAD;
 }
 
 my %rgb_db;
@@ -287,52 +284,60 @@ bootstrap Gimp $VERSION;
 
 package Gimp::OO;
 
-use vars qw($AUTOLOAD);
-use Carp;
+use Carp 'croak';
+
+unshift(@Gimp::ISA, "Gimp::OO");
 
 sub _croak($) {
   $_[0] =~ s/ at .*? line \d+.*$//s;
-  croak $_[0];
+  Carp::croak $_[0];
 }
 
 sub AUTOLOAD {
-   no strict 'refs';
-   my ($class,$subname) = $AUTOLOAD =~ /^(.*)::(.*?)$/;
-   for(@{"${class}::PREFIXES"}) {
-      my $sub = $_.$subname;
-      if (defined($Gimp::{$sub})) {
-         my $ref = \&{"Gimp::$sub"};
-         *{$AUTOLOAD} = sub {
-            shift if $_[0] eq $class;
-#            goto &$ref;	# does not work always #FIXME
-            my @r = eval { &$ref };
-            _croak $@ if $@;
-            wantarray ? @r : $r[0];
-         };
-         goto &$AUTOLOAD;
-      } elsif (Gimp::_gimp_procedure_available ($_.$subname)) {
-         *{$AUTOLOAD} = sub {
-            shift if $_[0] eq $class;
-            my @r=eval { Gimp::gimp_call_procedure($sub,@_) };
-            _croak $@ if $@;
-            wantarray ? @r : $r[0];
-         };
-         goto &$AUTOLOAD;
+   no strict;
+   my ($class,$name) = $AUTOLOAD =~ /^(.*)::(.*?)$/;
+   my $val = Gimp::constant($name);
+   if ($!) {
+      for(@{"${class}::PREFIXES"}) {
+         my $sub = $_.$name;
+         if (Gimp::_gimp_procedure_available ($_.$name)) {
+            *{$AUTOLOAD} = sub {
+               shift if $_[0] eq $class;
+               my @r=eval { Gimp::gimp_call_procedure($sub,@_) };
+               _croak $@ if $@;
+               wantarray ? @r : $r[0];
+            };
+            goto &$AUTOLOAD;
+         } elsif (defined($Gimp::{$sub}{CODE})) {
+            my $ref = \&{"Gimp::$sub"};
+            *{$AUTOLOAD} = sub {
+               shift if $_[0] eq $class;
+#               goto &$ref;	# does not work always, PERLBUG! #FIXME
+               my @r = eval { &$ref };
+               _croak $@ if $@;
+               wantarray ? @r : $r[0];
+            };
+            goto &$AUTOLOAD;
+         }
       }
+      croak "function/macro $name not found in $class";
    }
-   croak "function $subname not found in $class";
+   *{$AUTOLOAD} = sub { $val };
+   $val;
 }
-
-sub DESTROY {};
 
 sub _pseudoclass {
   no strict 'refs';
   my ($class, @prefixes)= @_;
   unshift(@prefixes,"");
-  @{"${class}::ISA"}		= ("Gimp::${class}");
-  @{"Gimp::${class}::ISA"}	= ('Gimp::OO');
-  @{"Gimp::${class}::PREFIXES"}	= 
-  @{"${class}::PREFIXES"}	= @prefixes;
+  push(@{"${class}::ISA"}		, "Gimp::${class}");
+  push(@{"Gimp::${class}::ISA"}		, 'Gimp::OO');
+  push(@{"Gimp::${class}::PREFIXES"}	, @prefixes);
+  push(@{"${class}::PREFIXES"}		, @prefixes);
+}
+
+# FIXME: why is this necessary? try to understand, hard!
+sub DESTROY {
 }
 
 _pseudoclass qw(Layer		gimp_layer_ gimp_drawable_ gimp_);
@@ -341,20 +346,26 @@ _pseudoclass qw(Drawable	gimp_drawable_ gimp_);
 _pseudoclass qw(Selection 	gimp_selection_);
 _pseudoclass qw(Channel		gimp_channel_ gimp_drawable_ gimp_);
 _pseudoclass qw(Display		gimp_display_ gimp_);
-_pseudoclass qw(Palette		gimp_palette_);
 _pseudoclass qw(Plugin		plug_in_);
 _pseudoclass qw(Gradients	gimp_gradients_);
 _pseudoclass qw(Edit		gimp_edit_);
 _pseudoclass qw(Progress	gimp_progress_);
 _pseudoclass qw(Region		);
 
+# "C"-Classes
 _pseudoclass qw(GDrawable	gimp_drawable_);
 _pseudoclass qw(PixelRgn	gimp_pixel_rgn_);
 _pseudoclass qw(Tile		gimp_tile_);
 
+# Classes without GIMP-Object
+_pseudoclass qw(Palette		gimp_palette_);
+_pseudoclass qw(Brushes		gimp_brushes_);
+_pseudoclass qw(Edit		gimp_edit_);
+_pseudoclass qw(Gradients	gimp_gradients_);
+
 package Gimp::Tile;
 
-push (@Tile::ISA, "Gimp::Tile");
+unshift (@Tile::ISA, "Gimp::Tile");
 
 sub data {
    my $self = shift;

@@ -30,7 +30,6 @@ sub import {
    *Gimp::Tile::DESTROY=
    *Gimp::PixelRgn::DESTROY=
    *Gimp::GDrawable::DESTROY=sub {
-      print "destroying @_\n";#d#
       my $req="DTRY".args2net(@_);
       print $server_fh pack("N",length($req)).$req;
    };

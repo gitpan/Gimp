@@ -1,5 +1,18 @@
 Revision history for Gimp-Perl extension.
 
+1.01 Tue Sep  1 23:18:25 CEST 1998
+	- PARAM_IMAGEs (et al.) can now be passed into an INT32ARRAY
+	  (*shudder*)
+	- arrays as return value now work. if a single array is being returned,
+	  return it flat, else return it as reference (this does not include
+	  colours, though)
+	- INT8 values will now be returned UNSIGNED (!)
+	- totally reworked autoloading, I hope its cleaner that way:
+	  - Gimp is now a class like any other (Gimp::Layer, Palette)
+	  - flat calling syntax is now deprecated ("gimp_image_new"),
+	    OO-syntax should be used ("new Image" or "Gimp->image_new"),
+	    which allows better compatibility.
+
 1.005 Mon Aug 24 23:09:17 CEST 1998
 1.004 (internal release for debian)
 	- requires Gtk-0.3 now... since this version finally works,

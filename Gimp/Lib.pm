@@ -29,15 +29,15 @@ sub AUTOLOAD {
 # does not work.
 
 sub gimp_list_images {
-   map _autobless($_,&Gimp::PARAM_IMAGE),@{gimp_call_procedure "gimp_list_images"};
+   map _autobless($_,&Gimp::PARAM_IMAGE),gimp_call_procedure "gimp_list_images";
 }
 
 sub gimp_image_get_layers {
-   map _autobless($_,&Gimp::PARAM_LAYER),@{gimp_call_procedure "gimp_image_get_layers",@_};
+   map _autobless($_,&Gimp::PARAM_LAYER),gimp_call_procedure "gimp_image_get_layers",@_;
 }
 
 sub gimp_image_get_channels {
-   map _autobless($_,&Gimp::PARAM_CHANNEL),@{gimp_call_procedure "gimp_image_get_channels",@_};
+   map _autobless($_,&Gimp::PARAM_CHANNEL),gimp_call_procedure "gimp_image_get_channels",@_;
 }
 
 bootstrap Gimp::Lib $VERSION;

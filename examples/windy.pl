@@ -6,7 +6,7 @@
 use Gimp qw( :auto );
 use Gimp::Fu;
 
-# Gimp::set_trace(TRACE_CALL);
+Gimp::set_trace(TRACE_CALL);
 
 sub windify {
 	my ($img, $drawable, $angle, $density, $distance, $wrap) = @_;

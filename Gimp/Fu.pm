@@ -506,12 +506,11 @@ sub register($$$$$$$$$&) {
          }
       } elsif ($run_mode == &Gimp::RUN_NONINTERACTIVE) {
       } elsif ($run_mode == &Gimp::RUN_WITH_LAST_VALS) {
+         @_=@defaults;	# FIXME
       } else {
          die "run_mode must be INTERACTIVE, NONINTERACTIVE or WITH_LAST_VALS\n";
       }
       
-      # keep your fingers crossed and require Data::Dumper later,
-      # when 5.005 is out it will be part of the distribution
       $Gimp::Data{"_fu_data"}=Dumper([@_]);
       
       print $function,"(",join(",",(@pre,@_)),")\n" if $Gimp::verbose;
