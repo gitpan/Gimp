@@ -6,8 +6,6 @@ use File::Basename;
 
 require Exporter;
 
-=cut
-
 =head1 NAME
 
 Gimp::Fu - "easy to use" framework for Gimp scripts
@@ -48,9 +46,6 @@ In general, a Gimp::Fu script looks like this:
 (This distribution comes with example scripts. One is
 C<examples/example-fu.pl>, which is small Gimp::Fu-script you can take as
 starting point for your experiments)
-
-B<Attention:> at the moment it's neccessary to always import the C<Gimp::Fu>
-module after the C<Gimp> module.
 
 =cut
 

@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include <libgimp/gimp.h>
+#include "compat10.h"
 
 #if GIMP_MAJOR_VERSION>1 || (GIMP_MAJOR_VERSION==1 && GIMP_MINOR_VERSION>=1)
 # define GIMP11 1
@@ -1144,7 +1145,7 @@ static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, 
   char *proc_author;
   char *proc_copyright;
   char *proc_date;
-  int proc_type;
+  GimpPDBProcType proc_type;
   int _nparams;
   GParamDef *params;
   GParamDef *return_defs;
@@ -1396,7 +1397,7 @@ _gimp_procedure_available(proc_name)
 		char *proc_author;
 		char *proc_copyright;
 		char *proc_date;
-		int proc_type;
+		GimpPDBProcType proc_type;
 		int nparams;
 		int nreturn_vals;
 		GParamDef *params;
@@ -1436,7 +1437,7 @@ gimp_query_procedure(proc_name)
 		char *proc_author;
 		char *proc_copyright;
 		char *proc_date;
-		int proc_type;
+		GimpPDBProcType proc_type;
 		int nparams;
 		int nreturn_vals;
 		GParamDef *params;
@@ -1472,7 +1473,7 @@ gimp_call_procedure (proc_name, ...)
 		char *proc_author;
 		char *proc_copyright;
 		char *proc_date;
-		int proc_type;
+		GimpPDBProcType proc_type;
 		int nparams;
 		int nreturn_vals;
 		GParam *args = 0;
@@ -1641,10 +1642,7 @@ gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, im
                                      type,nparams,nreturn_vals,apd,rpd,pii_run);
             else
               {
-                /* this is horrendously ugly :( */
-#if GIMP_CHECK_VERSION(1,1,18)
-	        gimp_plugin_domain_add_with_path ("gimp-perl", datadir "/locale");
-#endif
+	        gimp_plugin_domain_register ("gimp-perl", datadir "/locale");
 
                 gimp_install_procedure(name,blurb,help,author,copyright,date,SvPv(menu_path),SvPv(image_types),
                                        type,nparams,nreturn_vals,apd,rpd);

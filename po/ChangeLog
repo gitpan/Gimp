@@ -1,3 +1,31 @@
+2000-06-04  Valek Filippov  <frob@df.ru>
+
+	* ru.po: Updated russian translation.
+
+Wed May 31 13:38:18 CEST 2000  Stanislav Brabec  <utx@penguin.cz>
+
+	* cs.po: Updated translation.
+
+2000-05-26  Sven Neumann  <sven@gimp.org>
+
+	* de.po: updated german translation
+
+2000-05-23  Kjartan Maraas  <kmaraas@gnu.org>
+
+	* no.po: Updated Norwegian translation.
+	
+2000-05-23  Sven Neumann  <sven@gimp.org>
+
+	* de.po: updated german translation
+
+2000-05-22  Sven Neumann  <sven@gimp.org>
+
+	* de.po: updated german translation
+
+Mon May 22 11:54:43 CEST 2000  Stanislav Brabec  <utx@penguin.cz>
+
+	* cs.po: Updated translation.
+
 Fri May  5 21:49:29 CEST 2000  Marc Lehmann <pcg@goof.com>
 	
         * $alltarget was never set (have to have a look at the logs).

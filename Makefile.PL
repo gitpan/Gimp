@@ -40,7 +40,7 @@ if ($ARGV[0] ne "--writemakefile") {
       scratches blowinout terral_text xachvision perlcc translogo
       animate_cells image_tile yinyang stamps font_table sethspin
       perlotine randomblends innerbevel fit-text guidegrid
-      repdup centerguide stampify goldenmean triangle mirrorsplit
+      repdup centerguide stampify goldenmean mirrorsplit
       layerfuncs randomart1 glowing_steel frame_reshuffle frame_filter
       logulator guide_remove guides_to_selection burst
       layerfuncs bricks miff dust
@@ -49,8 +49,8 @@ if ($ARGV[0] ne "--writemakefile") {
    qw(
       border gouge pixelmap view3d clear_alpha
 
-      fire
-   ); # fire should use nmormal gradient map!
+      fire map_to_gradient
+   ); # fire should use normal gradient map!
 
 eval "use Gtk;"; $GTK = $@ eq "";
 eval "use Parse::RecDescent;"; $PRD = $@ eq "";

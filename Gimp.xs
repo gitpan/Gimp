@@ -4,6 +4,7 @@
 #ifdef GIMP_HAVE_EXPORT
 #include <libgimp/gimpexport.h>
 #endif
+#include "compat10.h"
 
 #include <locale.h>
 

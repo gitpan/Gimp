@@ -5,7 +5,7 @@ shortcuts (don't ask)
 
 gimp -b "(extension-perl-server 0 0 0)"
 gimp ~/pix/ka001.jpg -b "(extension-perl-server 0 0 0)"
-file:///usr/app/lib/perl5/site_perl/i686-linux/PDL/HtmlDocs/PDL/
+file:///usr/app/lib/perl5/PDL/HtmlDocs/PDL/
 make test TEST_VERBOSE=1
 
 put under LGPL:
@@ -24,8 +24,12 @@ API generalization
    gimp_desaturate -> drawable
 
 bugs
+  STIFTUNG, FOUNDATION etc.. => ask.
+  * URGENT: deinit might block... tis'is bad, but not close'ing is also bad
+  * --enable-perl-prefix, --with-perl=, --with-perl-cc=
+  * URGENT: podperl doesn't work.
   * try to work around the redhat-undef $fh => no close problem.
-  * .pot file -> add to dist.
+  * .pot file -> add to dist(???)
   * damnit libintl crazy shit
   * font_text with negative size? bug report #5523
   * gimp-perl list archives.. where and add this to the gimp.html page!

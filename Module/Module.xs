@@ -15,6 +15,7 @@
 #include "gppport.h"
 
 #include <libgimp/gimpmodule.h>
+#include "compat10.h"
 
 #include "../perl-intl.h"
 

@@ -1,8 +1,5 @@
 #!/usr/app/bin/perl
 
-eval 'exec /usr/app/bin/perl  -S $0 ${1+"$@"}'
-    if 0; # not running under some shell
-
 use Gimp qw(:auto __ N_);
 use Gimp::Fu;
 
@@ -116,3 +113,4 @@ maybe C<$f->set_opacity(50)> for your animation.
  $f->anchor;
 
 
+=cut

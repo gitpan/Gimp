@@ -18,6 +18,7 @@
 #ifdef GIMP_HAVE_EXPORT
 #include <libgimp/gimpexport.h>
 #endif
+#include "compat10.h"
 
 /* libgimo requires a rather broken interface. this must be here because..
  * well, nobody knows why... ARGH! */

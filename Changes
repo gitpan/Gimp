@@ -1,6 +1,25 @@
 Revision history for Gimp-Perl extension.
 
-1.20  Thu May 11 18:55:13 CEST 2000
+1.201 Thu Aug 24 23:44:43 CEST 2000
+	** LAST VERSION THAT WORKS WITH 1.0 **
+	- s/gimp_plugin_domain_add/gimp_plugin_domain_register/
+	- really moved sethspin into <Image>/Filters (neo) 
+	- moved sethspin back to Filters/Animation (sjb)
+        - fixed problem in Net.pm/try_connect (AF_LOCAL vs. PF_UNIX, or
+          "sysv rules the world, but sun shines everyhwere".
+        - added ... to hopefully all plug-ins that open a dialog.
+	- make clean wrongly deleted po/Makefile.
+	- po/Makefile.PL left temporary files around.
+        - trimmed examples/logulator down by two thirds.
+        - installing map_to_gradient again, as it is needed by firetext,
+          until fire has been re-written.
+        - applied patch by Ar't <artie@kmfms.com> that fixes a lot of
+          perl5.004 compatibility issues and even identifies the
+          buggy perl version that causes pxgettext to not work!
+        - do yet another compile/link flags rotation.
+        - replaced find -path by grep 'Cause -path seems to be a gnu extension.
+
+1.2   Thu May 11 18:55:13 CEST 2000
 	- image types updated to reflect gimp's reality.
         - updated perlotine.
         - fixed logulator (bugs are actually in the script-fu parts).
