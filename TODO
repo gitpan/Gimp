@@ -10,6 +10,12 @@ make test TEST_VERBOSE=1
 
 bugs
 
+  * don't start gimp in cmdline mode and error.
+  * KILL :auto from default(!)
+  * auto-flush of gdrawable when merge_shadow(?)
+  * gimp-piddle must be written back automatically on destroy, if changed
+  * possibly rename "Brush Selection" to "Paint Settings"
+  * gimp-tile set dirty automatically(!)
   * fatal errors in config.pl (!)
   * disable module build (EMBEDMYALLOC)
 [DONE]  * turn -1 into undef and vice versa.
@@ -25,8 +31,9 @@ bugs
   
 important issues
 
+  * gimp_progress_done
   * pdb_proc_renameto
-  * gimp_progress_init (1 & 2 args)
+[DONE]  * gimp_progress_init (1 & 2 args)
   * gimp_default_display (...) for libgimp
   * Gimp::Module for modules (!)
   * gimp_progress_close
@@ -44,18 +51,16 @@ important issues
   * --ui and --noui for Gimp::Fu
   * Gimp::ping
   * allow plug-ins to register with only a drawable argument(!)
-    (fix this in Gimp)
   * gradient button
   * implement Perl-Server RSET and shared lock(!)
   * use Gimp qw(GIMP_HOST=jfjf)???
 [DONE]  * zero-copy PDL support
   * weighted movement in drawing tools
-  * -DMIN_PERL_DEFINE
+[KILL]  * -DMIN_PERL_DEFINE
   * --function localfunc to select one of the registered scripts
-  * brush etc. buttons (maybe use gimp's interface, but
-    only when local(?))
+[DONE]  * brush etc. buttons (maybe use gimp's interface, but only when local(?))
   * create working progress when Net and $verbose
-  * require Storable soon(!)
+[KILL]  * require Storable soon(!)
   * Gimp::Fu::command(?)
   * default parameters at end(!)
   * try to deduce default parameters

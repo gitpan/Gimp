@@ -5,7 +5,7 @@ use Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
             @_consts @_procs $interface_pkg $interface_type @_param @_al_consts
             @PREFIXES $_PROT_VERSION
-            @gimp_gui_functions $function $basename
+            @gimp_gui_functions $function $basename $spawn_opts
             $in_quit $in_run $in_net $in_init $in_query $no_SIG
             $help $verbose $host);
 use subs qw(init end lock unlock canonicalize_color);
@@ -13,7 +13,7 @@ use subs qw(init end lock unlock canonicalize_color);
 require DynaLoader;
 
 @ISA=qw(DynaLoader);
-$VERSION = 1.089;
+$VERSION = 1.091;
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -93,7 +93,7 @@ sub BLACK		(){ 2 }
 sub _PS_FLAG_QUIET	{ 0000000001 };	# do not output messages
 sub _PS_FLAG_BATCH	{ 0000000002 }; # started via Gimp::Net, extra = filehandle
 
-$_PROT_VERSION	= "2";			# protocol version
+$_PROT_VERSION = "3";			# protocol version
 
 # we really abuse the import facility..
 sub import($;@) {
@@ -120,6 +120,8 @@ sub import($;@) {
          push(@export,@_param);
       } elsif (/^interface=(\S+)$/) {
          croak "interface=... tag is no longer supported\n";
+      } elsif ($_=~/spawn_options=(\S+)/) {
+         $spawn_opts = $1;
       } elsif ($_ ne "") {
          push(@export,$_);
       } elsif ($_ eq "") {
@@ -201,6 +203,8 @@ sub canonicalize_colour {
 *canonicalize_color = \&canonicalize_colour;
 
 ($basename = $0) =~ s/^.*[\\\/]//;
+
+$spawn_opts = "";
 
 # extra check for Gimp::Feature::import
 $in_query=0 unless defined $in_query;	# perl -w is SOOO braindamaged
@@ -574,6 +578,10 @@ Import PARAM_* constants (PARAM_INT32, PARAM_STRING etc.) only.
 =item :consts
 
 All constants from gimpenums.h (BG_IMAGE_FILL, RUN_NONINTERACTIVE, NORMAL_MODE, PARAM_INT32 etc.).
+
+=item spawn_options=I<options>
+
+Set default spawn options to I<options>, see L<Gimp::Net>.
 
 =back
 

@@ -87,50 +87,31 @@ eval "use Parse::RecDescent;"; $PRD = $@ eq "";
 
 $] >= 5.005 or print <<EOF;
 
-NOTICE:  you are using a version of perl older than 5.005. While this
-         extension should run on older versions (and I try to keep source
-         compatibility), some people get spurious errors that go away
-         after upgrading to 5.005 (or to gimp-1.1). Also, some features of
-         Gimp DO NOT WORK WITH 5.004 or gimp-1.0 and are disabled. Since
-         5.005 is much better and has many many bugs fixed, an upgrade
-         would come in handy...
+NOTICE:  You are using a version of perl older than 5.005. This will reduce
+         the features available to the Gimp-Perl extension.
 
 EOF
 
 $GTK or print <<EOF;
 
-WARNING: unable to use the Perl-Gtk interface. Most features (like
-         Gimp::Fu) rely on this extension. You can try to build without
-         it (and many scripts won't work), but it's better to install
-         it (version 0.5120 or higher is required, you can get it from
-         ftp://ftp.gimp.org/pub/gtk/perl/ or any CPAN mirror.
+NOTICE:  unable to use the Perl-Gtk interface. Many features (like
+         Gimp::Fu) rely on this extension. You can build without it (and
+         many scripts will be disabled or run with reduced functionality
+         only), but it's better to install it (version 0.5120 or higher is
+         required, you can get it from ftp://ftp.gimp.org/pub/gtk/perl/ or
+         any CPAN mirror.
 
 EOF
 
 $PRD or print <<EOF;
 
-WARNING: Parse::RecDescent is not installed (correctly) on your system. This
-	 means scm2perl (the Scheme->Perl translator) isn't usable. If you
-	 don't need this functionality there is nothing to worry about. 
-	 Should the need arise you can install Parse::RecDescent later; it
-	 is available from any CPAN mirror.
+WARNING: Parse::RecDescent not found, scm2perl, the Scheme->Perl
+         translator, will not work. Should the need arise you can install
+         Parse::RecDescent later; it is available from any CPAN mirror.
 
 EOF
 
 ($major,$minor,$patch)=split /[._]/,$Gtk::VERSION;
-
-unless ($major > 0
-	|| ($major == 0 && $minor >  3)
-	|| ($major == 0 && $minor == 3 && $patch >= -1)) {
-   $GTK && print <<EOF;
-
-WARNING: version 0.3 of Gtk is _required_ for this module to
-	 build properly.  You can get the newest version from
-	 ftp://ftp.gimp.org/pub/gtk/perl/ or any CPAN mirror.  Older
-	 versions may work, but I have warned you!
-
-EOF
-}
 
 sub MY::install {
    package MY;
@@ -253,7 +234,7 @@ close C;
 print "ok\n";
 
 $GIMP_INC_NOUI = "-I../../ $GIMP_INC_NOUI" if $IN_GIMP;
-@DIRS= 'Gimp';
+@DIRS= qw/Gimp Net/;
 
 $build_module = $IN_GIMP || $ENV{GIMP_PERL_MODULE_INC};
 # temporarily disabled because of politics
@@ -263,7 +244,7 @@ print "building embedded perl module... ";
 if ($build_module) {
    print "yes\n";
    $dont_embed = "false";
-   push(@DIRS,'nolib');
+   push(@DIRS,'Module');
    print "configuring in embed/Makefile...\n";
    system("cd embed && perl Makefile.PL");
 } else {
@@ -278,7 +259,7 @@ WriteMakefile(
 	            SUFFIX	=> '.gz',
 	           },
     'PREREQ_PM'	=> {
-    		    Gtk			=> 0.3,
+    		    Gtk			=> 0.5,
                     PDL			=> 1.99,
     		    Data::Dumper	=> 2.0,
                     Parse::RecDescent	=> 1.6,
@@ -302,7 +283,7 @@ WriteMakefile(
     'LIBS'	=> [''],
     'INC'	=> "$INC1 $GIMP_INC_NOUI $CPPFLAGS $CFLAGS",
     'DEFINE'	=> "$DEFINE1 $DEFS",
-    'EXE_FILES'	=> ['scm2perl','scm2scm'],
+    'EXE_FILES'	=> ['scm2perl','scm2scm','gimpdoc'],
     'macro'	=> \%cfg,
     'realclean'	=> { FILES => "config.status config.cache config.log config.pl config.h Gimp/Config.pm" },
     'clean'	=> { FILES => "Makefile.old stamp-h" },

@@ -12,7 +12,15 @@ use vars qw(
    $server_fh $trace_level $trace_res $auth $gimp_pid
 );
 use subs qw(gimp_call_procedure);
-use Socket; # IO::Socket is _really_ slow
+use base qw(DynaLoader);
+
+use Socket; # IO::Socket is _really_ slow, so don't use it!
+
+require DynaLoader;
+
+$VERSION = $Gimp::VERSION;
+
+bootstrap Gimp::Net $VERSION;
 
 $default_tcp_port  = 10009;
 $default_unix_dir  = "/tmp/gimp-perl-serv-uid-$>/";
@@ -33,34 +41,9 @@ sub import {
    *Gimp::Tile::DESTROY=
    *Gimp::PixelRgn::DESTROY=
    *Gimp::GDrawable::DESTROY=sub {
-      my $req="DTRY".args2net(@_);
+      my $req="DTRY".args2net(0,@_);
       print $server_fh pack("N",length($req)).$req;
    };
-}
-
-# network to array
-sub net2args($) {
-   no strict 'subs';
-   sub b($$) { bless \(my $x=$_[0]),$_[1] }
-   eval "($_[0])";
-}
-
-sub args2net {
-   my($res,$v);
-   for $v (@_) {
-      if(ref($v)) {
-         if(ref($v) eq "ARRAY" or ref($v) eq Gimp::Color or ref($v) eq Gimp::Parasite) {
-           $res.="[".join(",",map { "qq[".quotemeta($_)."]" } @$v)."],";
-         } else {
-           $res.="b(".$$v.",".ref($v)."),";
-         }
-      } elsif(defined $v) {
-         $res.="qq[".quotemeta($v)."],";
-      } else {
-         $res.="undef,";
-      }
-   }
-   substr($res,0,-1); # may not be worth the effort
 }
 
 sub _gimp_procedure_available {
@@ -76,13 +59,13 @@ sub response {
    read($server_fh,$len,4) == 4 or die "protocol error (1)";
    $len=unpack("N",$len);
    read($server_fh,$req,$len) == $len or die "protocol error (2)";
-   net2args($req);
+   net2args(0,$req);
 }
 
 # this is hardcoded into gimp_call_procedure!
 sub command {
    my $req=shift;
-   $req.=args2net(@_);
+   $req.=args2net(0,@_);
    print $server_fh pack("N",length($req)).$req;
 }
 
@@ -90,18 +73,18 @@ sub gimp_call_procedure {
    my($len,@args,$trace,$req);
    
    if ($trace_level) {
-      $req="TRCE".args2net($trace_level,@_);
+      $req="TRCE".args2net(0,$trace_level,@_);
       print $server_fh pack("N",length($req)).$req;
       do {
          read($server_fh,$len,4) == 4 or die "protocol error";
          $len=unpack("N",$len);
          read($server_fh,$req,abs($len)) == $len or die "protocol error";
          if ($len<0) {
-            ($req,@args)=net2args($req);
+            ($req,@args)=net2args(0,$req);
             print "ignoring callback $req\n";
             redo;
          }
-         ($trace,$req,@args)=net2args($req);
+         ($trace,$req,@args)=net2args(0,$req);
          if (ref $trace_res eq "SCALAR") {
             $$trace_res = $trace;
          } else {
@@ -109,18 +92,18 @@ sub gimp_call_procedure {
          }
       } while 0;
    } else {
-      $req="EXEC".args2net(@_);
+      $req="EXEC".args2net(0,@_);
       print $server_fh pack("N",length($req)).$req;
       do {
          read($server_fh,$len,4) == 4 or die "protocol error";
          $len=unpack("N",$len);
          read($server_fh,$req,abs($len)) == $len or die "protocol error";
          if ($len<0) {
-            ($req,@args)=net2args($req);
+            ($req,@args)=net2args(0,$req);
             print "ignoring callback $req\n";
             redo;
          }
-         ($req,@args)=net2args($req);
+         ($req,@args)=net2args(0,$req);
       } while 0;
    }
    croak $req if $req;
@@ -152,7 +135,9 @@ sub set_trace {
 }
 
 sub start_server {
-   print "trying to start gimp\n" if $Gimp::verbose;
+   my $opt = shift;
+   $opt = $Gimp::spawn_opts unless $opt;
+   print "trying to start gimp with options \"$opt\"\n" if $Gimp::verbose;
    $server_fh=local *FH;
    my $gimp_fh=local *FH;
    socketpair $server_fh,$gimp_fh,PF_UNIX,SOCK_STREAM,AF_UNIX
@@ -176,8 +161,15 @@ sub start_server {
                  fileno($gimp_fh);
       { # block to suppress warning with broken perls (e.g. 5.004)
          require Gimp::Config;
+         my @args;
+         push(@args,"--no-data") if $opt=~s/(^|:)no-?data//;
+         push(@args,"-n") unless $opt=~s/(^|:)gui//;
+         push(@args,"--verbose") if $Gimp::verbose;
          exec $Gimp::Config{GIMP_PATH},
-              "-n","-b","(extension-perl-server $args)",
+              "--no-splash",
+              @args,
+              "-b",
+              "(extension-perl-server $args)",
               "(extension_perl_server $args)",
               "(gimp_quit 0)",
               "(gimp-quit 0)";
@@ -194,7 +186,7 @@ sub try_connect {
    $auth = s/^(.*)\@// ? $1 : "";	# get authorization
    if ($_ ne "") {
       if (s{^spawn/}{}) {
-         return start_server;
+         return start_server($_);
       } elsif (s{^unix/}{/}) {
          my $server_fh=local *FH;
          return socket($server_fh,PF_UNIX,SOCK_STREAM,AF_UNIX)
@@ -312,13 +304,15 @@ then it is probably installed.
 The Perl-Server can either be started from the C<<Xtns>> menu in Gimp, or automatically
 when a perl script can't find a running Perl-Server.
 
-When started from within The Gimp, the Perl-Server will create a unix domain
-socket to which local clients can connect. If an authorization password is
-given to the Perl-Server (by defining the environment variable C<GIMP_HOST>
-before starting The Gimp), it will also listen on a tcp port (default
-10009). Since the password is transmitted in cleartext, using the Perl-Server
-over tcp effectively B<lowers the security of your network to the level of
-telnet>.
+When started from within The Gimp, the Perl-Server will create a unix
+domain socket to which local clients can connect. If an authorization
+password is given to the Perl-Server (by defining the environment variable
+C<GIMP_HOST> before starting The Gimp), it will also listen on a tcp port
+(default 10009). Since the password is transmitted in cleartext, using the
+Perl-Server over tcp effectively B<lowers the security of your network to
+the level of telnet>. Even worse: the current Gimp::Net-protocol can be
+used for denial of service attacks, i.e. crashing the Perl-Server. There
+also *might* be buffer-overflows (although I do care a lot for these).
 
 =head1 ENVIRONMENT
 
@@ -338,6 +332,8 @@ and spawn/ for a private gimp instance. Examples are:
  authorize@                  # specify authorization only
  
  spawn/                      # use a private gimp instance
+ spawn/nodata                # pass --no-data switch
+ spawn/gui                   # don't pass -n switch
 
 =head1 CALLBACKS
 

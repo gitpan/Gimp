@@ -9,10 +9,12 @@ TODO
 AUTHORS
 Makefile.PL
 typemap
+typemap.pdl
 Gimp.pm
 Gimp.xs
 scm2perl
 scm2scm
+gimpdoc
 t/load.t
 t/loadlib.t
 t/run.t
@@ -43,8 +45,10 @@ Gimp/Module.pm
 Gimp/Compat.pm
 embed/Makefile.PL
 embed/perlmod.c
-nolib/Makefile.PL
-nolib/Module.xs
+Module/Makefile.PL
+Module/Module.xs
+Net/Makefile.PL
+Net/Net.xs
 examples/PDB
 examples/alpha2color.pl
 examples/tex-to-float
@@ -94,3 +98,4 @@ examples/mirrorsplit
 examples/oneliners
 examples/randomart1
 examples/colourtoalpha
+
