@@ -10,7 +10,7 @@ WriteMakefile(
     'DIR'	=> ['Gimp'],
     'NAME'	=> 'Gimp',
     'VERSION_FROM' => 'Gimp.pm', # finds $VERSION
-    'LIBS'	=> [],   # e.g., '-lm' 
-    'DEFINE'	=> '',     # e.g., '-DHAVE_SOMETHING' 
+    'LIBS'	=> [''],   # e.g., '-lm' 
     'INC'	=> '',     # e.g., '-I/usr/include/other' 
+    'DEFINE'	=> '',     # e.g., '-DHAVE_SOMETHING' 
 );

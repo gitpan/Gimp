@@ -8,7 +8,7 @@ use vars qw(@_consts @_procs @_internals $interface_pkg $interface_type);
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '0.85';
+$VERSION = '0.86';
 
 @_consts = qw(
 	ADDITION_MODE	ALPHA_MASK	APPLY		BEHIND_MODE	BG_BUCKET_FILL
@@ -93,6 +93,8 @@ $VERSION = '0.85';
 	gimp_tile_height
 	
 	gimp_gradients_get_active	gimp_gradients_set_active
+	
+	gimp_set_data			gimp_get_data
 );
 
 # internal procedure not to be exported
@@ -409,7 +411,7 @@ Not yet supported.
 =item DISPLAY, IMAGE, LAYER, CHANNEL, DRAWABLE, SELECTION
 
 These will be mapped to corresponding objects (IMAGE => Gimp::Image). In trace
-outpout you will see small integers (the image/layer/etc..-ID)
+output you will see small integers (the image/layer/etc..-ID)
 
 =item BOUNDARY, PATH, STATUS
 
@@ -428,6 +430,6 @@ Marc Lehmann, pcg@goof.com
 
 =head1 SEE ALSO
 
-perl(1), gimp(1), Gimp::Util.
+perl(1), gimp(1), Gimp:OO, Gimp::Data, Gimp::Util.
 
 =cut

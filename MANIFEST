@@ -15,6 +15,7 @@ Gimp/Lib.pm
 Gimp/OO.pm
 Gimp/Util.pm
 Gimp/Net.pm
+Gimp/Data.pm
 examples/Create_Images
 examples/image_list
 examples/example-oo.pl

@@ -1,4 +1,4 @@
-Revision history for Perl extension Gimp.
+Revision history for Gimp-Perl extension.
 
 0.01  Fri Feb  6 17:51:56 CET 1998
 	- original version; created by h2xs 1.18
@@ -9,7 +9,7 @@ Revision history for Perl extension Gimp.
 0.03  Sat Feb  7 06:15:09 CET 1998
 	- even more usable. although only pdb calls are implemented,
 	  most gimp functions are available. dealing with tiles
-	  directly in perl is probbaly too slow anyway (ha-ha ;)
+	  directly in perl is probably too slow anyway (ha-ha ;)
 	- the example plugin does slightly more now.
 
 0.04  Sat Feb  7 21:43:56 CET 1998
@@ -70,4 +70,9 @@ Revision history for Perl extension Gimp.
 	- better signal handling in Net-Server... why does libgimp need SIGPIPE?
 	- add -lglib to the libraries for Lib.xs, to cater for yet more broken systems
 
+0.86  Thu Apr  2 19:59:06 CEST 1998
+	- missing __STDC__VERSION__ only gives a warning now
+	- got rid of alloca
+	- added gimp_set_data & gimp_get_data
+	- new module Gimp::Data
 

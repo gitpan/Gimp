@@ -79,7 +79,7 @@ sub handle_request($) {
   return 1;
 }
 
-sub extension_perl_net_server {
+sub extension_perl_net_server_start {
   slog "server started";
   
   $SIG{PIPE}='IGNORE'; # may not work, since libgimp (eech) overwrites it.        
@@ -143,11 +143,16 @@ sub extension_perl_net_server {
 }
 
 sub query {
-  Gimp::gimp_install_procedure("extension_perl_net_server", "A Server for Gimp-Perl plug-ins",
+  Gimp::gimp_install_procedure("extension_perl_net_server_start", "Start the Gimp-Perl Net-Server",
                                "This is the server for plug-ins written using the Gimp::Net module",
-                               "Marc Lehmann", "Marc Lehmann", "1997-02-12",
-                               "<Toolbox>/Xtns/Gimp-Perl-Server", "*",&Gimp::PROC_EXTENSION,
+                               "Marc Lehmann", "Marc Lehmann", "1998-04-02",
+                               "<Toolbox>/Xtns/Gimp Net-Server", "*",&Gimp::PROC_EXTENSION,
                                [[&Gimp::PARAM_INT32, "run_mode", "Interactive, [non-interactive]"]],[]);
+#  Gimp::gimp_install_procedure("extension_perl_net_server_config", "Configure the Gimp-Perl Net-Server",
+#                               "This is the server for plug-ins written using the Gimp::Net module",
+#                               "Marc Lehmann", "Marc Lehmann", "1998-04-02",
+#                               "<Toolbox>/Xtns/Gimp-Perl/Configure Server", "*",&Gimp::PROC_EXTENSION,
+#                               [[&Gimp::PARAM_INT32, "run_mode", "Interactive, [non-interactive]"]],[]);
 }
 
 sub quit {

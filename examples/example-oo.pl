@@ -23,6 +23,10 @@ sub extension_perl_experimental {
   new Display($img);
 }
 
+sub net {
+  extension_perl_experimental;
+}
+
 sub query {
   gimp_install_extension("extension_perl_experimental", "a test extension in perl",
                          "try it out", "Marc Lehmann", "Marc Lehmann", "1997-02-06",

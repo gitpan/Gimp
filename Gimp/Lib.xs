@@ -50,8 +50,8 @@ trace_init ()
 }
 
 #ifndef __STDC_VERSION__
-error You need to compile with an ansi-c compiler If you don´t have one,
-      comment out these lines and try again - on your own risk.
+#warn You need to compile with an ansi-c compiler!!!
+#warn Compile will continue at your own risk!!
 #define __STDC_VERSION__ 0
 #endif
 
@@ -79,8 +79,8 @@ void trace_printf (char *frmt, ...)
 }
 
 #else
-error need_ansi_compiler__maybe_try_c89
 #error need ansi compiler, maybe try c89?
+error need_ansi_compiler__maybe_try_c89
 #endif
 
 /* horrors!  c wasn't designed for this!  */
@@ -695,6 +695,8 @@ gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, im
 	int	type
 	SV *	params
 	SV *	return_vals
+	ALIAS:
+		gimp_install_temp_proc = 1
 	CODE:
 	{
 		if (SvROK(params) && SvTYPE(SvRV(params)) == SVt_PVAV
@@ -704,8 +706,8 @@ gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, im
 		    AV *ret = (AV *)SvRV(return_vals);
 		    int nparams = av_len(args)+1;
 		    int nreturn_vals = av_len(ret)+1;
-		    GParamDef *apd = (GParamDef *)alloca(nparams * sizeof (GParamDef));
-		    GParamDef *rpd = (GParamDef *)alloca(nreturn_vals * sizeof (GParamDef));
+		    GParamDef *apd = g_new (GParamDef, nparams);
+		    GParamDef *rpd = g_new (GParamDef, nreturn_vals);
 		    int i;
 		    
 		    for (i = 0; i < nparams; i++)
@@ -713,29 +715,19 @@ gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, im
 		    for (i = 0; i < nreturn_vals; i++)
 		      convert_sv2paramdef (&rpd[i], *av_fetch(ret, i, 0));
 		    
-		    gimp_install_procedure(name,blurb,help,author,copyright,date,menu_path,image_types,
-		                           type,nparams,nreturn_vals,apd,rpd);
+		    if (ix)
+		      gimp_install_temp_proc(name,blurb,help,author,copyright,date,menu_path,image_types,
+		                             type,nparams,nreturn_vals,apd,rpd,pii_run);
+		    else
+		      gimp_install_procedure(name,blurb,help,author,copyright,date,menu_path,image_types,
+		                             type,nparams,nreturn_vals,apd,rpd);
+		    
+		    g_free (rpd);
+		    g_free (apd);
 		  }
 		else
 		  croak ("params and return_vals must be array refs (even if empty)!");
 	}
-
-#void
-#gimp_install_temp_proc(name, blurb, help, author, copyright, date, menu_path, image_types, type, nparams, nreturn_vals, params, return_vals, run_proc)
-#	char *	name
-#	char *	blurb
-#	char *	help
-#	char *	author
-#	char *	copyright
-#	char *	date
-#	char *	menu_path
-#	char *	image_types
-#	int	type
-#	int	nparams
-#	int	nreturn_vals
-#	GParamDef *	params
-#	GParamDef *	return_vals
-#	GRunProc	run_proc
 
 void
 gimp_uninstall_temp_proc(name)
@@ -744,16 +736,64 @@ gimp_uninstall_temp_proc(name)
 void
 gimp_quit()
 
-#void
-#gimp_set_data(id, data, length)
-#	gchar *	id
-#	gpointer	data
-#	guint32	length
+void
+gimp_set_data(id, data)
+	SV *	id
+	SV *	data;
+	CODE:
+	{
+		STRLEN dlen;
+		STRLEN len;
+		char *str;
+		void *dta;
+		
+		dta = SvPV (data, dlen);
+		
+		len = SvCUR (id);
+		str = (char *)SvGROW (id, len + 2);
+		str[len+1] = 0;
+		/* nicht portabel wg. STRLEN!!! */
+		str[len] = 'S'; gimp_set_data (str, &dlen, sizeof (STRLEN));
+		str[len] = 'C'; gimp_set_data (str, dta, dlen);
+		
+		str[len] = 0;
+		SvCUR_set (id, len);
+	}
 
-#void
-#gimp_get_data(id, data)
-#	gchar *	id
-#	gpointer	data
+SV *
+gimp_get_data(id)
+	SV *	id;
+	CODE:
+	{
+		SV *data;
+		STRLEN dlen;
+		STRLEN len;
+		char *str;
+		
+		len = SvCUR (id);
+		str = (char *)SvGROW (id, len + 2);
+		str[len+1] = 0;
+		
+		dlen = (STRLEN) -1;
+		
+		str[len] = 'S'; gimp_get_data (str, &dlen);
+		
+		if (dlen != (STRLEN)-1)
+		  {
+		    data = newSVpv ("", 0);
+		    str[len] = 'C'; gimp_get_data (str, SvGROW (data, dlen+1));
+		    SvCUR_set (data, dlen);
+		    *((char *)SvPV (data, na) + dlen) = 0;
+		    RETVAL = data;
+		  }
+		else
+		  RETVAL = &sv_undef;
+		
+		str[len] = 0;
+		SvCUR_set (id, len);
+	}
+	OUTPUT:
+	RETVAL
 
 void
 gimp_progress_init(message)

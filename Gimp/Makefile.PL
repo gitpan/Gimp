@@ -9,6 +9,6 @@ WriteMakefile(
     'NAME'	=> 'Gimp::Lib',
     'VERSION_FROM' => '../Gimp.pm', # finds $VERSION
     'LIBS'	=> ['-lgimp -lglib'],   # e.g., '-lm' 
+    'INC'	=> '-I.. ',     # e.g., '-I/usr/include/other' 
     'DEFINE'	=> '',     # e.g., '-DHAVE_SOMETHING' 
-    'INC'	=> '-I..',     # e.g., '-I/usr/include/other' 
 );
