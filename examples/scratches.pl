@@ -34,16 +34,18 @@ register "scratches",
           [PF_SPINNER	, "length"	, "The scratch length"		,  10, [  0, 400]],
           #[PF_BOOL,	, "bump_map"	, "Use bump map instead of displace", 0],
          ],
+         [],
+         ['gimp-1.1'],
          sub {
    my($image,$drawable,$anglex,$angley,$gamma,$length,$width)=@_;
 
    $image->undo_push_group_start;
-   
+
    my $layer1 = new_scratchlayer ($image, $length, $gamma, $anglex);
    my $layer2 = new_scratchlayer ($image, $length, $gamma, $angley);
-   
+
    $drawable->displace ($width, $width, 1, 1, $layer1, $layer2, WRAP);
-   
+
    $layer1->remove_layer;
    $layer2->remove_layer;
 

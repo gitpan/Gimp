@@ -3,6 +3,7 @@ package Gimp::Fu;
 use Carp;
 use Gimp ();
 use Gimp::Data;
+use File::Basename;
 
 require Exporter;
 
@@ -201,10 +202,7 @@ sub interact($$$$@) {
 
    # only pull these in if _really_ required
    # gets us some speed we really need
-   eval {
-      require Gtk; import Gtk;
-      init Gtk; # gross hack...
-   };
+   eval { require Gtk };
    
    if ($@) {
       my @res = map {
@@ -216,7 +214,7 @@ sub interact($$$$@) {
       return (1,@res);
    }
 
-   parse Gtk::Rc Gimp->gtkrc;
+   Gimp::init_gtk;
 
    require Gimp::UI; import Gimp::UI;
 
@@ -275,7 +273,7 @@ sub interact($$$$@) {
               &new_PF_STRING;
            } else {
               my $fs=new Gtk::FontSelectionDialog "Font Selection Dialog ($desc)";
-              my $def = "-*-helvetica-medium-r-normal-*-*-240-*-*-p-*-iso8859-1";
+              my $def = "-*-helvetica-medium-r-normal-*-24-*-*-*-p-*-iso8859-1";
               my $val;
               
               my $l=new Gtk::Label "!error!";
@@ -532,10 +530,11 @@ sub fu_feature_present($$) {
 sub this_script {
    return $scripts[0] unless $#scripts;
    # well, not-so-easy-day today
-   my $exe = basename($0);
+   require File::Basename;
+   my $exe = File::Basename::basename($0);
    my @names;
    for my $this (@scripts) {
-      my $fun = (split /\//,$this->[0])[-1];
+      my $fun = (split /\//,$this->[1])[-1];
       return $this if lc($exe) eq lc($fun);
       push(@names,$fun);
    }
@@ -591,8 +590,8 @@ sub net {
    my($interact)=1;
    my $params = $this->[8];
    
-   for(@{$this->[10]}) {
-      return unless fu_feature_present($_,$this->[0]);
+   for(@{$this->[11]}) {
+      return unless fu_feature_present($_,$this->[1]);
    }
 
    # %map is a hash that associates (mangled) parameter names to parameter index
@@ -630,7 +629,7 @@ sub net {
    }
    
    # Go for it
-   $this->[0]->($interact>0 ? $this->[6]=~/^<Image>/ ? (&Gimp::RUN_FULLINTERACTIVE,undef,undef,@args)
+   $this->[0]->($interact>0 ? $this->[7]=~/^<Image>/ ? (&Gimp::RUN_FULLINTERACTIVE,undef,undef,@args)
                                                      : (&Gimp::RUN_INTERACTIVE,@args)
                             : (&Gimp::RUN_NONINTERACTIVE,@args));
 }
@@ -643,7 +642,7 @@ sub query {
    my($type);
    script:
    for(@scripts) {
-      my($function,$blurb,$help,$author,$copyright,$date,
+      my($perl_sub,$function,$blurb,$help,$author,$copyright,$date,
          $menupath,$imagetypes,$params,$results,$features,$code)=@$_;
 
       for(@$features) {
@@ -903,6 +902,8 @@ sub register($$$$$$$$$;@) {
       int($p->[0]) eq $p->[0] or croak "$function: argument/return value '$p->[1]' has illegal type '$p->[0]'";
       $p->[1]=~/^[0-9a-z_]+$/ or carp "$function: argument name '$p->[1]' contains illegal characters, only 0-9, a-z and _ allowed";
    }
+
+   $function=~/^[0-9a-z_]+(-ALT)?$/ or carp "$function: function name contains unusual characters, good style is to use only 0-9, a-z and _";
    
    $function="perl_fu_".$function unless $function=~/^(?:perl_fu|extension|plug_in)/ || $function=~s/^\+//;
    
@@ -910,7 +911,7 @@ sub register($$$$$$$$$;@) {
                 function => $function, fatal => 0
       if $function =~ y/-//;
 
-   *$function = sub {
+   my $perl_sub = sub {
       $run_mode=shift;	# global!
       my(@pre,@defaults,@lastvals,$input_image);
 
@@ -933,15 +934,23 @@ sub register($$$$$$$$$;@) {
       for (0..$#{$params}) {
          $_[$_]=$params->[$_]->[3] unless defined($_[$_]);
       }
-      
-      if ($run_mode == &Gimp::RUN_INTERACTIVE) {
-         if (@_) {
-            my $res;
-            local $^W=0; # perl -w is braindamaged
-            my $VAR1; # Data::Dumper is braindamaged
-            # gimp is braindamaged, is doesn't deliver useful values!!
-            ($res,@_)=interact($function,$blurb,$help,$params,@{eval $Gimp::Data{"$function/_fu_data"}});
-            return unless $res;
+
+      if ($run_mode == &Gimp::RUN_INTERACTIVE
+          || $run_mode == &Gimp::RUN_WITH_LAST_VALS) {
+         my $fudata = $Gimp::Data{"$function/_fu_data"};
+         my $VAR1; # Data::Dumper is braindamaged
+         local $^W=0; # perl -w is braindamaged
+
+         if ($run_mode == &Gimp::RUN_WITH_LAST_VALS && $fudata ne "") {
+            @_ = @{eval $fudata};
+         } else {
+            if (@_) {
+               my $res;
+               local $^W=0; # perl -w is braindamaged
+               # gimp is braindamaged, is doesn't deliver useful values!!
+               ($res,@_)=interact($function,$blurb,$help,$params,@{eval $fudata});
+               return unless $res;
+            }
          }
       } elsif ($run_mode == &Gimp::RUN_FULLINTERACTIVE) {
          my($res);
@@ -949,9 +958,6 @@ sub register($$$$$$$$$;@) {
          undef @pre;
          return unless $res;
       } elsif ($run_mode == &Gimp::RUN_NONINTERACTIVE) {
-      } elsif ($run_mode == &Gimp::RUN_WITH_LAST_VALS) {
-         my $VAR1; # Data::Dumper is braindamaged
-         @_=@{eval $Gimp::Data{"$function/_fu_data"}};
       } else {
          die "run_mode must be INTERACTIVE, NONINTERACTIVE or WITH_LAST_VALS\n";
       }
@@ -993,7 +999,9 @@ sub register($$$$$$$$$;@) {
       Gimp::set_trace ($old_trace);
       wantarray ? @imgs : $imgs[0];
    };
-   push(@scripts,[$function,$blurb,$help,$author,$copyright,$date,
+
+   Gimp::register_callback($function,$perl_sub);
+   push(@scripts,[$perl_sub,$function,$blurb,$help,$author,$copyright,$date,
                   $menupath,$imagetypes,$params,$results,$features,$code]);
 }
 
@@ -1093,7 +1101,7 @@ sub print_switches {
    for(@{$this->[8]}) {
       my $type=$pf_type2string{$_->[0]};
       my $key=mangle_key($_->[1]);
-      printf "           -%-25s %s\n","$key $type",$_->[2];
+      printf "           -%-25s %s%s\n","$key $type",$_->[2],defined $_->[3] ? " [$_->[3]]" : "";
    }
 }
 
@@ -1103,13 +1111,14 @@ sub main {
       my $this=this_script;
       print <<EOF;
        interface-arguments are
-           -o | --output <filespec>   write image to disk, then delete
+           -o | --output <filespec>   write image to disk, don't display
            -i | --interact            let the user edit the values first
        script-arguments are
 EOF
       print_switches ($this);
+   } else {
+      Gimp::main;
    }
-   Gimp::main;
 };
 
 sub logo {

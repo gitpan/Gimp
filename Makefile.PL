@@ -1,8 +1,7 @@
-require 5.004;
+require 5.004_04;
 
 use Config;
 
-$topdir=".";
 $|=1;
 
 @examples =
@@ -10,7 +9,9 @@ $|=1;
       border.pl view3d.pl feedback.pl xachlego.pl xachshadow.pl parasite-editor
       scratches.pl blowinout.pl terral_text xachvision.pl gimpmagick perlcc
       sethspin.pl animate_cells image_tile yinyang stamps font_table
-      perlotine randomblends innerbevel
+      perlotine randomblends innerbevel fit-text guidegrid roundrectsel
+      repdup centerguide stampify goldenmean triangle billboard mirrorsplit
+      oneliners randomart1
    );
 @shebang = (map("examples/$_",@examples),
    qw(Perl-Server examples/example-net.pl examples/homepage-logo.pl
@@ -23,27 +24,7 @@ if ($ARGV[0] ne "--writemakefile") {
    }
    
    do './config.pl';
-   if(defined $EXTENSIVE_TESTS) {
-      print "\nFetched some defaults from an earlier Makefile.PL run.\n";
-      print "Run \"make realclean\" if you don't want this\n";
-   } else {
-      print "
-This module usually does only a very short installation check.
-Alternatively, it can do more extensive tests, but these tests might fail
-even if everything is in fact correct.  And it has only been tested with
-gimp-1.1 ;)
-
-If you decide to run these tests (please!), I'd be glad to hear
-success stories (and of course any bug-reports ;)
-
-Do you want me to run these tests [y]? ";
-      
-      print "y\n";
-      $EXTENSIVE_TESTS = 1;
-      #$EXTENSIVE_TESTS = (<STDIN> !~ /^[nN]/) ? 1 : 0;
-   }
-   
-   print "\n";
+   $EXTENSIVE_TESTS = 1;
    
    $ENV{'EXTENSIVE_TESTS'} = $EXTENSIVE_TESTS;
    $ENV{CC}=$Config{cc};
@@ -63,7 +44,9 @@ import ExtUtils::MakeMaker;
 @INC = grep /^\//,@INC;
 eval { $Gimp::no_SIG=1; require Gimp };
 unless($@) {
-   $old_prefix = eval { Gimp::_gimp_prefix() };
+   eval { require Gimp::Config };
+   $old_prefix = eval { $Gimp::Config{GIMP_PREFIX} };
+   $old_prefix = eval { Gimp::_gimp_prefix() } unless $old_prefix;
    if ($@) {
       print <<EOF;
 
@@ -169,11 +152,6 @@ WARNING: version 0.3 of Gtk is _required_ for this module to
 EOF
 }
 
-# wo do no longer do these dirty things
-#for(@shebang) {
-#   system ($Config{perlpath},"-pi","-e","\$. == 1 and \$_ = '#!$Config{perlpath}\n'",$_);
-#}
-
 sub MY::install {
    package MY;
    my $install = shift->SUPER::install(@_);
@@ -197,9 +175,10 @@ install ::
 	      exit ; \
 	   fi \
 	done ; \
-	$(MAKE) UNINST=1 really-install install-plugins
+	$(MAKE) UNINST=1 really-install install-plugins'."
+	$main::dont_embed || (cd embed && \$(MAKE) install)
 
-'.$install;
+".$install;
 }
 
 sub MY::postamble {
@@ -214,7 +193,11 @@ check :: test
 
 MY_FIXIN = \$(PERL) -I\$(PERL_ARCHLIB) -I\$(PERL_LIB) -MExtUtils::MakeMaker -e 'MY->fixin(\@ARGV)'
 
+all ::
+	$main::dont_embed || (cd embed && \$(MAKE) all)
+
 clean ::
+	$main::dont_embed || (cd embed && \$(MAKE) clean)
 	test -f Makefile || mv -f Makefile.old Makefile
 	\$(RM_RF) inst-temp
 
@@ -233,6 +216,74 @@ install-plugins ::
 ";
 }
 
+print "writing Gimp/Config.pm...";
+
+open C,">Gimp/Config.pm" or die "Gimp/Config.pm: $!\n";
+print C <<'EOF';
+package Gimp::Config;
+
+=cut
+
+=head1 NAME
+
+  Gimp::Config - config options found during configure time.
+
+=head1 DESCRIPTION
+
+The Gimp::Config module creates a tied hash %Gimp::Config which contains
+all the definitions the configure script and perl deduced from the system
+configuration at configure time. You can access these values just like you
+access any other values, i.e.  C<$Gimp::Config{KEY}>. Some important keys are:
+
+  IN_GIMP	=> true when gimp-perl was part of the Gimp distribution.
+  GIMP		=> the path of the gimp executable
+  prefix	=> the installation prefix
+  libdir	=> the gimp systemwide libdir
+  bindir	=> paths where gimp binaries are installed
+  gimpplugindir	=> the gimp plug-in directory (without the /plug-ins-suffix)
+
+=head1 SEE ALSO
+
+L<Gimp>.
+
+=cut
+
+sub TIEHASH {
+   my $pkg = shift;
+   my $self;
+
+   bless \$self, $pkg;
+}
+
+sub FETCH {
+   $cfg{$_[1]};
+}
+
+tie %Gimp::Config, 'Gimp::Config';
+
+%cfg = (
+EOF
+for $k (keys(%cfg)) {
+   $v = $cfg{$k};
+   print C "   $k	=> \"",quotemeta(expand($v)),"\",\n";
+}
+print C ");\n\n1;\n";
+close C;
+
+print "ok\n";
+
+$GIMP_INC_NOUI = "-I../../ $GIMP_INC_NOUI" if $IN_GIMP;
+
+@DIRS= 'Gimp';
+if ($IN_GIMP) {
+   $dont_embed = "false";
+   push(@DIRS,'nolib');
+   print "configuring in embed/Makefile...\n";
+   system("cd embed && perl Makefile.PL");
+} else {
+   $dont_embed = "true";
+}
+
 WriteMakefile(
     'dist'	=> {
 	            PREOP	=> 'chmod -R u=rwX,go=rX . ;',
@@ -242,10 +293,10 @@ WriteMakefile(
     'PREREQ_PM'	=> {
     		    Gtk			=> 0.3,
                     PDL			=> 1.99,
-    		    Data::Dumper	=> 2,
+    		    Data::Dumper	=> 2.0,
                     Parse::RecDescent	=> 1.6,
 		   },
-    'DIR'	=> ['Gimp'],
+    'DIR'	=> [@DIRS],
     'NAME'	=> 'Gimp',
     'VERSION_FROM' => 'Gimp.pm',
     'PM'	=> {
@@ -258,13 +309,15 @@ WriteMakefile(
     		    'Gimp/PDL.pm'	=> '$(INST_LIBDIR)/Gimp/PDL.pm',
     		    'Gimp/Util.pm'	=> '$(INST_LIBDIR)/Gimp/Util.pm',
     		    'Gimp/Feature.pm'	=> '$(INST_LIBDIR)/Gimp/Feature.pm',
+    		    'Gimp/Module.pm'	=> '$(INST_LIBDIR)/Gimp/Module.pm',
+    		    'Gimp/Config.pm'	=> '$(INST_LIBDIR)/Gimp/Config.pm',
     		   },
     'LIBS'	=> [''],
-    'INC'	=> "$CPPFLAGS $CFLAGS $GIMP_INC_NOUI",
-    'DEFINE'	=> ($IN_GIMP ? " -DIN_GIMP " : "")." $DEFS",
+    'INC'	=> "$INC1 $GIMP_INC_NOUI $CPPFLAGS $CFLAGS",
+    'DEFINE'	=> "$DEFINE1 $DEFS",
     'EXE_FILES'	=> ['scm2perl','scm2scm'],
     'macro'	=> \%cfg,
-    'realclean'	=> { FILES => "config.status config.cache config.log config.pl config.h" },
+    'realclean'	=> { FILES => "config.status config.cache config.log config.pl config.h Gimp/Config.pm" },
     'clean'	=> { FILES => "Makefile.old stamp-h" },
 );
 
@@ -286,9 +339,9 @@ all install check:
 
 clean mostlyclean objclean:
 
-distclean maintainer-clean: clean
+distclean maintainer-clean realclean clobber: clean
 	rm -f Makefile config.cache config.pl config.log config.h config.status stamp-h Makefile.old
-        rm -rf test-dir inst-temp
+        rm -rf test-dir inst-temp Gimp/Config.pm
 EOF
    close MAKEFILE;
    exit;

@@ -1,7 +1,13 @@
 use ExtUtils::MakeMaker;
 
-$topdir="..";
 do '../config.pl';
+
+sub MY::const_config {
+   my $self = shift;
+   $self->{LDDLFLAGS}="$GIMP_LIBS_NOUI $LDFLAGS $LIBS $self->{LDDLFLAGS}";
+   package MY;
+   $self->SUPER::const_config(@_);
+}
 
 sub MY::const_loadlibs {
    my $self = shift;
@@ -22,11 +28,12 @@ clean ::
 EOF
 }
 
+$GIMP_INC_NOUI = "-I../../.. $GIMP_INC_NOUI" if $IN_GIMP;
+
 WriteMakefile(
     'NAME'	=> 'Gimp::Lib',
     'VERSION_FROM' => '../Gimp.pm',
-    'INC'	=> "$CPPFLAGS -I.. $CFLAGS $GIMP_INC_NOUI $DEFS".($IN_GIMP ? " -DIN_GIMP" : ""),
+    'INC'	=> "$INC1 $GIMP_INC_NOUI $CPPFLAGS $CFLAGS",
+    'DEFINE'	=> "$DEFINE1 $DEFS",
     'macro'	=> { libdir => $libdir, exec_prefix => $exec_prefix, prefix => $prefix },
-    'LDLOADLIBS'=> "$LDFLAGS $LIBS $GIMP_LIBS_NOUI",
-    'DEFINE'	=> '',
 );

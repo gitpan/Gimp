@@ -88,7 +88,7 @@ SV *newSVn (int len)
 {
   SV *sv = newSVpv ("", 0);
   
-  SvUPGRADE (sv, SVt_PV);
+  (void) SvUPGRADE (sv, SVt_PV);
   SvGROW (sv, len);
   SvCUR_set (sv, len);
   
@@ -145,7 +145,6 @@ GTile *old_tile (SV *sv)
 GPixelRgn *old_pixelrgn (SV *sv)
 {
   STRLEN dc;
-  dTHR;
   
   if (!sv_derived_from (sv, PKG_PIXELRGN) && !SvTYPE (sv) != SVt_PVHV)
     croak ("argument is not of type " PKG_PIXELRGN);
@@ -173,13 +172,17 @@ trace_init ()
 
 #if __STDC_VERSION__ > 199900
 #define trace_printf(...) \
-	if (trace_file) PerlIO_printf (trace_file, __VA_ARGS__); \
-	else		sv_catpvf (trace_var, __VA_ARGS__)
+	do { \
+        	if (trace_file) PerlIO_printf (trace_file, __VA_ARGS__); \
+		else		sv_catpvf (trace_var, __VA_ARGS__); \
+        } while(0)
 #elif __GNUC__
 #define trace_printf(frmt,args...) \
-	if (trace_file) PerlIO_printf (trace_file, frmt, ## args); \
-	else		sv_catpvf (trace_var, frmt, ## args)
-#elif __STDC__
+        do { \
+		if (trace_file) PerlIO_printf (trace_file, frmt, ## args); \
+		else		sv_catpvf (trace_var, frmt, ## args); \
+        } while(0)
+#elif defined(__STDC__)
 
 /* sigh */
 #include <stdarg.h>
@@ -205,7 +208,7 @@ error need_ansi_compiler__maybe_try_c89
 /* in case g_strdup_printf is missing.  */
 #if (GLIB_MAJOR_VERSION>1) || (GLIB_MAJOR_VERSION==1 && GLIB_MINOR_VERSION>1)
 #define strdup_printf g_strdup_printf
-#elif __STDC__
+#elif defined(__STDC__)
 #include <stdarg.h>
 static char *
 strdup_printf (char *frmt, ...)
@@ -301,10 +304,12 @@ dump_params (int nparams, GParam *args, GParamDef *params)
   for (i = 0; i < nparams; i++)
     {
       if ((trace & TRACE_TYPE) == TRACE_TYPE)
-	if (params[i].type >= 0 && params[i].type < PARAM_END+1)
-	  trace_printf ("%s ", ptype[params[i].type]);
-	else
-	  trace_printf ("T%d ", params[i].type);
+        {
+	  if (params[i].type >= 0 && params[i].type < PARAM_END+1)
+	    trace_printf ("%s ", ptype[params[i].type]);
+	  else
+	    trace_printf ("T%d ", params[i].type);
+        }
       
       if ((trace & TRACE_NAME) == TRACE_NAME)
 	trace_printf ("%s=", params[i].name);
@@ -387,7 +392,6 @@ convert_array2paramdef (AV *av, GParamDef **res)
   STRLEN dc;
   int count = 0;
   GParamDef *def = 0;
-  dTHR;
   
   if (av_len (av) >= 0)
     for(;;)
@@ -400,7 +404,7 @@ convert_array2paramdef (AV *av, GParamDef **res)
 	    SV *type = 0;
 	    SV *name = 0;
 	    SV *help = 0;
-	
+
 	    if (SvROK (sv) && SvTYPE (SvRV (sv)) == SVt_PVAV)
 	      {
 	        AV *av = (AV *)SvRV(sv);
@@ -564,6 +568,47 @@ canonicalize_colour (char *err, SV *sv, GParamColor *c)
   LEAVE;
 }
 
+/* check for common typoes.  */
+static void check_for_typoe (char *croak_str, char *p)
+{
+  char b[80];
+
+  g_snprintf (b, sizeof b, "%s_MODE", p);	if (perl_get_cv (b, 0)) goto gotit;
+  g_snprintf (b, sizeof b, "%s_MASK", p);	if (perl_get_cv (b, 0)) goto gotit;
+  g_snprintf (b, sizeof b, "SELECTION_%s", p);	if (perl_get_cv (b, 0)) goto gotit;
+  g_snprintf (b, sizeof b, "%s_IMAGE", p);	if (perl_get_cv (b, 0)) goto gotit;
+
+  strcpy (b, "1"); if (strEQ (b, "TRUE" )) goto gotit;
+  strcpy (b, "0"); if (strEQ (b, "FALSE")) goto gotit;
+  
+  return;
+
+gotit:
+  sprintf (croak_str, "Expected an INT32 but got '%s'. Maybe you meant '%s' instead and forgot to 'use strict'", p, b);
+}
+
+/* check for 'enumeration types', i.e. integer constants. do not allow
+   string constants here, and check for common typoes. */
+static int check_int (char *croak_str, SV *sv)
+{
+  if (SvTYPE (sv) == SVt_PV && !SvIOKp(sv))
+    {
+      STRLEN dc;
+      char *p = SvPV (sv, dc);
+
+      if (*p
+          && *p != '0' && *p != '1' && *p != '2' && *p != '3' && *p != '4'
+          && *p != '5' && *p != '6' && *p != '7' && *p != '8' && *p != '9'
+          && *p != '-')
+        {
+          sprintf (croak_str, "Expected an INT32 but got '%s'. Add '*1' if you really intend to pass in a string", p);
+          check_for_typoe (croak_str, p);
+          return 0;
+        }
+    }
+  return 1;
+}
+
 /* replacement newSVpv with only one argument.  */
 #define neuSVpv(arg) newSVpv((arg),0)
 
@@ -577,7 +622,7 @@ canonicalize_colour (char *err, SV *sv, GParamColor *c)
   if (as_ref)							\
     av = newAV ();						\
   else								\
-    EXTEND (SP, arg[-1].data.d_int32);				\
+    av = 0, EXTEND (SP, arg[-1].data.d_int32);			\
   for (j = 0; j < arg[-1].data.d_int32; j++)			\
     if (as_ref)							\
       av_push (av, newsv (arg->data.datatype[j]));		\
@@ -585,14 +630,13 @@ canonicalize_colour (char *err, SV *sv, GParamColor *c)
       PUSHs (sv_2mortal (newsv (arg->data.datatype[j])));	\
   if (as_ref)							\
     PUSHs (sv_2mortal (newRV_noinc ((SV *)av)));		\
-  sv = 0;							\
 }
 
 void
 push_gimp_sv (GParam *arg, int array_as_ref)
 {
-  SV *sv;
   dSP;
+  SV *sv = 0;
   
   switch (arg->type)
     {
@@ -652,8 +696,6 @@ push_gimp_sv (GParam *arg, int array_as_ref)
 	
       default:
 	croak ("dunno how to return param type %d", arg->type);
-/*        sv = newSV ();*/
-/*        abort ();*/
     }
   
   if (sv)
@@ -695,11 +737,11 @@ static int
 convert_sv2gimp (char *croak_str, GParam *arg, SV *sv)
 {
   STRLEN dc;
-  dTHR;
   
   switch (arg->type)
     {
-      case PARAM_INT32:      	arg->data.d_int32	= sv2gimp_extract_noref (SvIV, "INT32");
+      case PARAM_INT32:		check_int (croak_str, sv);
+         			arg->data.d_int32	= sv2gimp_extract_noref (SvIV, "INT32");
       case PARAM_INT16:		arg->data.d_int16	= sv2gimp_extract_noref (SvIV, "INT16");
       case PARAM_INT8:		arg->data.d_int8	= sv2gimp_extract_noref (SvIV, "INT8");
       case PARAM_FLOAT:		arg->data.d_float	= sv2gimp_extract_noref (SvNV, "FLOAT");;
@@ -922,13 +964,13 @@ static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, 
       
       if (count == 1 && !SvOK (TOPs))
 	{
-	  POPs;
+	  (void) POPs;
 	  count = 0;
 	}
       
       if (SvTRUE (ERRSV))
 	{
-	   if (strEQ ("BE QUIET ABOUT THIS DIE\n", SvPV (ERRSV, dc)))
+	   if (strEQ ("IGNORE THIS MESSAGE\n", SvPV (ERRSV, dc)))
 	     {
 	       nreturn_vals = 0;
 	       return_vals = g_new (GParam, 1);
@@ -959,7 +1001,7 @@ static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, 
 	           && convert_sv2gimp (errmsg, &return_vals[i], TOPs))
 	         {
 	           --count;
-	           POPs;
+	           (void) POPs;
 	         }
 	       
 	       if (errmsg [0])
@@ -974,7 +1016,7 @@ static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, 
 	}
       
       while (count--)
-	POPs;
+	(void) POPs;
       
       destroy_paramdefs (return_defs, nreturn_vals);
       
@@ -1043,7 +1085,7 @@ set_trace (var)
 		        trace_file = 0;
 		        sv = SvRV (sv);
 		        SvREFCNT_inc (sv);
-		        SvUPGRADE (sv, SVt_PV);
+		        (void) SvUPGRADE (sv, SVt_PV);
 		        trace_var = sv;
 		      }
 		  }
@@ -1183,12 +1225,12 @@ gimp_call_procedure (proc_name, ...)
 		int proc_type;
 		int nparams;
 		int nreturn_vals;
-		int i, j;
 		GParam *args = 0;
 		GParam *values = 0;
 		int nvalues;
 		GParamDef *params;
 		GParamDef *return_vals;
+                int i=0, j=0; /* work around bogus warning.  */
 		
 		if (trace)
 		  trace_init ();
@@ -1211,7 +1253,7 @@ gimp_call_procedure (proc_name, ...)
 		    g_free (proc_date);
 		    
 		    if (nparams)
-		      args = (GParam *) g_new (GParam, nparams);
+		      args = (GParam *) g_new0 (GParam, nparams);
 		    
 		    for(;items;)
 		      {
@@ -1251,7 +1293,7 @@ gimp_call_procedure (proc_name, ...)
 		        /* very costly, do better! */
 		        no_runmode = 2;
 		        destroy_params (args, nparams);
-		        args = (GParam *) g_new (GParam, nparams);
+		        args = (GParam *) g_new0 (GParam, nparams);
 		      }
 		    
 		    if (trace & TRACE_CALL)
@@ -1383,7 +1425,6 @@ gimp_set_data(id, data)
 	CODE:
 	{
 		STRLEN dlen;
-		STRLEN len;
 		STRLEN dc;
 		void *dta;
 		
@@ -1399,7 +1440,6 @@ gimp_get_data(id)
 	{
 		SV *data;
 		STRLEN dlen;
-		STRLEN len;
 		STRLEN dc;
 		
 		dlen = get_data_size (SvPV (id, dc));
@@ -1427,8 +1467,20 @@ gimp_install_cmap()
 gint
 gimp_use_xshm()
 
-guchar *
+void
 gimp_color_cube()
+	PPCODE:
+	{
+	 	guchar *cc = gimp_color_cube ();
+
+		EXTEND (SP, 4);
+
+		PUSHs (sv_2mortal (newSViv (cc [0])));
+		PUSHs (sv_2mortal (newSViv (cc [1])));
+		PUSHs (sv_2mortal (newSViv (cc [2])));
+		PUSHs (sv_2mortal (newSViv (cc [3])));
+	}
+	
 
 gchar *
 gimp_gtkrc()

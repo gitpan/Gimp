@@ -1,5 +1,65 @@
 Revision history for Gimp-Perl extension.
 
+1.083 Wed May 12 03:36:10 CEST 1999
+	- took a modified enums.pl to autogenerate constants. Some constants
+          have changed:
+          RED, GREEN etc.. => RED_LUT, GREEN_LUT
+          the shear constants got a _SHEAR suffix.
+          the flip constants got a _FLIP suffix.
+          SHARPEN/BLUR => SHARPEN_CONVOLVE/...
+        - got rid of _gimp_prefix and _gimp_path functions.
+        - removed debugging trace from Gimp::Compat. Ugh.
+        - improved documentation for Gimp::Config.
+        - reenabled all of t/run.t again, fixed to to actually _work_.
+        - rearranged gimp link flags into LDDLFLAGS (hack! bug in gtk/gimp!).
+        - fixed RUN_FULLINTERACTIVE.
+        
+1.082 Tue May 11 19:02:30 CEST 1999
+	- fixed sunos/solaris socketpair "protocol not implemented" problem.
+        - added the Gimp::register_callback function and made Gimp::Fu use it.
+        - made default font use pixels instead of point size, since gimp-1.1
+          scales according to the image resolution(!).
+        - disabled paintbrush in testsuite since it has different calling
+          parameters in 1.1.
+        - added use File::Basename to Fu.pm.
+        - new module Gimp::Compat, which is loaded on demand.
+        - gimp_text_fontname etc.. are now available in gimp-1.0 as well,
+          re-enabled the scripts using it (and depending on 1.1 before).
+        - allow negative "INT32's".
+        - added examples/randomart1, the plug-in used in my iX article.
+        - commandline switch printing improved a bit.
+        - removed IO::Socket::* dependency from Perl-Server. Was tooo slow.
+        - fixed uninitialized memory error.
+        - some small improvements in PDB, gimpmagick and perlcc.
+
+1.081 Thu May  6 19:33:37 CEST 1999
+	- added "oneliners".
+	- startet implementing Gimp::Module, for embedding perl directly into
+	  the gimp.
+	- added generic Gimp::Config module.
+	- spit out a warning for unusual function names.
+	- made Gimp->color_cube work.
+	- added Gimp::init_gtk function to initialize Gtk in a Gimp-compatible
+	  way.
+	- replaced the default colour database by something far better ;)
+	- exchanged order of some compiler commandline arguments.
+	- improved Makefile support for embed.
+        - added embed.
+        - improved many parts of the build process.
+        - updated ppport.h.
+        - properly localized $_ in all subs.
+
+1.08  Fri Apr  9 03:20:54 CEST 1999
+	- added guidegrid, git-text, roundrectsel, repdup, centerguide,
+          stampify, goldenmean, triangle, billboard, mirrorsplit.
+        - improved error detection when some moron forgets to 'use strict'
+          and tries to use undefined symbols.
+        - added VALUE, RED, GREEN, BLUE constants for gimp_levels.
+        - added WRAP, SMEAR, BLACK constants for plug_in_displace.
+        - RUN_WITH_LAST_VALS is ignored if no LAST_VALS exist.
+        - fixed a bug in Gimp::Data, FETCH returned undef for valid keys.
+        - small compatibility fix in scm2scm.
+
 1.072 Sat Mar 27 21:04:39 CET 1999
 	- scripts will now be correctly installed when IN_GIMP.
         - test-dir was not removed by make distclean etc.
