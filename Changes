@@ -1,5 +1,25 @@
 Revision history for Gimp-Perl extension.
 
+0.97  Tue Jun 30 19:36:23 CEST 1998
+	- bugfixes, changes for gimp-1.1
+	- Gtk-0.2.3 required
+
+0.96  Sun Jun  7 16:24:46 CEST 1998
+	- added windy.pl to the manifest.
+	- Gimp::Tile & friends now work with Gimp::Net
+	- Gimp::Fu now supports all PARAM_xxx-types
+	- Gimp::Fu now supports some of the switches
+
+0.95  Fri May 29 13:47:48 CEST 1998
+	- thanks mr. libgimpui developer for this braindamaged "use static
+	  structures" attitude. I reimplemented the libgimpui in perl.
+
+0.94  Wed May 27 04:19:24 CEST 1998
+	- PixelRgn and Tile manpages merged.
+	- Gtk-0.2.2 required
+	- Lib.xs (and _only_ Lib.xs!) now compiles & links against
+	  gtk-config --whatever, since we need widget support.
+
 0.93  Tue May 26 03:09:59 CEST 1998
 	- documentation updates.
 	- bugfixes.
@@ -16,7 +36,7 @@ Revision history for Gimp-Perl extension.
 0.91  Fri May 22 01:55:30 CEST 1998
 	- Gimp::ColorSelectButton is no longer installed, Gtk-0.2.2 is
 	  required.
-	- commandlien parameters supported
+	- commandline parameters supported
 	- gimp_image_get_layers, gimp_image_get_cmap, gimp_image_get_channels
 	  commented out, use pdb functions instead
 	- fixed a bug in Fu handling of <Image> plug-ins

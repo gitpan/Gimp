@@ -11,7 +11,7 @@ use vars qw($help $verbose $host);
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '0.93';
+$VERSION = '0.97';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -41,6 +41,8 @@ $VERSION = '0.93';
 	SHARPEN		SQUARE		STATUS_CALLING_ERROR		STATUS_EXECUTION_ERROR
 	STATUS_PASS_THROUGH		STATUS_SUCCESS	SUBTRACT_MODE	TRANS_IMAGE_FILL
 	VALUE_MODE	WHITE_IMAGE_FILL		WHITE_MASK
+	
+	MESSAGE_BOX	CONSOLE
 	
 	ALL_HUES	RED_HUES	YELLOW_HUES	GREEN_HUES	CYAN_HUES
 	BLUE_HUES	MAGENTA_HUES
@@ -106,6 +108,19 @@ $VERSION = '0.93';
 	gimp_pixel_rgn_get_row		gimp_pixel_rgn_get_col		gimp_pixel_rgn_get_rect
 	gimp_pixel_rgn_set_pixel	gimp_pixel_rgn_set_row		gimp_pixel_rgn_set_col
 	gimp_pixel_rgn_set_rect
+	
+	gimp_list_images
+
+	gimp_gdrawable_width		gimp_gdrawable_height		gimp_gdrawable_ntile_rows
+	gimp_gdrawable_ntile_cols	gimp_gdrawable_bpp		gimp_gdrawable_id
+
+	gimp_pixel_rgn_x		gimp_pixel_rgn_y		gimp_pixel_rgn_w
+	gimp_pixel_rgn_h		gimp_pixel_rgn_rowstride	gimp_pixel_rgn_bpp
+	gimp_pixel_rgn_dirty		gimp_pixel_rgn_shadow		gimp_pixel_rgn_drawable
+
+	gimp_tile_ewidth		gimp_tile_eheight		gimp_tile_bpp
+	gimp_tile_shadow		gimp_tile_gdrawable
+
 );
 
 # internal procedure not to be exported
@@ -124,6 +139,9 @@ sub CYAN_HUES		{ 4 };
 sub BLUE_HUES		{ 5 };
 sub MAGENTA_HUES	{ 6 };
 
+sub MESSAGE_BOX		{ 0 };
+sub CONSOLE		{ 1 };
+
 # internal constants shared with Perl-Server
 
 sub _PS_FLAG_QUIET	{ 0000000001 };	# do not output messages
@@ -141,9 +159,8 @@ sub import($;@) {
    
    for(@_) {
       if ($_ eq ":auto") {
-         push(@export,@_consts);
-         push(@export,@_procs);
-         push @{"${up}::ISA"},'Gimp';
+         push(@export,@_consts,@_procs,"AUTOLOAD");
+#         push @{"${up}::ISA"},'Gimp';
       } elsif ($_ eq ":consts") {
          push(@export,@_consts);
       } elsif ($_ eq ":param") {
@@ -163,7 +180,7 @@ sub import($;@) {
 sub AUTOLOAD {
    my $constname;
    ($constname = $AUTOLOAD) =~ s/.*:://;
-   my $val = constant($constname, @_ ? $_[0] : 0);
+   my $val = constant($constname);
    if ($! != 0) {
       if ($! =~ /Invalid/) {
          no strict 'refs';
@@ -250,17 +267,17 @@ sub AUTOLOAD {
    my ($class,$subname) = $AUTOLOAD =~ /^(.*)::(.*?)$/;
    for(@{"${class}::PREFIXES"}) {
       my $sub = $_.$subname;
-      if (defined(&{"Gimp::$sub"})) {
+      if (defined($Gimp::{$sub})) {
          my $ref = \&{"Gimp::$sub"};
          *{$AUTOLOAD} = sub {
             shift if $_[0] eq $class;
-            goto &$ref;
+            return &$ref;	# simulate goto until repaired
+            goto &$ref;		#d##fixme#
          };
          goto &$AUTOLOAD;
       } elsif (Gimp::_gimp_procedure_available ($_.$subname)) {
          *{$AUTOLOAD} = sub {
             shift if $_[0] eq $class;
-            print "args2 = @_\n";
             Gimp::gimp_call_procedure($sub,@_);
          };
          goto &$AUTOLOAD;
@@ -274,27 +291,27 @@ sub DESTROY {};
 sub _pseudoclass {
   no strict 'refs';
   my ($class, @prefixes)= @_;
-  @prefixes=("",map { $_."_" } @prefixes);
+  unshift(@prefixes,"");
   @{"Gimp::${class}::ISA"}	= @{"${class}::ISA"}		= ('Gimp::OO');
   @{"Gimp::${class}::PREFIXES"}	= @{"${class}::PREFIXES"}	= @prefixes;
 }
 
-_pseudoclass qw(Layer		gimp_layer gimp_drawable gimp);
-_pseudoclass qw(Image		gimp_image gimp_drawable gimp);
-_pseudoclass qw(Drawable	gimp_drawable gimp);
-_pseudoclass qw(Selection 	gimp_selection);
-_pseudoclass qw(Channel		gimp_channel gimp_drawable gimp);
-_pseudoclass qw(Display		gimp_display gimp);
-_pseudoclass qw(Palette		gimp_palette);
-_pseudoclass qw(Plugin		plug_in);
-_pseudoclass qw(Gradients	gimp_gradients);
-_pseudoclass qw(Edit		gimp_edit);
-_pseudoclass qw(Progress	gimp_progress);
+_pseudoclass qw(Layer		gimp_layer_ gimp_drawable_ gimp_);
+_pseudoclass qw(Image		gimp_image_ gimp_drawable_ gimp_);
+_pseudoclass qw(Drawable	gimp_drawable_ gimp_);
+_pseudoclass qw(Selection 	gimp_selection_);
+_pseudoclass qw(Channel		gimp_channel_ gimp_drawable_ gimp_);
+_pseudoclass qw(Display		gimp_display_ gimp_);
+_pseudoclass qw(Palette		gimp_palette_);
+_pseudoclass qw(Plugin		plug_in_);
+_pseudoclass qw(Gradients	gimp_gradients_);
+_pseudoclass qw(Edit		gimp_edit_);
+_pseudoclass qw(Progress	gimp_progress_);
 _pseudoclass qw(Region		);
 
-_pseudoclass qw(GDrawable	gimp_drawable);
-_pseudoclass qw(PixelRgn	gimp_pixel_rgn);
-_pseudoclass qw(Tile		gimp_tile);
+_pseudoclass qw(GDrawable	gimp_drawable_);
+_pseudoclass qw(PixelRgn	gimp_pixel_rgn_);
+_pseudoclass qw(Tile		gimp_tile_);
 
 package Gimp::Tile;
 
@@ -320,6 +337,13 @@ sub new($$$$$$$$) {
    shift;
    goto &Gimp::gimp_pixel_rgn_init;
 }
+
+#sub DESTROY {
+#   my $self = shift;
+## does not work as advertised (by me):
+##   $self->{drawable}->{id}->update($self->{x},$self->{y},$self->{w},$self->{h})
+##     if $self->{dirty};
+#}
 
 1;
 
@@ -491,17 +515,17 @@ reducing object size as well).
 To call pdb functions (or equivalent libgimp functions), just
 treat them as normal perl:
 
-gimp_palette_set_foreground_color([20,5,7]);
+ gimp_palette_set_foreground_color([20,5,7]);
 
 "But how do I call functions containing dashes?". Well, get your favourite
 perl book and learn perl! Anyway, newer perls understand a nice syntax (see
 also the description for C<gimp_call_procedure>):
 
-"plug-in-the-egg"->(RUN_INTERACTIVE,$image,$drawable);
+ "plug-in-the-egg"->(RUN_INTERACTIVE,$image,$drawable);
 
 Older perls need:
 
-&{"plug-in-the-egg"}(RUN_INTERACTIVE,$image,$drawable);
+ &{"plug-in-the-egg"}(RUN_INTERACTIVE,$image,$drawable);
 
 (unfortunately. the plug-in in this example is actually called
 "plug_in_the_egg" *sigh*)
@@ -533,25 +557,10 @@ Initializes a progress bar. In networked modules this is a no-op.
 
 Updates the progress bar. No-op in networked modules.
 
-=item gimp_tile_*
+=item gimp_tile_*, gimp_pixel_rgn_*, gimp_drawable_get
 
-This family of functions is documented in L<Gimp::Tile>.
-
-=item gimp_pixel_rgn_*
-
-This family of functions is documented in L<Gimp::PixelRgn>.
-
-=item gimp_drawable_get(drawable_ID)
-
-What a mess. Many functions named C<gimp_drawable_something> operate on
-drawable_ID's. This is not unusual, other functions operate on layer_ID's or
-image_ID's. But some functions operate on so-called C<GDrawable>s. The
-C<GDrawable> structure is your connection to the raw pixel data of a
-drawable. If you want to access the tile or pixel_rgn functions, you first
-need a C<GDrawable>. The above function will do just this.
-
-When the C<GDrawable> is destroyed, it is automatically flushed & detached,
-so don't destroy it too early.
+With these functions you can access the raw pixel data of drawables. They
+are documented in L<Gimp::Pixel>, to keep this manual page short.
 
 =item gimp_call_procedure(procname, arguments...)
 
@@ -559,13 +568,20 @@ This function is actually used to implement the fancy stuff. Its your basic
 interface to the PDB. Every function call is eventually done through his
 function, i.e.:
 
-gimp_image_new(args...);
+ gimp_image_new(args...);
 
 is replaced by
 
-gimp_call_procedure "gimp_image_new",args...;
+ gimp_call_procedure "gimp_image_new",args...;
 
 at runtime.
+
+=item gimp_list_images, gimp_image_get_layers, gimp_image_get_channels
+
+These functions return what you would expect: an array of images, layers or
+channels. The reason why this is documented is that the usual way to return
+C<PARAM_INT32ARRAY>'s would be to return a B<reference> to an B<array of
+integers>, rather than blessed objects.
 
 =back
 

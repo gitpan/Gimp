@@ -59,16 +59,17 @@ int gdrawable_free (SV *obj, MAGIC *mg)
 MGVTBL vtbl_gdrawable = {0, 0, 0, 0, gdrawable_free};
 
 /* drawable/tile/region stuff.  */
-SV *new_tile (GTile *tile)
+SV *new_tile (GTile *tile, SV *gdrawable)
 {
   static HV *stash;
   HV *hv = newHV ();
   
   hv_store (hv, "_tile"		, 5, newSViv ((IV)tile)		, 0);
-  hv_store (hv, "ewidth"	, 6, newSViv (tile->ewidth)	, 0);
-  hv_store (hv, "eheight"	, 7, newSViv (tile->eheight)	, 0);
-  hv_store (hv, "bpp"		, 3, newSViv (tile->bpp)	, 0);
-  hv_store (hv, "shadow"	, 6, newSViv (tile->shadow)	, 0);
+  hv_store (hv, "_ewidth"	, 7, newSViv (tile->ewidth)	, 0);
+  hv_store (hv, "_eheight"	, 8, newSViv (tile->eheight)	, 0);
+  hv_store (hv, "_bpp"		, 4, newSViv (tile->bpp)	, 0);
+  hv_store (hv, "_shadow"	, 7, newSViv (tile->shadow)	, 0);
+  hv_store (hv, "_gdrawable"	,10, newSVsv (gdrawable)	, 0);
   
   if (!stash)
     stash = gv_stashpv (PKG_TILE, 1);
@@ -78,11 +79,13 @@ SV *new_tile (GTile *tile)
 
 GDrawable *old_gdrawable (SV *sv)
 {
-  if (!sv_derived_from (sv, PKG_GDRAWABLE))
+  if (!(sv_derived_from (sv, PKG_GDRAWABLE)
+        && SvROK (sv)
+        && SvTYPE (SvRV (sv)) == SVt_PVHV))
     croak ("argument is not of type " PKG_GDRAWABLE);
   
   /* the next line lacks any type of checking.  */
-  return (GDrawable *)SvIV((SV*)SvRV(sv));
+  return (GDrawable *)SvIV(*(hv_fetch ((HV*)SvRV(sv), "_gdr", 4, 0)));
 }
 
 GTile *old_tile (SV *sv)
@@ -105,7 +108,7 @@ GPixelRgn *old_pixelrgn (SV *sv)
 
 /* tracing stuff.  */
 static SV *trace_var = 0;
-static PerlIO *trace_file = PerlIO_stderr (); /* FIXME: unportable.  */
+static PerlIO *trace_file = 0; /* FIXME: unportable.  */
 
 static void
 trace_init ()
@@ -371,10 +374,11 @@ convert_gimp2sv (GParam *arg)
   if (SvROK (sv) && SvTYPE(SvRV(sv)) == SVt_PVAV) \
     { \
       int i; \
-      arg[-1].data.d_int32 = av_len ((AV *)sv) + 1; \
-      arg->data.datatype = g_new (type, av_len ((AV *)sv) + 1); \
-      for (i = 0; i <= av_len ((AV *)sv); i++) \
-        arg->data.datatype[i] = svxv (*av_fetch ((AV *)sv, i, 0)); \
+      AV *av = (AV *)SvRV(sv); \
+      arg[-1].data.d_int32 = av_len (av) + 1; \
+      arg->data.datatype = g_new (type, av_len (av) + 1); \
+      for (i = 0; i <= av_len (av); i++) \
+        arg->data.datatype[i] = svxv (*av_fetch (av, i, 0)); \
     } \
   else \
     croak ("perl-arrayref required as datatype for a gimp-array"); \
@@ -597,6 +601,15 @@ set_trace (var)
 		  trace = SvIV (ST (0));
 	}
 
+SV *
+_autobless (sv,type)
+	SV *	sv
+	gint32	type
+	CODE:
+	RETVAL = autobless (newSVsv (sv), type);
+	OUTPUT:
+	RETVAL
+
 int
 gimp_main(...)
 	PREINIT:
@@ -675,7 +688,7 @@ gimp_call_procedure (proc_name, ...)
 		int proc_type;
 		int nparams;
 		int nreturn_vals;
-		int i;
+		int i, j;
 		GParam *args;
 		GParam *values;
 		int nvalues;
@@ -699,19 +712,19 @@ gimp_call_procedure (proc_name, ...)
 		    g_free (proc_date);
 		    if (items-1 != perl_paramdef_count (params, nparams))
 		      sprintf (croak_str, "'%s' expects %d arguments, not %d",
-		               proc_name, nparams, items-1);
+		               proc_name, perl_paramdef_count (params, nparams), items-1);
 		    else
 		      {
 		        if (nparams)
 		          args = (GParam *) g_new (GParam, nparams);
     		        
-    		        for (i = 0; i < nparams; i++)
+    		        for (i = j = 0; i < nparams; i++, j++)
 		          {
 		            args[i].type = params[i].type;
-		            if (i < nparams-1 && is_arraytype (args[i].type))
-		              i++;
-		            
-		            convert_sv2gimp (croak_str, &args[i], ST(i+1));
+		            if (i < nparams-1 && is_arraytype (params[i+1].type))
+		              j--;
+		            else
+		              convert_sv2gimp (croak_str, &args[i], ST(j+1));
 		          }
 		        
 		        if (trace & TRACE_CALL)
@@ -1362,9 +1375,37 @@ gimp_channel_set_visible(channel_ID, visible)
 	CHANNEL	channel_ID
 	gint	visible
 
-GDrawable *
+SV *
 gimp_drawable_get(drawable_ID)
 	DRAWABLE	drawable_ID
+	CODE:
+	{
+		static HV *stash;
+		SV *sv;
+		MAGIC *mg;
+		HV *hv = newHV ();
+		GDrawable *gdr = gimp_drawable_get (drawable_ID);
+		
+		sv = newSViv ((IV)gdr);
+		sv_magic (sv, 0, '~', 0, 0);
+		mg = mg_find (sv, '~');
+		mg->mg_virtual = &vtbl_gdrawable;
+		
+		hv_store (hv, "_gdr"		, 4, sv				, 0);
+		hv_store (hv, "_width"		, 6, newSViv (gdr->width)	, 0);
+		hv_store (hv, "_height"		, 7, newSViv (gdr->height)	, 0);
+		hv_store (hv, "_ntile_rows"	,11, newSViv (gdr->ntile_rows)	, 0);
+		hv_store (hv, "_ntile_cols"	,11, newSViv (gdr->ntile_cols)	, 0);
+		hv_store (hv, "_bpp"		, 4, newSViv (gdr->bpp)		, 0);
+		hv_store (hv, "_id"		, 3, autobless (newSViv (drawable_ID), PARAM_DRAWABLE), 0);
+		
+		if (!stash)
+		  stash = gv_stashpv (PKG_GDRAWABLE, 1);
+		
+		RETVAL = sv_bless (newRV_noinc ((SV*)hv), stash);
+	}
+	OUTPUT:
+	RETVAL
 
 void
 gimp_drawable_detach(drawable)
@@ -1462,19 +1503,27 @@ gimp_drawable_set_visible(drawable_ID, visible)
 	DRAWABLE	drawable_ID
 	gint	visible
 
-GTile *
-gimp_drawable_get_tile(drawable, shadow, row, col)
-	GDrawable *	drawable
+SV *
+gimp_drawable_get_tile(gdrawable, shadow, row, col)
+	SV *	gdrawable
 	gint	shadow
 	gint	row
 	gint	col
+	CODE:
+	RETVAL = new_tile (gimp_drawable_get_tile (old_gdrawable (gdrawable), shadow, row, col), gdrawable);
+	OUTPUT:
+	RETVAL
 
-GTile *
-gimp_drawable_get_tile2(drawable, shadow, x, y)
-	GDrawable *	drawable
+SV *
+gimp_drawable_get_tile2(gdrawable, shadow, x, y)
+	SV *	gdrawable
 	gint	shadow
 	gint	x
 	gint	y
+	CODE:
+	RETVAL = new_tile (gimp_drawable_get_tile2 (old_gdrawable (gdrawable), shadow, x, y), gdrawable);
+	OUTPUT:
+	RETVAL
 
 void
 gimp_tile_ref(tile)
@@ -1508,8 +1557,8 @@ guint
 gimp_tile_height()
 
 SV *
-gimp_pixel_rgn_init(drawable, x, y, width, height, dirty, shadow)
-	GDrawable *	drawable
+gimp_pixel_rgn_init(gdrawable, x, y, width, height, dirty, shadow)
+	SV *	gdrawable
 	int	x
 	int	y
 	int	width
@@ -1523,16 +1572,18 @@ gimp_pixel_rgn_init(drawable, x, y, width, height, dirty, shadow)
 		SV *sv = newSVn (sizeof(GPixelRgn));
 		GPixelRgn *pr = (GPixelRgn *)SvPV (sv,na);
 		
-		gimp_pixel_rgn_init (pr, drawable, x, y, width, height, dirty, shadow);
+		gimp_pixel_rgn_init (pr, old_gdrawable (gdrawable), x, y, width, height, dirty, shadow);
 		
 		hv_store (hv, "_rgn"	, 4, sv				, 0);
-		hv_store (hv, "x"	, 1, newSViv (pr->x)		, 0);
-		hv_store (hv, "y"	, 1, newSViv (pr->y)		, 0);
-		hv_store (hv, "w"	, 1, newSViv (pr->w)		, 0);
-		hv_store (hv, "h"	, 1, newSViv (pr->h)		, 0);
-		hv_store (hv, "rowstride",9, newSViv (pr->rowstride)	, 0);
-		hv_store (hv, "bpp"	, 3, newSViv (pr->bpp)		, 0);
-		hv_store (hv, "shadow"	, 6, newSViv (pr->shadow)	, 0);
+		hv_store (hv, "_x"	, 2, newSViv (pr->x)		, 0);
+		hv_store (hv, "_y"	, 2, newSViv (pr->y)		, 0);
+		hv_store (hv, "_w"	, 2, newSViv (pr->w)		, 0);
+		hv_store (hv, "_h"	, 2, newSViv (pr->h)		, 0);
+		hv_store (hv, "_rowstride",10, newSViv (pr->rowstride)	, 0);
+		hv_store (hv, "_bpp"	, 4, newSViv (pr->bpp)		, 0);
+		hv_store (hv, "_dirty"	, 6, newSViv (pr->dirty)	, 0);
+		hv_store (hv, "_shadow"	, 7, newSViv (pr->shadow)	, 0);
+		hv_store (hv, "_drawable",9, newSVsv (gdrawable)	, 0);
 		
 		if (!stash)
 		  stash = gv_stashpv (PKG_PIXELRGN, 1);
@@ -1541,6 +1592,8 @@ gimp_pixel_rgn_init(drawable, x, y, width, height, dirty, shadow)
 	}
 	OUTPUT:
 	RETVAL
+
+PROTOTYPES: DISABLE
 
 void
 gimp_pixel_rgn_resize(sv, x, y, width, height)
@@ -1556,11 +1609,11 @@ gimp_pixel_rgn_resize(sv, x, y, width, height)
 		
 		gimp_pixel_rgn_resize (pr, x, y, width, height);
 		
-		hv_store (hv, "x"	, 1, newSViv (pr->x)		, 0);
-		hv_store (hv, "y"	, 1, newSViv (pr->y)		, 0);
-		hv_store (hv, "w"	, 1, newSViv (pr->w)		, 0);
-		hv_store (hv, "h"	, 1, newSViv (pr->h)		, 0);
-		hv_store (hv, "rowstride",9, newSViv (pr->rowstride)	, 0);
+		hv_store (hv, "_x"	, 2, newSViv (pr->x)		, 0);
+		hv_store (hv, "_y"	, 2, newSViv (pr->y)		, 0);
+		hv_store (hv, "_w"	, 2, newSViv (pr->w)		, 0);
+		hv_store (hv, "_h"	, 2, newSViv (pr->h)		, 0);
+		hv_store (hv, "_rowstride",10, newSViv (pr->rowstride)	, 0);
 	}
 
 SV *
@@ -1644,8 +1697,6 @@ gimp_pixel_rgn_set_col(pr, data, x, y)
 	  croak ("gimp_pixel_rgn_set_col called with incorrect datasize");
 	gimp_pixel_rgn_set_col (pr, SvPV(data,na), x, y, SvCUR (data) / pr->bpp);
 
-PROTOTYPES: DISABLE
-
 void
 gimp_pixel_rgn_set_rect(pr, data, x, y, width)
 	GPixelRgn *	pr
@@ -1682,12 +1733,14 @@ MODULE = Gimp::Lib	PACKAGE = Gimp::Tile
 # ??? optimize these two functions so tile_*ref will only be called once on
 # construction/destruction.
 
+PROTOTYPES: DISABLE
+
 SV *
 get_data(tile)
 	GTile *	tile
 	CODE:
 	gimp_tile_ref (tile);
-	RETVAL = newSVpvn (tile->data, gimp_tile_width() * gimp_tile_height() * tile->bpp);
+	RETVAL = (SV *)newSVpvn ((char *)tile->data, gimp_tile_width() * gimp_tile_height() * tile->bpp);
 	gimp_tile_unref (tile, 0);
 	OUTPUT:
 	RETVAL
@@ -1703,6 +1756,11 @@ set_data(tile, data)
 	gimp_tile_ref_zero (tile);
 	memcpy (tile->data, SvPV (data, na), SvCUR (data));
 	gimp_tile_unref (tile, 1);
+
+BOOT:
+	trace_file = PerlIO_stderr ();
+
+PROTOTYPES: ENABLE
 
 # functions using different calling conventions:
 #gint32 *

@@ -14,10 +14,11 @@ AC_ARG_WITH(includes,[  --with-includes=DIR     Additionally search for includes
 AC_ARG_WITH(libs,    [  --with-libs=DIR         Additionally search for libraries in dir in DIR (optional)],
    LIBS="$LIBS -L$with_libs")
 
-AC_ARG_WITH(glib-prefix,[  --with-glib-prefix=DIR  Prefix where GLIB is installed (optional)],
-   CFLAGS="$CFLAGS -I$with_glib_prefix/include" LIBS="$LIBS -L$with_glib_prefix/libs")
+#AC_CHECK_PROGS(GTKCONFIG,gtk-config,gtk-config)
+#GTK_CFLAGS="`$GTKCONFIG --cflags`"
+#GTK_LIBS="`$GTKCONFIG --libs`"
 
-AC_CHECK_PROGS(PERL,perl5.004_01 perl5.004 perl5 perl,perl)
+AC_CHECK_PROGS(PERL,perl5.004_04 perl5.004 perl5 perl,perl)
 AC_CHECK_PROGS(GIMP,gimp,gimp)
 
 eval `$PERL -V:cc`
@@ -27,18 +28,21 @@ AC_CHECK_FUNCS(vsnprintf,,[
    AC_MSG_WARN(vsnprintf not found.. I hope you are using gcc...)
 ])
 
-AC_CHECK_LIB(glib-1.1,g_malloc,[LIBS="$LIBS -lglib-1.1"],
-             [AC_CHECK_LIB(glib,g_malloc,[LIBS="$LIBS -lglib"],[AC_MSG_ERROR(unable to find glib)])])
+AM_PATH_GIMP(1.0.0,, AC_MSG_ERROR(
+** unable to find gimp, make sure it's in your path (version 1.0+ required!)
+** You can get the Gimp from ftp://ftp.gimp.org/pub/gimp.
+))
 
 AC_HEADER_STDC
 AC_CHECK_HEADERS(libgimp/gimp.h)
 
-# just pretend libgimp is there for now
-LIBS="$LIBS -lgimp"
-dnl AC_CHECK_LIB(gimp,gimp_main)
-
 AC_SUBST(LDFLAGS)
 AC_SUBST(CFLAGS)
+
+AC_SUBST(GIMP_LIBS)
+AC_SUBST(GIMP_CFLAGS)
+AC_SUBST(GIMPTOOL)
+
 AC_OUTPUT(Makefile.PL Gimp/Makefile.PL)
 
 echo invoking $PERL for configuration...

@@ -26,6 +26,8 @@ GDrawable *					T_GDRAWABLE
 GTile *						T_TILE
 GPixelRgn *					T_PIXELRGN
 
+GtkWidget *					T_IV
+
 INPUT
 
 T_PREF
@@ -44,16 +46,4 @@ OUTPUT
 
 T_PREF
 	$arg = autobless (newSViv($var), PARAM_$ntype);
-
-T_GDRAWABLE
-	sv_setref_pv ($arg, PKG_GDRAWABLE, (void*)$var);
-	sv_magic (SvRV($arg), 0, \'~\', 0, 0);
-	{
-	    MAGIC *mg = mg_find (SvRV($arg), \'~\');
-	    mg->mg_virtual = &vtbl_gdrawable;
-	}
-
-T_TILE
-	$arg = new_tile ($var);
-
 

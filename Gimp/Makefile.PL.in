@@ -4,7 +4,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     'NAME'	=> 'Gimp::Lib',
     'VERSION_FROM' => '../Gimp.pm',
-    'LIBS'	=> ['@LDFLAGS@ @LIBS@'],   # e.g., '-lm' 
-    'INC'	=> '-I.. @CFLAGS@ @DEFS@',
+    'LIBS'	=> '@LDFLAGS@ @LIBS@ @GIMP_LIBS@',
+    'INC'	=> '-I.. @GIMP_CFLAGS@ @CFLAGS@ @DEFS@',
     'DEFINE'	=> '',
 );

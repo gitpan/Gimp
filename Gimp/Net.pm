@@ -25,71 +25,83 @@ $default_unix_sock = "gimp-perl-serv";
 $trace_res = *STDERR;
 $trace_level = 0;
 
+sub import {
+   return if @_;
+   *Gimp::Tile::DESTROY=
+   *Gimp::PixelRgn::DESTROY=
+   *Gimp::GDrawable::DESTROY=sub {
+      print "destroying @_\n";#d#
+      my $req="DTRY".args2net(@_);
+      print $server_fh pack("N",length($req)).$req;
+   };
+}
+
 sub AUTOLOAD {
-  my $constname;
-  ($constname = $AUTOLOAD) =~ s/.*:://;
-  no strict "refs";
-  *{$AUTOLOAD} = sub { Gimp::Net::gimp_call_procedure $constname,@_ };
-  goto &$AUTOLOAD;
+   my $constname;
+   ($constname = $AUTOLOAD) =~ s/.*:://;
+   no strict "refs";
+   *{$AUTOLOAD} = sub { Gimp::Net::gimp_call_procedure $constname,@_ };
+   goto &$AUTOLOAD;
 }
 
 # network to array
 sub net2args($) {
-  no strict 'subs';
-  eval "sub b(\$\$) { bless \\(my \$x = \$_[0]),\$_[1] }; ($_[0])";
+   no strict 'subs';
+   sub b($$) { bless \(my $x=$_[0]),$_[1] }
+   eval "($_[0])";
 }
 
 sub args2net {
-  my($res,$v);
-  for $v (@_) {
-    if(ref($v) eq "ARRAY") {
-      $res.="[".join(",",map { "qq[".quotemeta($_)."]" } @$v)."],";
-    } elsif(ref($v)) {
-      $res.="b(".${$v}.",".ref($v)."),";
-    } else {
-      $res.="qq[".quotemeta($v)."],";
-    }
-  }
-  $res;
+   my($res,$v);
+   for $v (@_) {
+      if(ref($v) eq "ARRAY") {
+         $res.="[".join(",",map { "qq[".quotemeta($_)."]" } @$v)."],";
+      } elsif(ref($v)) {
+         $res.="b(".$$v.",".ref($v)."),";
+      } else {
+         $res.="qq[".quotemeta($v)."],";
+      }
+   }
+   $res;
 }
 
 sub _gimp_procedure_available {
-  my $req="TEST".$_[0];
-  print $server_fh pack("N",length($req)).$req;
-  $server_fh->read($req,1);
-  return $req;
+   my $req="TEST".$_[0];
+   print $server_fh pack("N",length($req)).$req;
+   $server_fh->read($req,1);
+   return $req;
 }
 
 sub gimp_call_procedure {
-  my($len,@args,$trace,$req);
-  if ($trace_level) {
-    $req="TRCE".args2net($trace_level,@_);
-    print $server_fh pack("N",length($req)).$req;
-    $server_fh->read($len,4) == 4 or croak "protocol error";
-    $len=unpack("N",$len);
-    $server_fh->read($req,$len) == $len or croak "protocol error";
-    ($trace,$req,@args)=net2args($req);
-    if (ref $trace_res eq "SCALAR") {
-      $$trace_res = $trace;
-    } else {
-      print $trace_res $trace;
-    }
-  } else {
-    $req="EXEC".args2net(@_);
-    print $server_fh pack("N",length($req)).$req;
-    $server_fh->read($len,4) == 4 or croak "protocol error";
-    $len=unpack("N",$len);
-    $server_fh->read($req,$len) == $len or croak "protocol error";
-    ($req,@args)=net2args($req);
-  }
-  croak $req if $req;
-  wantarray ? @args : $args[0];
+   my($len,@args,$trace,$req);
+   if ($trace_level) {
+      $req="TRCE".args2net($trace_level,@_);
+      print $server_fh pack("N",length($req)).$req;
+      $server_fh->read($len,4) == 4 or die "protocol error";
+      $len=unpack("N",$len);
+      $server_fh->read($req,$len) == $len or die "protocol error";
+      ($trace,$req,@args)=net2args($req);
+      if (ref $trace_res eq "SCALAR") {
+         $$trace_res = $trace;
+      } else {
+         print $trace_res $trace;
+      }
+   } else {
+      $req="EXEC".args2net(@_);
+      print $server_fh pack("N",length($req)).$req;
+      $server_fh->read($len,4) == 4 or die "protocol error";
+      $len=unpack("N",$len);
+      $server_fh->read($req,$len) == $len or die "protocol error";
+      ($req,@args)=net2args($req);
+   }
+   croak $req if $req;
+   wantarray ? @args : $args[0];
 }
 
 sub server_quit {
-  print "sending quit\n";
-  print $server_fh pack("N",4)."QUIT";
-  exit(0);
+   print "sending quit\n";
+   print $server_fh pack("N",4)."QUIT";
+   exit(0);
 }
 
 # progress bar would never go away, since Net-Server isn't
@@ -166,7 +178,7 @@ sub gimp_main {
 }
 
 END {
-   kill -TERM,$gimp_pid if $gimp_pid;
+   kill "TERM",$gimp_pid if $gimp_pid;
 }
 
 1;
@@ -194,26 +206,26 @@ example-fu.pl (and run it!), or example-net.pl (and run it!).
 The environment variable C<GIMP_HOST> specifies the default server to contact. The syntax
 is [auth@][tcp/]hostname[:port] for tcp or [auth@]unix/local/socket/path. Examples are:
 
-www.yahoo.com               # just kidding ;)
-yahoo.com:11100             # non-standard port
-tcp/yahoo.com               # make sure it uses tcp
-authorize@tcp/yahoo.com:123 # full-fledged specification
-
-unix/tmp/unx                # use unix domain socket
-password@unix/tmp/test      # additionally use a password
-
-authorize@                  # specify authorization only
+ www.yahoo.com               # just kidding ;)
+ yahoo.com:11100             # non-standard port
+ tcp/yahoo.com               # make sure it uses tcp
+ authorize@tcp/yahoo.com:123 # full-fledged specification
+ 
+ unix/tmp/unx                # use unix domain socket
+ password@unix/tmp/test      # additionally use a password
+ 
+ authorize@                  # specify authorization only
 
 =head1 CALLBACKS
 
-net
+ net()
 
 is called after we succesfully connected to the server. Do your dirty work
 in this function.
 
 =head1 FUNCTIONS
 
-server_quit
+ server_quit()
 
 sends the perl server a quit command.
 

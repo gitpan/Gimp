@@ -1,4 +1,3 @@
-Gimp/ColorSelectButton.pm
 Makefile.PL.in
 configure
 configure.in
@@ -23,8 +22,9 @@ Gimp/Net.pm
 Gimp/Data.pm
 Gimp/Fu.pm
 Gimp/PDL.pm
-Gimp/Tile.pod
-Gimp/PixelRgn.pod
+Gimp/Pixel.pod
+Gimp/UI.pm
+examples/README
 examples/Create_Images
 examples/image_list
 examples/example-oo.pl
@@ -32,4 +32,6 @@ examples/example-fu.pl
 examples/example-net.pl
 examples/gimp-make-img-map
 examples/homepage-logo.pl
-examples/example-fu.pl
+examples/windy.pl
+examples/prep4gif.pl
+

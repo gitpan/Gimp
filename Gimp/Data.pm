@@ -52,7 +52,7 @@ of your plug-in.
 =head1 LIMITATIONS
 
 You cannot store references, and you cannot iterate through
-the keys (with keys, values or each).
+the keys (with C<keys>, C<values> or C<each>).
 
 =head1 AUTHOR
 

@@ -14,9 +14,8 @@ extern "C" {
 #include "extradefs.h"
 
 static double
-constant(name, arg)
+constant(name)
 char *name;
-int arg;
 {
     errno = 0;
     switch (*name) {
@@ -282,7 +281,6 @@ MODULE = Gimp	PACKAGE = Gimp
 PROTOTYPES: ENABLE
 
 double
-constant(name, arg)
+constant(name)
 	char *		name
-	int		arg
 

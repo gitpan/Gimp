@@ -3,11 +3,12 @@ package Gimp::Fu;
 use strict;
 use Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD @EXPORT_FAIL
-            %EXPORT_TAGS @PREFIXES @scripts @_params $run_mode);
+            %EXPORT_TAGS @PREFIXES @scripts @_params $run_mode %pf_type2string);
 use Gimp qw(:param);
+use Gimp::UI;
 use File::Basename;
 use Gtk;
-use Gimp::ColorSelectButton;
+use Gtk::ColorSelectButton;
 
 require Exporter;
 require DynaLoader;
@@ -58,28 +59,45 @@ starting point for your experiments)
 
 =cut
 
-sub PF_INT8	{ PARAM_INT8	};
-sub PF_INT16	{ PARAM_INT16	};
-sub PF_INT32	{ PARAM_INT32	};
-sub PF_FLOAT	{ PARAM_FLOAT	};
-sub PF_VALUE	{ PARAM_FLOAT	};
-sub PF_STRING	{ PARAM_STRING	};
-sub PF_COLOR	{ PARAM_COLOR	};
-sub PF_COLOUR	{ PARAM_COLOR	};
-sub PF_IMAGE	{ PARAM_IMAGE	};
-sub PF_DRAWABLE	{ PARAM_DRAWABLE};
+sub PF_INT8	() { PARAM_INT8		};
+sub PF_INT16	() { PARAM_INT16	};
+sub PF_INT32	() { PARAM_INT32	};
+sub PF_FLOAT	() { PARAM_FLOAT	};
+sub PF_VALUE	() { PARAM_FLOAT	};
+sub PF_STRING	() { PARAM_STRING	};
+sub PF_COLOR	() { PARAM_COLOR	};
+sub PF_COLOUR	() { PARAM_COLOR	};
+sub PF_IMAGE	() { PARAM_IMAGE	};
+sub PF_LAYER	() { PARAM_LAYER	};
+sub PF_CHANNEL	() { PARAM_CHANNEL	};
+sub PF_DRAWABLE	() { PARAM_DRAWABLE};
 
-sub PF_FONT	{ PARAM_STRING	};	# at the moment!
-sub PF_TOGGLE	{ PARAM_END+1	};
+sub PF_FONT	() { PARAM_STRING	};	# at the moment!
+sub PF_TOGGLE	() { PARAM_END+1	};
+
+%pf_type2string = (
+         &PF_INT8	=> 'small integer',
+         &PF_INT16	=> 'integer',
+         &PF_INT32	=> 'integer',
+         &PF_FLOAT	=> 'value',
+         &PF_STRING	=> 'string',
+         &PF_COLOR	=> 'colour',
+#         &PF_FONT	=> 'fontspec',
+         &PF_TOGGLE	=> 'boolean',
+         &PF_IMAGE	=> 'NYI',
+         &PF_LAYER	=> 'NYI',
+         &PF_CHANNEL	=> 'NYI',
+         &PF_DRAWABLE	=> 'NYI',
+);
 
 @_params=qw(PF_INT8 PF_INT16 PF_INT32 PF_FLOAT PF_VALUE
             PF_STRING PF_COLOR PF_COLOUR PF_TOGGLE PF_IMAGE
-            PF_DRAWABLE);
+            PF_DRAWABLE PF_FONT PF_LAYER PF_CHANNEL);
 
 @ISA = qw(Exporter);
 @EXPORT = (qw(register main),@_params);
 @EXPORT_OK = qw(interact $run_mode);
-%EXPORT_TAGS = (params => @_params);
+%EXPORT_TAGS = (params => [@_params]);
 
 sub interact($@) {
    my(@types)=@{shift()};
@@ -116,13 +134,34 @@ sub interact($@) {
          #select_region $a 0,1;
          push(@getres,,sub{get_text $a});
       } elsif($type == PF_COLOR) {
-         $a=new Gimp::ColorSelectButton;
-         $a->color(@{Gimp::canonicalize_color $value});
-         push(@getres,sub{$a->color});
+         my $res;
+         $a=new Gtk::ColorSelectButton (-width => 60, -height => 15);
+         $a->color(join " ",@{Gimp::canonicalize_color $value});
+         push(@getres,sub{[split ' ',$a->color]});
       } elsif($type == PF_TOGGLE) {
          $a=new Gtk::CheckButton $desc;
          set_state $a ($value ? 1 : 0);
          push(@getres,sub{state $a eq "active"});
+      } elsif($type == PF_IMAGE) {
+         my $res;
+         $a=new Gtk::OptionMenu;
+         $a->set_menu(new Gimp::UI::ImageMenu(sub {1},-1,$res));
+         push(@getres,sub{$res});
+      } elsif($type == PF_LAYER) {
+         my $res;
+         $a=new Gtk::OptionMenu;
+         $a->set_menu(new Gimp::UI::LayerMenu(sub {1},-1,$res));
+         push(@getres,sub{$res});
+      } elsif($type == PF_CHANNEL) {
+         my $res;
+         $a=new Gtk::OptionMenu;
+         $a->set_menu(new Gimp::UI::ChannelMenu(sub {1},-1,$res));
+         push(@getres,sub{$res});
+      } elsif($type == PF_DRAWABLE) {
+         my $res;
+         $a=new Gtk::OptionMenu;
+         $a->set_menu(new Gimp::UI::DrawableMenu(sub {1},-1,$res));
+         push(@getres,sub{$res});
       } else {
          $label="Unsupported argumenttype $type";
          push(@getres,sub{$value});
@@ -176,11 +215,42 @@ sub this_script {
    die "function '$exe' not found in this script (must be one of ".join(", ",@names).")\n";
 }
 
+sub string2pf($$) {
+   my($s,$type,$name,$desc)=($_[0],@{$_[1]});
+   print "convertin $s to $type $name $desc\n";
+   if($type==PF_STRING) {
+      $s;
+   } elsif($type==PF_INT8 || $type==PF_INT16 || $type==PF_INT32) {
+      die "$s: not an integer\n" unless $s==int($s);
+      $s*1;
+   } elsif($type==PF_FLOAT) {
+      $s*1;
+   } elsif($type==PF_COLOUR) {
+      die "only #rrggbb allowed as colour argument\n" unless $s=~/^#[0-9a-f]{6,6}$/i;
+      $s;
+   } elsif($type==PF_TOGGLE) {
+      $s?1:0;
+   } else {
+      die "conversion to type $pf_type2string{$type} is not yet implemented\n";
+   }
+}
+
 sub net {
    no strict 'refs';
    my $this = this_script;
-   # fixe #FIXME #d#
-   $this->[0]->(&Gimp::RUN_INTERACTIVE,@ARGV);
+   my(%map,@args);
+   @map{map $_->[1],@{$this->[8]}} = (0..$#{$this->[8]});
+   while(defined($_=shift @ARGV)) {
+      if (/^-+(.*)$/) {
+         my $arg=shift @ARGV;
+         my $idx=$map{$1};
+         die "$1: illegal switch, try $0 --help\n" unless defined($idx);
+         $args[$idx]=string2pf($arg,$this->[8][@args]);
+      } else {
+         push(@args,string2pf($_,$this->[8][@args]));
+      }
+   }
+   $this->[0]->(&Gimp::RUN_INTERACTIVE,@args);
 }
 
 sub query {
@@ -191,13 +261,16 @@ sub query {
       
       if ($menupath=~/^<Image>\//) {
          $type=&Gimp::PROC_PLUG_IN;
-         unshift(@$params,[&Gimp::PARAM_IMAGE],[&Gimp::PARAM_DRAWABLE]);
+         unshift(@$params,
+                 [&Gimp::PARAM_IMAGE	, "image",	"The image to work on"],
+                 [&Gimp::PARAM_DRAWABLE	, "drawable",	"The drawable to work on"]);
       } elsif ($menupath=~/^<Toolbox>\//) {
          $type=&Gimp::PROC_EXTENSION;
       } else {
          die "menupath _must_ start with <Image> or <Toolbox>!";
       }
-      unshift(@$params,[&Gimp::PARAM_INT32,"run_mode","Interactive, [non-interactive]"]);
+      unshift(@$params,
+              [&Gimp::PARAM_INT32,"run_mode","Interactive, [non-interactive]"]);
       Gimp::gimp_install_procedure($function,$blurb,$help,$author,$copyright,$date,
                                    $menupath,$imagetypes,$type,
                                    [map {
@@ -388,19 +461,8 @@ sub register($$$$$$$$$&) {
 sub print_switches {
    my($this)=@_;
    for(@{$this->[8]}) {
-      my $type={
-         PF_INT8	=> 'small integer',
-         PF_INT16	=> 'integer',
-         PF_INT32	=> 'integer',
-         PF_FLOAT	=> 'value',
-         PF_STRING	=> 'string',
-         PF_COLOR	=> 'colorspec',
-         PF_IMAGE	=> 'image',
-         PF_DRAWABLE	=> 'drawable',
-#         PF_FONT	=> 'fontspec',
-         PF_TOGGLE	=> 'boolean',
-      }->{$_->[0]};
-      printf "           -%-25.25s %s\n","$_->[1] $type",$_->[2];
+      my $type=$pf_type2string{$_->[0]};
+      printf "           -%-25s %s\n","$_->[1] $type",$_->[2];
    }
 }
 
@@ -413,6 +475,7 @@ sub main {
        interface-arguments are
            -o | --output <filespec>   write image to disk, then delete (NYI)
            --info                     provide some info about this script(NYI)
+           -i | --interact            let the user edit the values first (NYI)
        script-arguments are
 EOF
       print_switches ($this);
@@ -426,7 +489,7 @@ __END__
 
 =head1 STATUS
 
-This module is experimental.
+This module is experimental and unfinished.
 
 =head1 AUTHOR
 

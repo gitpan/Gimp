@@ -1,28 +1,23 @@
-bugs:
+bugs
 
-* tile ewidth has the e for a reason! which one? check!
+important issues
 
-important issues:
+--prefix ignore!
 
-* implement PF_IMAGE, PF_DRAWABLE etc... either in perl or make
-  gimpui.h somehow available (hmm...)
-  (wait for the next Gtk version)
+not-so-important issues
 
-*drawable* functions
-*tile* functions
-*region* functions
-
-not-so-important issues:
-
-* return values for run()
-* default function parameters (with hash %defaults?)
-* gimp_text(text => "hallo", family => "engraver", size => 20);
-
-* unimplemented functions:
+  * return values for run()
+  * default function parameters (with hash %defaults?)
+  * gimp_text(text => "hallo", family => "engraver", size => 20);
   
-  gimp_query_procedure(proc_name, proc_blurb, proc_help, proc_author, proc_copyright, proc_date, proc_type, nparams, nreturn_vals, params, return_vals)
-  gimp_channel_get_show_masked(channel_ID)
-  gimp_channel_set_show_masked(channel_ID, show_masked)
-  gimp_pixel_rgns_register(nrgns, ...)
-  gimp_pixel_rgns_process(pri_ptr)
+  * unimplemented functions:
+    
+    gimp_query_procedure(proc_name, proc_blurb, proc_help, proc_author, proc_copyright, proc_date, proc_type, nparams, nreturn_vals, params, return_vals)
+    gimp_channel_get_show_masked(channel_ID)
+    gimp_channel_set_show_masked(channel_ID, show_masked)
+    
+  * do not understand these at all => perl is NOT C.
+  
+    gimp_pixel_rgns_register(nrgns, ...)
+    gimp_pixel_rgns_process(pri_ptr)
 

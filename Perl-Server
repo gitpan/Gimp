@@ -13,10 +13,10 @@ use IO::Handle;
 use IO::Socket;
 
 use strict;
-use vars qw($use_unix $use_tcp $trace_res $server_quit $max_pkt $unix $tcp
-            $ps_flags);
+use vars qw($use_unix $use_tcp $trace_res $server_quit $max_pkt $unix $tcp $ps_flags
+            %object_dynamic $object_uid %objects);
 use Gimp;
-use Gimp::Net;
+use Gimp::Net qw(:server);
 
 Gimp::set_trace(\$trace_res);
 
@@ -30,6 +30,7 @@ Gimp::set_trace(\$trace_res);
 # EXEC in-args		status out-args		run simple command
 # TRCE trace in-args	trace status out-args	run simple command (with tracing)
 # TEST procname		bool			check for procedure existance
+# DTRY in-args					destroy all argument objects
 #
 # args is "number of arguments" arguments preceded by length
 # type is first character
@@ -47,30 +48,68 @@ sub slog {
   print time(),": ",@_,"\n";
 }
 
+# which objects are dynamic and mustn't be destroyed at will
+%object_dynamic = (
+	'Gimp::Tile'		=>	1,
+	'Gimp::PixelRgn'	=>	1,
+	'Gimp::GDrawable'	=>	1,
+);
+
+$object_uid=0;
+
+# convert objects to, well... networkable objects
+sub deobjectify {
+   my(@args)=@_;
+   for(@args) {
+      if($object_dynamic{ref $_}) {
+         $objects{++$object_uid}=$_;
+         $_=bless \(my $x=$object_uid),ref $_;
+      }
+   }
+   @args;
+}
+
+# make real objects again
+sub objectify {
+   my(@args)=@_;
+   for(@args) {
+      if($object_dynamic{ref $_}) {
+         $_=$objects{$$_};
+      }
+   }
+   @args;
+}
+
+sub destroy_objects {
+   delete @objects{map $$_,@_};
+}
+
 sub handle_request($) {
   my($fh)=@_;
   my($length,$req,$data,@args,$trace_level);
   
   $fh->timeout(6) unless $ps_flags & &Gimp::_PS_FLAG_BATCH;
-  $fh->sysread($length,4) == 4 or return 0;
+  $fh->read($length,4) == 4 or return 0;
   $length=unpack("N",$length);
   $length>0 && $length<$max_pkt or return 0;
-  $fh->sysread($req,4) == 4 or return 0;
-  $fh->sysread($data,$length-4) == $length-4 or return 0;
+  $fh->read($req,4) == 4 or return 0;
+  $fh->read($data,$length-4) == $length-4 or return 0;
   
   if($req eq "EXEC") {
     no strict 'refs';
     ($req,@args)=Gimp::Net::net2args($data);
-    @args=eval { &{"Gimp::$req"}(@args) };
+    @args=deobjectify(eval { &{"Gimp::$req"}(objectify(@args)) });
     $data=Gimp::Net::args2net($@,@args);
     print $fh pack("N",length($data)).$data;
   } elsif ($req eq "TEST") {
-    print $fh Gimp::_gimp_procedure_available($data) ? "1" : "0";
+    print $fh (defined($Gimp::{$data}) || Gimp::_gimp_procedure_available($data)) ? "1" : "0";
+  } elsif ($req eq "DTRY") {
+    destroy_objects Gimp::Net::net2args($data);
   } elsif($req eq "TRCE") {
     no strict 'refs';
     ($trace_level,$req,@args)=Gimp::Net::net2args($data);
     Gimp::set_trace($trace_level);
-    @args=eval { &{"Gimp::$req"}(@args) };
+    @args=deobjectify(eval { &{"Gimp::$req"}(objectify(@args)) });
     $data=Gimp::Net::args2net($trace_res,$@,@args);
     print $fh pack("N",length($data)).$data;
     Gimp::set_trace(0);

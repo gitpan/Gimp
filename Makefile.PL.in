@@ -3,15 +3,11 @@ use ExtUtils::MakeMaker;
 eval "use Gtk;"; $GTK = $@ eq "";
 eval "use PDL;"; $PDL = $@ eq "";
 
-qx(@GIMP@ --version) =~ /GIMP version ([0-9.]+)/i
-   or die "unable to find gimp, make sure it's in your path (version 0.99+ required!)";
-$gimp_version = $1;
-
 $GTK or print <<EOF;
 
 WARNING: unable to use the Perl-Gtk interface.  Some features (like Gimp::Fu)
          rely on this extension.  You can try to build without it, but it's
-         better to install it (version 0.2.1 is required, you can get it
+         better to install it (version 0.2.3 is required, you can get it
          from ftp://ftp.gimp.org/pub/gtk/perl/ or any CPAN mirror).
 
 EOF
@@ -33,28 +29,36 @@ WARNING: PDL version $PDL::Version::VERSION is installed. Gimp::PDL was only tes
 
 EOF
 
-($major,$minor,$patch)=split /\./,$gimp_version;
-print "using gimp version $gimp_version\n";
+($major,$minor,$patch)=split /[._]/,$Gtk::VERSION;
+print "using gtk version $Gtk::VERSION\n";
 
 unless ($major > 0
-        || ($major == 0 && $minor > 99)
-        || ($major == 0 && $minor == 99 && $patch > 30)) {
+        || ($major == 0 && $minor > 2)
+        || ($major == 0 && $minor == 2 && $patch > 1)) {
    print <<EOF;
 
-WARNING: the version of gimp you have installed on your machine is "very"
-         old.  Version 0.99.31 is _required_ for this version to build
-         properly.  You _will_ run into problems with older versions.
-         You can get the Gimp from ftp://ftp.gimp.org/pub/gimp.
+WARNING: version 0.2.3 of Gtk is _required_ for this module to build
+         properly.  You can get the newest version from
+         ftp://ftp.gimp.org/pub/gtk/perl/ or any CPAN mirror.  Older
+         versions may work, but I have warned you!
 
 EOF
 }
 
 sub MY::postamble {
-   <<EOF;
-install :: install-plugins
+   <<"EOF";
+
+Makefile.PL :: Makefile.PL.in
+	./config.status
+
+#install :: install-plugins
 
 install-plugins:
-	\@echo 'sorry, install-plugins not yet implemented ;('
+	@GIMPTOOL@ --install-admin-bin Perl-Server
+	cd examples && @GIMPTOOL@ --install-admin-bin windy.pl
+	cd examples && @GIMPTOOL@ --install-admin-bin example-oo.pl
+	cd examples && @GIMPTOOL@ --install-admin-bin example-net.pl
+	cd examples && @GIMPTOOL@ --install-admin-bin example-fu.pl
 EOF
 }
 
@@ -69,7 +73,7 @@ WriteMakefile(
                     'SUFFIX'	=> '.gz',
                    },
 #    'PREREQ_PM'	=> {
-#    		    "Gtk"	=> 0.212,
+#    		    "Gtk"	=> 0.0203,
 #		   },
     'DIR'	=> ['Gimp'],
     'NAME'	=> 'Gimp',
@@ -79,9 +83,10 @@ WriteMakefile(
     		    'Gimp/Data.pm'	=> '$(INST_LIBDIR)/Gimp/Data.pm',
     		    'Gimp/Fu.pm'	=> '$(INST_LIBDIR)/Gimp/Fu.pm',
     		    'Gimp/Lib.pm'	=> '$(INST_LIBDIR)/Gimp/Lib.pm',
+    		    'Gimp/UI.pm'	=> '$(INST_LIBDIR)/Gimp/UI.pm',
     		    'Gimp/Net.pm'	=> '$(INST_LIBDIR)/Gimp/Net.pm',
     		    'Gimp/PDL.pm'	=> '$(INST_LIBDIR)/Gimp/PDL.pm',
-    		    'Gimp/ColorSelectButton.pm'=> '$(INST_LIBDIR)/Gimp/ColorSelectButton.pm',
+#    		    'Gtk/ColorSelectButton.pm'=> '$(INST_LIBDIR)/Gimp/ColorSelectButton.pm',
     		   },
     'LIBS'	=> [''],
     'INC'	=> '@CFLAGS@ @DEFS@',
