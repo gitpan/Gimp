@@ -1,12 +1,16 @@
 Revision history for Gimp-Perl extension.
 
+0.100 
+	- gimp_set/get_data now uses gimp_data_get_size when available
+	  (the test will fail with some cpp's, though ...)
+
 0.99  Tue Jul  7 03:23:07 CEST 1998
 	- --info switch deleted from Fu
 	- implemented --interact switch, default is now NOT
 	  to interact when any script-arguments are given.
 	- switched to using vi, instead of joe, for editing
 	- killed configure, a Makefile.PL is now used (which
-	  calls confiugr ;-)
+	  calls configure ;-)
 	- got rid of the top-level configure, now use the Makefile.PL
 	- implemented RUN_WITH_LAST_VALS in Fu, with hopefully useful
 	  semantics. \0\0 is currently illegal in arguments, otherwise I had

@@ -8,7 +8,7 @@ $prefix		= q[@prefix@];
 $PERL		= q[@PERL@];
 $GIMP		= q[@GIMP@];
 $GIMPTOOL	= q[@GIMPTOOL@];
-$GIMP_CFLAGS	= q[@GIMP_CFLAGS@];
+$GIMP_INC	= q[@GIMP_CFLAGS@];
 $GIMP_LIBS	= q[@GIMP_LIBS@];
 
 

@@ -850,7 +850,11 @@ gimp_set_data(id, data)
 		void *dta;
 		
 		dta = SvPV (data, dlen);
-		
+
+		/* do not remove this comment */
+#ifdef HAVE_GET_DATA_SIZE
+		gimp_set_data (SvPV (id, na), dta, dlen);
+#else
 		len = SvCUR (id);
 		str = (char *)SvGROW (id, len + 2);
 		str[len+1] = 0;
@@ -860,6 +864,7 @@ gimp_set_data(id, data)
 		
 		str[len] = 0;
 		SvCUR_set (id, len);
+#endif
 	}
 
 SV *
@@ -872,6 +877,16 @@ gimp_get_data(id)
 		STRLEN len;
 		char *str;
 		
+		/* do not remove this comment */
+#ifdef HAVE_GET_DATA_SIZE
+		dlen = gimp_get_data_size (SvPV (id, na));
+		/* I count on dlen being zero if "id" doesn't exist.  */
+		data = newSVpv ("", 0);
+		gimp_get_data (SvPV (id, na), SvGROW (data, dlen+1));
+		SvCUR_set (data, dlen);
+		*((char *)SvPV (data, na) + dlen) = 0;
+		RETVAL = data;
+#else
 		len = SvCUR (id);
 		str = (char *)SvGROW (id, len + 2);
 		str[len+1] = 0;
@@ -893,6 +908,7 @@ gimp_get_data(id)
 		
 		str[len] = 0;
 		SvCUR_set (id, len);
+#endif
 	}
 	OUTPUT:
 	RETVAL

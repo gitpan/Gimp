@@ -84,9 +84,9 @@ WriteMakefile(
                     'COMPRESS'	=> 'gzip -9v',
                     'SUFFIX'	=> '.gz',
                    },
-#    'PREREQ_PM'	=> {
-#    		    "Gtk"	=> 0.0203,
-#		   },
+    'PREREQ_PM'	=> {
+#    		    "Gtk"	=> '0.2_03',
+		   },
     'DIR'	=> ['Gimp'],
     'NAME'	=> 'Gimp',
     'VERSION_FROM' => 'Gimp.pm',
@@ -101,9 +101,10 @@ WriteMakefile(
 #    		    'Gtk/ColorSelectButton.pm'=> '$(INST_LIBDIR)/Gimp/ColorSelectButton.pm',
     		   },
     'LIBS'	=> [''],
-    'INC'	=> "$CPPFLAGS $CFLAGS $DEFS",
+    'INC'	=> "$CPPFLAGS $GIMP_INC $CFLAGS $DEFS",
     'DEFINE'	=> '',
-    'clean'	=> { FILES => "config.log config.h pcfg config.status config.cache" },
+    'clean'	=> { FILES => "config.log config.h pcfg config.status config.cache ".
+                              "etc/{pcfg,config.status,config.cache,config.h,config.log}" },
 );
 
 print <<EOF;

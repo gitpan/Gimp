@@ -442,8 +442,8 @@ sub register($$$$$$$$$&) {
          die "menupath _must_ start with <Image> or <Toolbox>!";
       }
       
-      # keep your fingers crossed and requite Data::Dumper later
-      @defaults=split /\0\0/,$Gimp::Data{"_fu_data"};
+      # keep your fingers crossed and require Data::Dumper later
+      @defaults=split /\0\0/,"".$Gimp::Data{"_fu_data"};
       if (@defaults) {
          for (0..$#{$params}) {
 	    $params->[$_]->[3]=$defaults[$_];

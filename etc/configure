@@ -1089,6 +1089,25 @@ EOF
 fi
 
 
+ac_save_CPPFLAGS="$CPPFLAGS"
+CPPFLAGS="$CPPFLAGS $GIMP_CFLAGS"
+cat > conftest.$ac_ext <<EOF
+#line 1096 "configure"
+#include "confdefs.h"
+#include <libgimp/gimp.h>
+EOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  egrep "gimp_get_data_size" >/dev/null 2>&1; then
+  rm -rf conftest*
+  cat >> confdefs.h <<\EOF
+#define HAVE_GET_DATA_SIZE 1
+EOF
+
+fi
+rm -f conftest*
+
+CPPFLAGS="$ac_save_CPPFLAGS"
+
 
 
 
