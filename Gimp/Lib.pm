@@ -25,6 +25,9 @@ sub AUTOLOAD {
    }
 }
 
+# functions to "autobless" where the autobless mechanism
+# does not work.
+
 sub gimp_list_images {
    map _autobless($_,&Gimp::PARAM_IMAGE),@{gimp_call_procedure "gimp_list_images"};
 }

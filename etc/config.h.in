@@ -15,3 +15,6 @@
 /* Define if you don't have gimp_get_data_size.  */
 #undef HAVE_GET_DATA_SIZE
 
+/* Define if we have DIVIDE_MODE.  */
+#undef HAVE_DIVIDE_MODE
+

@@ -1097,10 +1097,10 @@ cat > conftest.$ac_ext <<EOF
 #include <libgimp/gimp.h>
 EOF
 if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
-  egrep "gimp_get_data_size" >/dev/null 2>&1; then
+  egrep "DIVIDE_MODE" >/dev/null 2>&1; then
   rm -rf conftest*
   cat >> confdefs.h <<\EOF
-#define HAVE_GET_DATA_SIZE 1
+#define HAVE_DIVIDE_MODE 1
 EOF
 
 fi

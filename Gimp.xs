@@ -12,6 +12,7 @@ extern "C" {
 #undef dirty
 #include <libgimp/gimp.h>
 #include "extradefs.h"
+#include "config.h"
 
 static double
 constant(name)
@@ -66,8 +67,10 @@ char *name;
 	    return DISCARD;
 	if (strEQ(name, "DISSOLVE_MODE"))
 	    return DISSOLVE_MODE;
+#if HAVE_DIVIDE_MODE
 	if (strEQ(name, "DIVIDE_MODE"))
 	    return DIVIDE_MODE;
+#endif
 	break;
     case 'E':
 	if (strEQ(name, "EXPAND_AS_NECESSARY"))

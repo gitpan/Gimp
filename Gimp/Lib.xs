@@ -305,6 +305,49 @@ unbless (SV *sv)
     return SvIV (sv);
 }
 
+static void
+canonicalize_colour (char *err, SV *sv, GParamColor *c)
+{
+  dSP;
+  
+  ENTER;
+  SAVETMPS;
+  
+  PUSHMARK(SP);
+  XPUSHs (sv);
+  PUTBACK;
+  
+  if (perl_call_pv ("Gimp::canonicalize_colour", G_SCALAR) != 1)
+    croak ("canonicalize_colour did not return a value!");
+  
+  SPAGAIN;
+  
+  sv = POPs;
+  if (SvROK(sv))
+    {
+      if (SvTYPE(SvRV(sv)) == SVt_PVAV)
+        {
+          AV *av = (AV *)SvRV(sv);
+          if (av_len(av) == 2)
+            {
+              c->red   = SvIV(*av_fetch(av, 0, 0));
+              c->green = SvIV(*av_fetch(av, 1, 0));
+              c->blue  = SvIV(*av_fetch(av, 2, 0));
+            }
+          else
+            sprintf (err, "a color must have three components (array elements)");
+        }
+      else
+        sprintf (err, "illegal type for colour specification");
+    }
+  else
+    sprintf (err, "unable to grok colour specification");
+  
+  PUTBACK;
+  FREETMPS;
+  LEAVE;
+}
+
 /* replacement newSVpv with only one argument.  */
 #define neuSVpv(arg) newSVpv((arg),0)
 
@@ -404,38 +447,7 @@ convert_sv2gimp (char *err, GParam *arg, SV *sv)
       case PARAM_PATH:		arg->data.d_path	= SvIV(sv); break;
       case PARAM_STATUS:	arg->data.d_status	= SvIV(sv); break;
       case PARAM_COLOR:
-        /* difficult */
-        if (SvROK(sv))
-          {
-            if (SvTYPE(SvRV(sv)) == SVt_PVAV)
-              {
-                AV *av = (AV *)SvRV(sv);
-                if (av_len(av) == 2)
-                  {
-                    arg->data.d_color.red   = SvIV(*av_fetch(av, 0, 0));
-                    arg->data.d_color.green = SvIV(*av_fetch(av, 1, 0));
-                    arg->data.d_color.blue  = SvIV(*av_fetch(av, 2, 0));
-                  }
-                else
-                  sprintf (err, "a color must have three components (array elements)");
-              }
-            else
-              sprintf (err, "a color must be specified as either an array-ref or a string");
-          }
-        else
-          {
-            int r,g,b;
-            STRLEN len;
-            if (sscanf (SvPV (sv, len), "#%02x%02x%02x", &r, &g, &b) == 3
-                && len == 7)
-              {
-                arg->data.d_color.red   = r;
-                arg->data.d_color.green = g;
-                arg->data.d_color.blue  = b;
-              }
-            else
-              sprintf (err, "a color string must be of form #rrggbb");
-          }
+        canonicalize_colour (err, sv, &arg->data.d_color);
         break;
       
       case PARAM_INT32ARRAY:	av2gimp (arg, sv, d_int32array , gint32 , SvIV); break;
@@ -1362,10 +1374,9 @@ gdouble
 gimp_channel_get_opacity(channel_ID)
 	CHANNEL	channel_ID
 
-# ??? !!! NYI: not in libgimp!
-#gint
-#gimp_channel_get_show_masked(channel_ID)
-#	gint32	channel_ID
+gint
+gimp_channel_get_show_masked(channel_ID)
+	gint32	channel_ID
 
 gint
 gimp_channel_get_visible(channel_ID)
@@ -1381,11 +1392,10 @@ gimp_channel_set_opacity(channel_ID, opacity)
 	CHANNEL	channel_ID
 	gdouble	opacity
 
-# ??? !!! NYI: not in libgimp!
-#void
-#gimp_channel_set_show_masked(channel_ID, show_masked)
-#	gint32	channel_ID
-#	gint	show_masked
+void
+gimp_channel_set_show_masked(channel_ID, show_masked)
+	gint32	channel_ID
+	gint	show_masked
 
 void
 gimp_channel_set_visible(channel_ID, visible)

@@ -1,5 +1,14 @@
 Revision history for Gimp-Perl extension.
 
+0.994 Tue Jul 21 04:57:28 CEST 1998
+	- check wether DIVIDE_MODE is available
+	- commented out gimp_channel_get_show_masked
+	  and gimp_channel_set_show_masked, since they are
+	  implemented in gimp-1.0
+	- implemented strings as colour specifiers, i.e.
+	  gimp_palette_set_foreground "slategrey"
+	  see Gimp::set_rgb_db
+
 0.993 Tue Jul 21 04:38:01 CEST 1998
 	- incorporated Dov's patch to enable --output
 	  (man Gimp::Fu, save_image)
