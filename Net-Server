@@ -91,14 +91,12 @@ sub extension_perl_net_server_start {
     rmdir $Gimp::Net::default_unix_dir;
     mkdir $Gimp::Net::default_unix_dir,0700 or die "$!";
     $unix = new IO::Socket::UNIX (Local => $unix_path, Listen => 5) or die "$!";
-    $unix->autoflush (1); # for compatibility with very old perls..
     slog "accepting connections on $unix_path";
     vec($rm,$unix->fileno,1)=1;
   }
   if ($use_tcp) {
     $tcp = new IO::Socket::INET (LocalPort => $Gimp::Net::default_tcp_port, Listen => 5,
                                  Reuse => 1) or die "$!";
-    $tcp->autoflush (1); # for compatibility with very old perls..
     slog "accepting connections on port $Gimp::Net::default_tcp_port";
     vec($rm,$tcp->fileno,1)=1;
   }
@@ -107,12 +105,14 @@ sub extension_perl_net_server_start {
     if(select($r=$rm,undef,undef,undef)>0) {
       if ($tcp && vec($r,$tcp->fileno,1)) {
         my($h)=$tcp->accept;
+        $h->autoflush (1); # for compatibility with very old perls..
         $handles{fileno($h)}=$h;
         vec($rm,$h->fileno,1)=1;
         slog("accepted tcp connection from ",$h->peerhost);
       }
       if ($unix && vec($r,$unix->fileno,1)) {
-        my($h)=$unix->accept();
+        my($h)=$unix->accept;
+        $h->autoflush (1); # for compatibility with very old perls..
         $handles{fileno($h)}=$h;
         vec($rm,$h->fileno,1)=1;
         slog("accepted unix connection");

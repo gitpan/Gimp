@@ -141,7 +141,7 @@ gimp_progress_*
 
 =head1 STATUS
 
-This module is experimental, the API is subjedt to change.
+This module is experimental, the API is subject to change.
 
 =head1 AUTHOR
 

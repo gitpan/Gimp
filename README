@@ -46,22 +46,22 @@ SYNOPSIS
            BEWARE!  This will overwrite your AUTOLOAD function,
            if you have one!
 
+       :param
+           Import PARAM_* constants (PARAM_INT32, PARAM_STRING
+           &c).
+
        interface=lib
            Use direct interface via libgimp.
 
        interface=net
            Use network interface using Net-Server and Gimp::Net.
 
-       (ignore this section for now... ;) this will eventually
-       contain some minimal plug-in examples)
-
-       use Gimp qw( :auto );
-
-       sub net {
+       Dov Grobgeld has written a preliminary version of a
+       tutorial for Gimp-Perl.  While not finished, it's
 
 
 
-2/Apr/98               perl 5.004, patch 63                     1
+28/Apr/98              perl 5.004, patch 64                     1
 
 
 
@@ -70,14 +70,11 @@ SYNOPSIS
 Gimp(3)        User Contributed Perl Documentation        Gimp(3)
 
 
-         gimp_quit; }
-
-       exit gimp_main;
+       definitely better than this section currently. You can
+       find it at http://imagic.weizmann.ac.il/~dov/gimp/perl-
+       tut.html
 
 DESCRIPTION
-       Sorry, I didn't make a very useful documentation yet..
-       help appreciated!
-
        Look at the sample plug-ins that come with this module. If
        you write other plug-ins, send them to me! If you have
        question on use, you might as well ask me (although I'm a
@@ -124,10 +121,13 @@ CALLBACKS
        net ()
            this is called when the plug-in is not started from
            within Gimp, but is using Net-Server (the perl network
+           server extension you hopefully have installed and
+           started ;)
 
 
 
-2/Apr/98               perl 5.004, patch 63                     2
+
+28/Apr/98              perl 5.004, patch 64                     2
 
 
 
@@ -135,9 +135,6 @@ CALLBACKS
 
 Gimp(3)        User Contributed Perl Documentation        Gimp(3)
 
-
-           server extension you hopefully have installed and
-           started ;)
 
 FUNCTIONS
        set_trace (tracemask)
@@ -189,11 +186,14 @@ FUNCTIONS
            with three elements, [PARAM_TYPE, \"NAME\",
            \"DESCRIPTION\"].
 
+       gimp_progress_init(message)
+           Initializes a progress bar. In networked modules this
+           is a no-op.
 
 
 
 
-2/Apr/98               perl 5.004, patch 63                     3
+28/Apr/98              perl 5.004, patch 64                     3
 
 
 
@@ -201,10 +201,6 @@ FUNCTIONS
 
 Gimp(3)        User Contributed Perl Documentation        Gimp(3)
 
-
-       gimp_progress_init(message)
-           Initializes a progress bar. In networked modules this
-           is a no-op.
 
        gimp_progress_update(percentage)
            Updates the progress bar. No-op in networked modules.
@@ -259,7 +255,11 @@ SEE ALSO
 
 
 
-2/Apr/98               perl 5.004, patch 63                     4
+
+
+
+
+28/Apr/98              perl 5.004, patch 64                     4
 
 
 
@@ -325,6 +325,6 @@ Gimp(3)        User Contributed Perl Documentation        Gimp(3)
 
 
 
-2/Apr/98               perl 5.004, patch 63                     5
+28/Apr/98              perl 5.004, patch 64                     5
 
 

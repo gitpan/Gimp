@@ -70,10 +70,14 @@ trace_init ()
 void trace_printf (char *frmt, ...)
 {
   va_list args;
-  char buffer[1024]; /* sorry... */
+  char buffer[4096]; /* sorry... */
   
   va_start (args, frmt);
+#ifdef HAVE_VSNPRINTF
   vsnprintf (buffer, sizeof buffer, frmt, args);
+#else
+  vsprintf (buffer, frmt, args);
+#endif
   if (trace_file) PerlIO_printf (trace_file, "%s", buffer);
   else		  sv_catpv (trace_var, buffer);
 }

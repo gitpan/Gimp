@@ -76,3 +76,10 @@ Revision history for Gimp-Perl extension.
 	- added gimp_set_data & gimp_get_data
 	- new module Gimp::Data
 
+0.87  Mon Apr 27 15:38:23 CEST 1998
+	- mainly a bugfix release, none of the new features work yet!
+	- started to code Gimp::Fu for simple dialogs.
+	- added more autoflush for old perls *sigh*
+	- autoconf'd. not good, but its a start
+	- AUTOLOAD is no longer exported, instead, @ISA is used
+

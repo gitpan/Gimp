@@ -1,0 +1,30 @@
+AC_INIT(Gimp.pm)
+
+AC_CONFIG_HEADER(config.h)
+
+AC_CHECK_PROGS(PERL,perl5.004_01 perl5.004 perl5 perl,perl)
+
+AC_CHECK_FUNCS(vsnprintf,,[
+   AC_MSG_WARN(vsnprintf not found.. I hope you are using gcc...)
+])
+
+AC_CHECK_LIB(glib,g_malloc,,[
+   AC_MSG_ERROR(unable to find glib)
+])
+
+AC_HEADER_STDC
+AC_CHECK_HEADERS(libgimp/gimp.h)
+
+# just pretend libgimp is there for now
+LIBS="$LIBS -lgimp"
+dnl AC_CHECK_LIB(gimp,gimp_main)
+
+AC_OUTPUT(Makefile.PL Gimp/Makefile.PL)
+
+echo invoking $PERL for configuration...
+$PERL Makefile.PL
+echo
+echo now enter \"make\", \"make test\" and \"make install\"
+echo
+
+

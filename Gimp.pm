@@ -3,14 +3,23 @@ package Gimp;
 use strict;
 use Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL);
-use vars qw(@_consts @_procs @_internals $interface_pkg $interface_type);
+use vars qw(@_consts @_procs @_internals $interface_pkg $interface_type
+            @_param);
 
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '0.86';
+$VERSION = '0.87';
 
-@_consts = qw(
+@_param = qw(
+	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
+	PARAM_END	PARAM_FLOAT	PARAM_FLOATARRAY		PARAM_IMAGE
+	PARAM_INT16	PARAM_INT16ARRAY		PARAM_INT32	PARAM_INT32ARRAY
+	PARAM_INT8	PARAM_INT8ARRAY	PARAM_LAYER	PARAM_PATH	PARAM_REGION
+	PARAM_SELECTION	PARAM_STATUS	PARAM_STRING	PARAM_STRINGARRAY
+);
+
+@_consts = (@_param,qw(
 	ADDITION_MODE	ALPHA_MASK	APPLY		BEHIND_MODE	BG_BUCKET_FILL
 	BG_IMAGE_FILL	BILINEAR	BLACK_MASK	BLUE_CHANNEL	BLUR
 	CLIP_TO_BOTTOM_LAYER		CLIP_TO_IMAGE	COLOR_MODE	CONICAL_ASYMMETRIC
@@ -20,11 +29,6 @@ $VERSION = '0.86';
 	GRAY_CHANNEL	GRAY_IMAGE	GREEN_CHANNEL	HUE_MODE	IMAGE_CLONE
 	INDEXED		INDEXEDA_IMAGE	INDEXED_CHANNEL	INDEXED_IMAGE	LIGHTEN_ONLY_MODE
 	LINEAR		MULTIPLY_MODE	NORMAL_MODE	NO_IMAGE_FILL	OVERLAY_MODE
-	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
-	PARAM_END	PARAM_FLOAT	PARAM_FLOATARRAY		PARAM_IMAGE
-	PARAM_INT16	PARAM_INT16ARRAY		PARAM_INT32	PARAM_INT32ARRAY
-	PARAM_INT8	PARAM_INT8ARRAY	PARAM_LAYER	PARAM_PATH	PARAM_REGION
-	PARAM_SELECTION	PARAM_STATUS	PARAM_STRING	PARAM_STRINGARRAY
 	PATTERN_BUCKET_FILL		PATTERN_CLONE	PIXELS		POINTS
 	PROC_EXTENSION	PROC_PLUG_IN	PROC_TEMPORARY	RADIAL		RED_CHANNEL
 	REPEAT_NONE	REPEAT_SAWTOOTH	REPEAT_TRIANGULAR		RGB
@@ -41,7 +45,7 @@ $VERSION = '0.86';
 	
 	TRACE_NONE	TRACE_CALL	TRACE_TYPE	TRACE_NAME	TRACE_DESC
 	TRACE_ALL
-);
+));
 
 # procs an interface module must(!) implement somehow
 @_procs = qw(
@@ -120,13 +124,16 @@ sub import($;@) {
   my @export;
   
   # make a quick but dirty guess ;)
-  $interface_type = $ARGV[0] eq "-gimp" ? "lib" : "net";
+  $interface_type = "net";
+  $interface_type = "lib" if @ARGV && $ARGV[0] eq "-gimp";
   
   for(@_) {
     if ($_ eq ":auto") {
       push(@export,@_consts);
       push(@export,@_procs);
-      push(@export,'AUTOLOAD');
+      eval "push \@{${up}::ISA},'Gimp'";
+    } elsif ($_ eq ":param") {
+      push(@export,@_param);
     } elsif (/^interface=(\S+)$/) {
       $interface_type=$1;
     } else {
@@ -142,8 +149,8 @@ sub import($;@) {
     croak "interface '$interface_type' unsupported, use either 'lib' or 'net'";
   }
   
-  # has to be done first
-  eval "require $interface_pkg" or die "$@";
+  # has to be done first. the "eval EXPR" form is necessary.
+  eval "require $interface_pkg" or croak "$@";
   import $interface_pkg ();
   for((@_procs,@_internals)) {
     eval "*$_ = \\&${interface_pkg}::$_";
@@ -215,6 +222,10 @@ Import useful constants, like RGB, RUN_NONINTERACTIVE... as well as all
 libgimp and pdb functions automagically into the caller's namespace. BEWARE!
 This will overwrite your AUTOLOAD function, if you have one!
 
+=item :param
+
+Import PARAM_* constants (PARAM_INT32, PARAM_STRING &c).
+
 =item interface=lib
 
 Use direct interface via libgimp.
@@ -227,21 +238,11 @@ Use network interface using Net-Server and Gimp::Net.
   
 =head1 GETTING STARTED
 
-(ignore this section for now... ;) this will eventually contain some minimal
-plug-in examples)
-
-use Gimp qw( :auto );
-
-sub net {
-  gimp_quit;
-}
-
-exit gimp_main;
+Dov Grobgeld has written a preliminary version of a tutorial for Gimp-Perl.
+While not finished, it's definitely better than this section currently. You
+can find it at http://imagic.weizmann.ac.il/~dov/gimp/perl-tut.html
 
 =head1 DESCRIPTION
-
-Sorry, I didn't make a very useful documentation yet.. help
-appreciated!
 
 Look at the sample plug-ins that come with
 this module. If you write other plug-ins, send them to me! If you have
