@@ -1,3 +1,71 @@
+2004-05-15  Seth Burgess <sjburges@gimp.org>
+	* Made 2.0 release.
+
+        * Gimp.pm 
+        * Changes: updated docs to reflect
+
+2004-05-15  Seth Burgess <sjburges@gimp.org>
+	* exmaples/fade-alpha: s/RADIAL/GRADIENT_RADIAL/ fixes bug #141444
+        * examples/selective_sharpen: change threshold to be zero based, fix 
+          a bug if no selection was present. 
+
+2004-05-15  Seth Burgess <sjburges@gimp.org>
+	* examples/selective_sharpen: use a curve suggested by tigert 
+          to "Basically just darken the very dark noisy grays to black 
+          and boost everything else."
+
+2004-05-15  Seth Burgess <sjburges@gimp.org>
+	* examples/selective_sharpen: added new script based on tigert's 
+	  method.
+        * Makefile.PL: install it 
+	* MANIFEST: updated accordingly
+
+2004-05-15  Seth Burgess <sjburges@gimp.org>
+	* Changes
+	* README
+	* README.win32
+	* TODO: updated to bring into line with current 2.0
+
+	* examples/examples.TODO: removed scripts from here
+
+	* MANIFEST: alphabetized scripts for easier maintenance
+	* Makefile.PL: upped Gtk requirement to at least rev 1.0, removed
+	scm2scm from EXE_FILES, removed REC_DECENT warning.
+
+        * Gimp.pm: reordered docuemntation, so that canonicalize_colour 
+	doesn't come first on CPAN listing for GIMP.
+
+2004-05-07  Seth Burgess <sjburges@gimp.org>
+	* examples/alpha2color
+	* examples/avi
+	* examples/border
+	* examples/circular_text
+	* examples/clear_alpha
+	* examples/colour2alpha
+	* examples/Create_Images
+	* examples/fire
+	* examples/fit-text
+	* examples/gap-vcr
+	* examples/gimpmagick
+	* examples/homepage-logo
+	* examples/miff
+	* examples/PDB
+	* examples/perlcc
+	* examples/logulator
+	* examples/parasite-editor
+	* examples/povray
+	* examples/roundrectsel
+	* examples/terral_text
+	* examples/triangu
+	* examples/visual: removed
+
+	* Makefile.PL: removed reference to povray
+
+        * t/run.t: removed regex that wasn't matching; use 
+	  --gimpplugindir instead.  'make test' should work for more people.
+     
+        * examples/pixelmap: strip \n's from image title (prevent gui oddity)
+
 2004-04-24  Seth Burgess <sjburges@gimp.org>
 	* examples/animate_cells:  s/channel_ops_duplicate/image_duplicate/
 	* examples/billboard:  s/push_undo/undo/g

@@ -29,16 +29,13 @@ if ($ARGV[0] ne "--writemakefile") {
 }
 
 @otherdeps = qw(
-      povray 
-); # can't get imagemagick to work
+); 
 @gtk_pins =
    qw(
      dataurl 
      colorhtml 
      fade-alpha
    );
-# can't get avi to save/load an animation properly
-# parasite-editor
 @pins =
    qw(
       animate_cells 
@@ -54,6 +51,7 @@ if ($ARGV[0] ne "--writemakefile") {
       scratches sethspin stamps 
       tex-to-float translogo 
       randomart1 randomblends 
+      selective_sharpen
       warp-sharp webify windify 
       xachlego xachshadow xachvision
       yinyang 
@@ -68,8 +66,6 @@ if ($ARGV[0] ne "--writemakefile") {
    );  
 
 eval "use Gtk2;"; $GTK = $@ eq "";
-eval "use Parse::RecDescent;"; $PRD = $@ eq "";
-
 $GTK or print <<EOF;
 
 NOTICE:  unable to use the Perl-Gtk2 interface. Many features (like
@@ -81,22 +77,17 @@ NOTICE:  unable to use the Perl-Gtk2 interface. Many features (like
 
 EOF
 
-$PRD or print <<EOF;
-
-NOTICE: Parse::RecDescent not found, scm2perl, the Scheme->Perl
-        translator, will not work. This is normally not a problem, since
-        it is quite unimportant for most people.
-
-EOF
-
 require ExtUtils::MakeMaker;
 import ExtUtils::MakeMaker;
-#require ExtUtils::Depends;
 
 push @pins, @pdl_pins if $PDL;
 push @pins, @gtk_pins if $GTK;
 
 @INC = grep /^\//,@INC; # comment out as well?
+
+# FIXME: I don't know how this is broken, but its a bad thing to 
+# have broken functionality in your Makefile.PL.  <sjburges>
+
 if (0) {		# comment out because it breaks
 eval { $Gimp::no_SIG=1; require Gimp };
 unless($@) {
@@ -163,7 +154,6 @@ install ::
 	   fi ; \
 	done ; \
 	$(MAKE) really-install install-plugins'."
-	$main::dont_embed || (cd embed && \$(MAKE) install)
 
 install-po:
 	cd po && \$(MAKE) install
@@ -188,10 +178,8 @@ check :: test
 MY_FIXIN = \$(PERL) -I\$(PERL_ARCHLIB) -I\$(PERL_LIB) -MExtUtils::MakeMaker -e 'MY->fixin(\@ARGV)'
 
 all ::
-	$main::dont_embed || (cd embed && \$(MAKE) all)
 
 clean ::
-	$main::dont_embed || (cd embed && \$(MAKE) clean)
 	test -f Makefile || mv -f Makefile.old Makefile
 	\$(RM_RF) inst-temp
 
@@ -242,22 +230,6 @@ gimpenums.c: makeenums.pl
 $GIMP_INC_NOUI = "-I../../ $GIMP_INC_NOUI" if $IN_GIMP;
 @DIRS= qw/Gimp Net UI/;
 
-$build_module = $IN_GIMP || $ENV{GIMP_PERL_MODULE_INC};
-# temporarily disabled because of politics
-$build_module = $ENV{GIMP_PERL_MODULE_INC};
-
-print "building embedded perl module... ";
-if ($build_module) {
-   print "yes\n";
-   $dont_embed = "false";
-   push(@DIRS,'Module');
-   print "configuring in embed/Makefile...\n";
-   system("cd embed && perl Makefile.PL");
-} else {
-   print "no\n";
-   $dont_embed = "true";
-}
-
 print "writing Gimp/Config.pm... ";
 {
    sub conf_eval {
@@ -277,7 +249,7 @@ print "writing Gimp/Config.pm... ";
 print "ok\n";
 
 @EXE_FILES = qw(gimpdoc xcftopnm embedxpm);
-push @EXE_FILES, qw(scm2perl scm2scm) if $PRD;
+push @EXE_FILES, qw(scm2perl) if $PRD;
 
 WriteMakefile(
     'dist'	=> {
@@ -286,10 +258,9 @@ WriteMakefile(
 	            SUFFIX	=> '.gz',
 	           },
     'PREREQ_PM'	=> {
-    		    Gtk2		=> 0.90,
+    		    Gtk2		=> 1.0,
                     PDL			=> 1.99,
     		    Data::Dumper	=> 2.0,
-                    Parse::RecDescent	=> 1.6,
 		   },
     'DIR'	=> [@DIRS],
     'NAME'	=> 'Gimp',
