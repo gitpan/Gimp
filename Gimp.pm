@@ -5,13 +5,14 @@ use Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
             @_consts @_procs $interface_pkg $interface_type @_param @_al_consts
             @PREFIXES $_PROT_VERSION
-            @gimp_gui_functions
+            @gimp_gui_functions $function $basename
+            $in_quit $in_run $in_net $in_init $in_query $no_SIG
             $help $verbose $host);
 
 require DynaLoader;
 
 @ISA=qw(DynaLoader);
-$VERSION = 1.061;
+$VERSION = 1.07;
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -268,9 +269,18 @@ EOF
 }
 
 my @log;
+my $caller;
+
+sub format_msg {
+   $_=shift;
+   "$_->[0]: $_->[2] ".($_->[1] ? "($_->[1])":"");
+}
 
 sub _initialized_callback {
    if (@log) {
+      for(@log) {
+         Gimp->message(format_msg($_)) if $_->[3] && $interface_type eq "lib";
+      }
       Gimp->_gimp_append_data ('gimp-perl-log', map join("\1",@$_)."\0",@log);
       @log=();
    }
@@ -281,39 +291,82 @@ sub _initialized_callback {
 # fatal
 sub logger {
    my %args = @_;
-   my $file=$0;
-   $file=~s/^.*[\\\/]//;
    $args{message}  = "unknown message"    unless defined $args{message};
+   $args{function} = $function            unless defined $args{function};
    $args{function} = ""                   unless defined $args{function};
    $args{fatal}    = 1                    unless defined $args{fatal};
-   print STDERR "$file: $args{message} ",($args{function} ? "(for function $args{function})":""),"\n" if $verbose || $interface_type eq 'net';
-   push(@log,[$file,@args{'function','message','fatal'}]);
+   push(@log,[$basename,@args{'function','message','fatal'}]);
+   print STDERR format_msg($log[-1]),"\n" if ($in_run || $in_net || $verbose);
    _initialized_callback if initialized();
 }
 
-# calm down the gimp module
-sub net {}
-sub query {}
-
-sub normal_context {
-   !$^S && defined $^S;
+sub die_msg {
+   logger(message => substr($_[0],0,-1), fatal => 1, function => 'ERROR');
 }
 
-$SIG{__DIE__} = sub {
-   if (normal_context) {
-      logger(message => substr($_[0],0,-1), fatal => 1, function => 'DIE');
-      initialized() ? die "BE QUIET ABOUT THIS DIE\n" : exit main();
-   }
-   die $_[0];
-};
-
-$SIG{__WARN__} = sub {
-   if (normal_context) {
-      logger(message => substr($_[0],0,-1), fatal => 0, function => 'WARN');
+sub call_callback {
+   my $req = shift;
+   my $cb = shift;
+   if (UNIVERSAL::can($caller,$cb)) {
+      &{"${caller}::$cb"};
    } else {
-      warn $_[0];
+      die_msg "required callback '$cb' not found\n" if $req;
    }
-};
+}
+
+sub callback {
+   my $type = shift;
+   confess unless initialized();
+   _initialized_callback;
+   return () if $caller eq "Gimp";
+   if ($type eq "-run") {
+      local $function = shift;
+      local $in_run = 1;
+      call_callback 1,$function,@_;
+   } elsif ($type eq "-net") {
+      local $in_net = 1;
+      call_callback 1,"net";
+   } elsif ($type eq "-query") {
+      local $in_query = 1;
+      call_callback 1,"query";
+   } elsif ($type eq "-quit") {
+      local $in_quit = 1;
+      call_callback 0,"quit";
+   }
+}
+
+sub main {
+   $caller=caller;
+   #d# #D# # BIG BUG LURKING SOMEWHERE
+   # just calling exit() will be too much for bigexitbug.pl
+   xs_exit(&{"${interface_pkg}::gimp_main"});
+}
+
+# same as main, but callbacks are ignored
+sub quiet_main {
+   main;
+}
+
+unless ($no_SIG) {
+   $SIG{__DIE__} = sub {
+      unless ($^S || !defined $^S || $in_quit) {
+         die_msg $_[0];
+         initialized() ? die "BE QUIET ABOUT THIS DIE\n" : xs_exit(main());
+      } else {
+        die $_[0];
+      }
+   };
+
+   $SIG{__WARN__} = sub {
+      unless ($in_quit) {
+        warn $_[0];
+      } else {
+        logger(message => substr($_[0],0,-1), fatal => 0, function => 'WARNING');
+      }
+   };
+}
+
+##############################################################################
 
 if ($interface_type=~/^lib$/i) {
    $interface_pkg="Gimp::Lib";
@@ -331,16 +384,19 @@ for(qw(_gimp_procedure_available gimp_call_procedure set_trace initialized)) {
    *$_ = \&{"${interface_pkg}::$_"};
 }
 
-*main               = \&{"${interface_pkg}::gimp_main"};
-*init               = \&{"${interface_pkg}::gimp_init"};
-*end                = \&{"${interface_pkg}::gimp_end" };
-
+*init  = \&{"${interface_pkg}::gimp_init"};
+*end   = \&{"${interface_pkg}::gimp_end" };
 *lock  = \&{"${interface_pkg}::lock" };
 *unlock= \&{"${interface_pkg}::unlock" };
 
-@PREFIXES=("gimp_", "");
+($basename = $0) =~ s/^.*[\\\/]//;
+
+$verbose=
+$in_quit=$in_run=$in_net=$in_init=$in_query=0; # perl -w is braindamaged
 
 my %ignore_function = ();
+
+@PREFIXES=("gimp_", "");
 
 @gimp_gui_functions = qw(
    gimp_progress_init
@@ -356,7 +412,7 @@ sub ignore_functions(@) {
 
 sub _croak($) {
   $_[0] =~ s/ at .*? line \d+.*$//s;
-  Carp::croak $_[0];
+  croak($_[0]);
 }
 
 sub AUTOLOAD {
@@ -598,7 +654,14 @@ In a Gimp::Fu-script, you should call C<Gimp::Fu::main> instead:
  exit main;		# Gimp::Fu::main is exported by default as well.
 
 This is similar to Gtk, Tk or similar modules, where you have to call the
-main eventloop.
+main eventloop. Attention: although you call C<exit> with the result of
+C<main>, the main function might not actually return. This depends on both
+the version of Gimp and the version of the Gimp-Perl module that is in
+use.  Do not depend on C<main> to return at all, but still call C<exit>
+immediately.
+
+If you need to do cleanups before exiting you should use the C<quit>
+callback (which is not yet available if you use Gimp::Fu).
 
 =head1 CALLBACKS
 
@@ -686,8 +749,10 @@ Very old perls may need:
 =head1 SPECIAL FUNCTIONS
 
 In this section, you can find descriptions of special functions, functions
-having different calling conventions/semantics than I would expect (I cannot
-speak for you), or just plain interesting functions.
+having different calling conventions/semantics than I would expect (I
+cannot speak for you), or just plain interesting functions. All of these
+functions must either be imported explicitly or called using a namespace
+override (C<Gimp::>), not as Methods (C<Gimp-E<gt>>).
 
 =over 4
 
@@ -730,13 +795,36 @@ Currently, these functions only lock the current Perl-Server instance
 against exclusive access, they are nops when used via the Gimp::Lib
 interface.
 
+=item Gimp::set_rgb_db(filespec)
+
+Use the given rgb database instead of the default one. The format is the
+same as the one used by the X11 Consortiums rgb database (you might have a
+copy in /usr/lib/X11/rgb.txt). You can view the default database with
+C<perldoc -m Gimp>, at the end of the file.
+
+=item Gimp::initialized ()
+
+this function returns true whenever it is safe to clal gimp functions. This is
+usually only the case after gimp_main or gimp_init have been called.
+
+=back
+
+=head1 SPECIAL METHODS
+
+This chapter descibes methods that behave differently than you might
+expect, or methods uniquely implemented in perl (that is, not in the
+PDB). All of these must be invoked using the method syntax (C<Gimp-E<gt>>
+or C<$object-E<gt>>).
+
+=over 4
+
 =item gimp_install_procedure(name, blurb, help, author, copyright, date, menu_path, image_types, type, [params], [return_vals])
 
 Mostly same as gimp_install_procedure. The parameters and return values for
 the functions are specified as an array ref containing either integers or
 array-refs with three elements, [PARAM_TYPE, \"NAME\", \"DESCRIPTION\"].
 
-=item gimp_progress_init(message)
+=item gimp_progress_init(message,[])
 
 Initializes a progress bar. In networked modules this is a no-op.
 
@@ -770,12 +858,13 @@ channels. The reason why this is documented is that the usual way to return
 C<PARAM_INT32ARRAY>'s would be to return a B<reference> to an B<array of
 integers>, rather than blessed objects.
 
-=item set_rgb_db filespec
+=item server_eval(string)
 
-Use the given rgb database instead of the default one. The format is the
-same as the one used by the X11 Consortiums rgb database (you might have a
-copy in /usr/lib/X11/rgb.txt). You can view the default database with
-C<perldoc -m Gimp>, at the end of the file.
+This evaluates the given string in array context and returns the
+results. It's similar to C<eval>, but with two important differences: the
+evaluating always takes place on the server side/server machine (which
+might be the same as the local one) and compilation/runtime errors are
+reported as runtime errors (i.e. throwing an exception).
 
 =back
 
@@ -796,7 +885,7 @@ you how Gimp can help you debugging your scripts:
 
 =over 4
 
-=item set_trace (tracemask)
+=item Gimp::set_trace (tracemask)
 
 Tracking down bugs in gimp scripts is difficult: no sensible error messages.
 If anything goes wrong, you only get an execution failure. Switch on
@@ -837,20 +926,15 @@ all of the above.
 
 C<set_trace> returns the old tracemask.
 
-=item set_trace(\$tracevar)
+=item Gimp::set_trace(\$tracevar)
 
 write trace into $tracevar instead of printing it to STDERR. $tracevar only
 contains the last command traces, i.e. it's cleared on every PDB invocation
 invocation.
 
-=item set_trace(*FILEHANDLE)
+=item Gimp::set_trace(*FILEHANDLE)
 
 write trace to FILEHANDLE instead of STDERR.
-
-=item initialized ()
-
-this function returns true whenever it is safe to clal gimp functions. This is
-usually only the case after gimp_main or gimp_init have been called.
 
 =back
 

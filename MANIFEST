@@ -17,6 +17,7 @@ t/load.t
 t/loadlib.t
 t/run.t
 extradefs.h
+ppport.h
 Perl-Server
 etc/configure
 etc/configure.in
@@ -37,6 +38,7 @@ Gimp/Pixel.pod
 Gimp/UI.pm
 Gimp/Util.pm
 Gimp/Feature.pm
+Gimp/Pod.pm
 examples/PDB
 examples/alpha2color.pl
 examples/tex-to-float
@@ -66,3 +68,7 @@ examples/gimpmagick
 examples/perlcc
 examples/sethspin.pl
 examples/animate_cells
+examples/yinyang
+examples/image_tile
+examples/stamps
+

@@ -18,13 +18,16 @@
 #undef MIN
 #undef MAX
 
+/* various functions allocate static buffers, STILL.  */
+#define MAX_STRING 4096
+
 /* dunno where this comes from */
 #undef VOIDUSED
 
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
-#include "patchlevel.h"
+#include "ppport.h"
 
 /* I actually do care a bit about older perls... */
 #ifndef ERRSV
@@ -33,10 +36,6 @@
 /* And also for newer perls... */
 #ifndef dTHR
 # define dTHR (void)0
-#endif
-#if (PATCHLEVEL < 5)
-# define newSVpvn(data,len) ((len) ? newSVpv ((data), (len)) : newSVpv ("", 0))
-# define PL_sv_undef sv_undef
 #endif
 
 /* dirty is used in gimp.h AND in perl < 5.005 or with PERL_POLLUTE.  */
@@ -115,7 +114,7 @@ SV *new_tile (GTile *tile, SV *gdrawable)
   hv_store (hv, "_eheight"	, 8, newSViv (tile->eheight)	, 0);
   hv_store (hv, "_bpp"		, 4, newSViv (tile->bpp)	, 0);
   hv_store (hv, "_shadow"	, 7, newSViv (tile->shadow)	, 0);
-  hv_store (hv, "_gdrawable"	,10, newSVsv (gdrawable)	, 0);
+  hv_store (hv, "_gdrawable"	,10, SvREFCNT_inc (gdrawable)	, 0);
   
   if (!stash)
     stash = gv_stashpv (PKG_TILE, 1);
@@ -126,12 +125,12 @@ SV *new_tile (GTile *tile, SV *gdrawable)
 GDrawable *old_gdrawable (SV *sv)
 {
   if (!(sv_derived_from (sv, PKG_GDRAWABLE)
-        && SvROK (sv)
-        && SvTYPE (SvRV (sv)) == SVt_PVHV))
+	&& SvROK (sv)
+	&& SvTYPE (SvRV (sv)) == SVt_PVHV))
     croak ("argument is not of type " PKG_GDRAWABLE);
   
   /* the next line lacks any type of checking.  */
-  return (GDrawable *)SvIV(*(hv_fetch ((HV*)SvRV(sv), "_gdr", 4, 0)));
+  return (GDrawable *)SvIV(*(hv_fetch ((HV*)SvRV(sv), "_gdrawable", 10, 0)));
 }
 
 GTile *old_tile (SV *sv)
@@ -187,7 +186,7 @@ trace_init ()
 void trace_printf (char *frmt, ...)
 {
   va_list args;
-  char buffer[4096]; /* sorry... */
+  char buffer[MAX_STRING]; /* sorry... */
   
   va_start (args, frmt);
 #ifdef HAVE_VSNPRINTF
@@ -200,9 +199,32 @@ void trace_printf (char *frmt, ...)
 }
 
 #else
-#error need ansi compiler, maybe try c89?
 error need_ansi_compiler__maybe_try_c89
 #endif
+
+/* in case g_strdup_printf is missing.  */
+#if (GLIB_MAJOR_VERSION>1) || (GLIB_MAJOR_VERSION==1 && GLIB_MINOR_VERSION>1)
+#define strdup_printf g_strdup_printf
+#elif __STDC__
+#include <stdarg.h>
+static char *
+strdup_printf (char *frmt, ...)
+{
+  va_list args;
+  char buffer[MAX_STRING]; /* sorry... */
+  
+  va_start (args, frmt);
+#ifdef HAVE_VSNPRINTF
+  vsnprintf (buffer, sizeof buffer, frmt, args);
+#else
+  vsprintf (buffer, frmt, args);
+#endif
+  return g_strdup (buffer);
+}
+#else
+error need_ansi_compiler__maybe_try_c89
+#endif
+
 
 static int
 is_array (GParamType typ)
@@ -248,8 +270,8 @@ perl_paramdef_count (GParamDef *arg, int count)
   if (args[index].data.datatype || !args[index-1].data.d_int32) \
     { \
       for (j = 0; j < args[index-1].data.d_int32; j++) \
-        trace_printf (frmt ## "%s", (ctype) args[index].data.datatype[j], \
-                      j < args[index-1].data.d_int32 - 1 ? ", " : ""); \
+	trace_printf (frmt ## "%s", (ctype) args[index].data.datatype[j], \
+	              j < args[index-1].data.d_int32 - 1 ? ", " : ""); \
     } \
   else \
     trace_printf ("(UNINITIALIZED)"); \
@@ -279,75 +301,75 @@ dump_params (int nparams, GParam *args, GParamDef *params)
   for (i = 0; i < nparams; i++)
     {
       if ((trace & TRACE_TYPE) == TRACE_TYPE)
-        if (params[i].type >= 0 && params[i].type < PARAM_END+1)
-          trace_printf ("%s ", ptype[params[i].type]);
-        else
-          trace_printf ("T%d ", params[i].type);
+	if (params[i].type >= 0 && params[i].type < PARAM_END+1)
+	  trace_printf ("%s ", ptype[params[i].type]);
+	else
+	  trace_printf ("T%d ", params[i].type);
       
       if ((trace & TRACE_NAME) == TRACE_NAME)
-        trace_printf ("%s=", params[i].name);
+	trace_printf ("%s=", params[i].name);
       
       switch (args[i].type)
-        {
-          case PARAM_INT32:		trace_printf ("%d", args[i].data.d_int32); break;
-          case PARAM_INT16:		trace_printf ("%d", args[i].data.d_int16); break;
-          case PARAM_INT8:		trace_printf ("%d", (guint8) args[i].data.d_int8); break;
-          case PARAM_FLOAT:		trace_printf ("%f", args[i].data.d_float); break;
-          case PARAM_STRING:		trace_printf ("\"%s\"", args[i].data.d_string); break;
-          case PARAM_DISPLAY:		trace_printf ("%d", args[i].data.d_display); break;
-          case PARAM_IMAGE:		trace_printf ("%d", args[i].data.d_image); break;
-          case PARAM_LAYER:		trace_printf ("%d", args[i].data.d_layer); break;
-          case PARAM_CHANNEL:		trace_printf ("%d", args[i].data.d_channel); break;
-          case PARAM_DRAWABLE:		trace_printf ("%d", args[i].data.d_drawable); break;
-          case PARAM_SELECTION:		trace_printf ("%d", args[i].data.d_selection); break;
-          case PARAM_BOUNDARY:		trace_printf ("%d", args[i].data.d_boundary); break;
-          case PARAM_PATH:		trace_printf ("%d", args[i].data.d_path); break;
-          case PARAM_STATUS:		trace_printf ("%d", args[i].data.d_status); break;
-          case PARAM_INT32ARRAY:	dump_printarray (args, i, gint32, d_int32array, "%d"); break;
-          case PARAM_INT16ARRAY:	dump_printarray (args, i, gint16, d_int16array, "%d"); break;
-          case PARAM_INT8ARRAY:		dump_printarray (args, i, guint8, d_int8array , "%d"); break;
-          case PARAM_FLOATARRAY:	dump_printarray (args, i, gfloat, d_floatarray, "%f"); break;
-          case PARAM_STRINGARRAY:	dump_printarray (args, i, char* , d_stringarray, "'%s'"); break;
-          
-          case PARAM_COLOR:
-            trace_printf ("[%d,%d,%d]",
-                          args[i].data.d_color.red,
-                          args[i].data.d_color.green,
-                          args[i].data.d_color.blue);
-            break;
+	{
+	  case PARAM_INT32:		trace_printf ("%d", args[i].data.d_int32); break;
+	  case PARAM_INT16:		trace_printf ("%d", args[i].data.d_int16); break;
+	  case PARAM_INT8:		trace_printf ("%d", (guint8) args[i].data.d_int8); break;
+	  case PARAM_FLOAT:		trace_printf ("%f", args[i].data.d_float); break;
+	  case PARAM_STRING:		trace_printf ("\"%s\"", args[i].data.d_string); break;
+	  case PARAM_DISPLAY:		trace_printf ("%d", args[i].data.d_display); break;
+	  case PARAM_IMAGE:		trace_printf ("%d", args[i].data.d_image); break;
+	  case PARAM_LAYER:		trace_printf ("%d", args[i].data.d_layer); break;
+	  case PARAM_CHANNEL:		trace_printf ("%d", args[i].data.d_channel); break;
+	  case PARAM_DRAWABLE:		trace_printf ("%d", args[i].data.d_drawable); break;
+	  case PARAM_SELECTION:		trace_printf ("%d", args[i].data.d_selection); break;
+	  case PARAM_BOUNDARY:		trace_printf ("%d", args[i].data.d_boundary); break;
+	  case PARAM_PATH:		trace_printf ("%d", args[i].data.d_path); break;
+	  case PARAM_STATUS:		trace_printf ("%d", args[i].data.d_status); break;
+	  case PARAM_INT32ARRAY:	dump_printarray (args, i, gint32, d_int32array, "%d"); break;
+	  case PARAM_INT16ARRAY:	dump_printarray (args, i, gint16, d_int16array, "%d"); break;
+	  case PARAM_INT8ARRAY:		dump_printarray (args, i, guint8, d_int8array , "%d"); break;
+	  case PARAM_FLOATARRAY:	dump_printarray (args, i, gfloat, d_floatarray, "%f"); break;
+	  case PARAM_STRINGARRAY:	dump_printarray (args, i, char* , d_stringarray, "'%s'"); break;
+	  
+	  case PARAM_COLOR:
+	    trace_printf ("[%d,%d,%d]",
+	                  args[i].data.d_color.red,
+	                  args[i].data.d_color.green,
+	                  args[i].data.d_color.blue);
+	    break;
 
 #if GIMP_PARASITE
-          case PARAM_PARASITE:
-            {
-              gint32 found = 0;
-              
-              trace_printf ("[%s, ", args[i].data.d_parasite.name);
-              if (args[i].data.d_parasite.flags & PARASITE_PERSISTENT)
-                {
-                  trace_printf ("PARASITE_PERSISTENT");
-                  found |= PARASITE_PERSISTENT;
-                }
-              
-              if (args[i].data.d_parasite.flags & ~found)
-                {
-                  if (found)
-                    trace_printf ("|");
-                  trace_printf ("%d", args[i].data.d_parasite.flags & ~found);
-                }
-              
-              trace_printf (", %d bytes data]", args[i].data.d_parasite.size);
-            }
-            break;
+	  case PARAM_PARASITE:
+	    {
+	      gint32 found = 0;
+	      
+	      trace_printf ("[%s, ", args[i].data.d_parasite.name);
+	      if (args[i].data.d_parasite.flags & PARASITE_PERSISTENT)
+	        {
+	          trace_printf ("PARASITE_PERSISTENT");
+	          found |= PARASITE_PERSISTENT;
+	        }
+	      
+	      if (args[i].data.d_parasite.flags & ~found)
+	        {
+	          if (found)
+	            trace_printf ("|");
+	          trace_printf ("%d", args[i].data.d_parasite.flags & ~found);
+	        }
+	      
+	      trace_printf (", %d bytes data]", args[i].data.d_parasite.size);
+	    }
+	    break;
 #endif
-            
-          default:
-            trace_printf ("(?%d?)", args[i].type);
-        }
+	    
+	  default:
+	    trace_printf ("(?%d?)", args[i].type);
+	}
       
       if ((trace & TRACE_DESC) == TRACE_DESC)
-        trace_printf ("\t\"%s\"\n\t", params[i].description);
+	trace_printf ("\t\"%s\"\n\t", params[i].description);
       else if (i < nparams - 1)
-        trace_printf (", ");
+	trace_printf (", ");
       
     }
   
@@ -365,55 +387,55 @@ convert_array2paramdef (AV *av, GParamDef **res)
   if (av_len (av) >= 0)
     for(;;)
       {
-        int idx;
-        
-        for (idx = 0; idx <= av_len (av); idx++)
-          {
-            SV *sv = *av_fetch (av, idx, 0);
-            SV *type = 0;
-            SV *name = 0;
-            SV *help = 0;
-        
-            if (SvROK (sv) && SvTYPE (SvRV (sv)) == SVt_PVAV)
-              {
-                AV *av = (AV *)SvRV(sv);
-                SV **x;
-                
-                if ((x = av_fetch (av, 0, 0))) type = *x;
-                if ((x = av_fetch (av, 1, 0))) name = *x;
-                if ((x = av_fetch (av, 2, 0))) help = *x;
-              }
-            else if (SvIOK(sv))
-              type = sv;
+	int idx;
+	
+	for (idx = 0; idx <= av_len (av); idx++)
+	  {
+	    SV *sv = *av_fetch (av, idx, 0);
+	    SV *type = 0;
+	    SV *name = 0;
+	    SV *help = 0;
+	
+	    if (SvROK (sv) && SvTYPE (SvRV (sv)) == SVt_PVAV)
+	      {
+	        AV *av = (AV *)SvRV(sv);
+	        SV **x;
+	        
+	        if ((x = av_fetch (av, 0, 0))) type = *x;
+	        if ((x = av_fetch (av, 1, 0))) name = *x;
+	        if ((x = av_fetch (av, 2, 0))) help = *x;
+	      }
+	    else if (SvIOK(sv))
+	      type = sv;
 
-            if (type)
-              {
-                if (def)
-                  {
-                    if (is_array (SvIV (type)))
-                      {
-                        def->type = PARAM_INT32;
-                        def->name = "array_size";
-                        def->description = "the size of the following array";
-                        def++;
-                      }
-                    
-                    def->type = SvIV (type);
-                    def->name = name ? SvPV (name, dc) : 0;
-                    def->description = help ? SvPV (help, dc) : 0;
-                    def++;
-                  }
-                else
-                  count += 1 + !!is_array (SvIV (type));
-              }
-            else
-              croak ("malformed paramdef, expected [PARAM_TYPE,\"NAME\",\"DESCRIPTION\"] or PARAM_TYPE");
-          }
-        
-        if (def)
-          break;
-        
-        *res = def = g_new (GParamDef, count);
+	    if (type)
+	      {
+	        if (def)
+	          {
+	            if (is_array (SvIV (type)))
+	              {
+	                def->type = PARAM_INT32;
+	                def->name = "array_size";
+	                def->description = "the size of the following array";
+	                def++;
+	              }
+	            
+	            def->type = SvIV (type);
+	            def->name = name ? SvPV (name, dc) : 0;
+	            def->description = help ? SvPV (help, dc) : 0;
+	            def++;
+	          }
+	        else
+	          count += 1 + !!is_array (SvIV (type));
+	      }
+	    else
+	      croak ("malformed paramdef, expected [PARAM_TYPE,\"NAME\",\"DESCRIPTION\"] or PARAM_TYPE");
+	  }
+	
+	if (def)
+	  break;
+	
+	*res = def = g_new (GParamDef, count);
       }
   else
     *res = 0;
@@ -426,15 +448,15 @@ param_stash (GParamType type)
 {
   static HV *bless_hv[PARAM_END]; /* initialized to zero */
   static char *bless[PARAM_END] = {
-                            0		, 0		, 0		, 0		, 0		,
-                            0		, 0		, 0		, 0		, 0		,
-                            PKG_COLOR	, PKG_REGION	, PKG_DISPLAY	, PKG_IMAGE	, PKG_LAYER	,
-                            PKG_CHANNEL	, PKG_DRAWABLE	, PKG_SELECTION	, 0		, 0		,
+	                    0		, 0		, 0		, 0		, 0		,
+	                    0		, 0		, 0		, 0		, 0		,
+	                    PKG_COLOR	, PKG_REGION	, PKG_DISPLAY	, PKG_IMAGE	, PKG_LAYER	,
+	                    PKG_CHANNEL	, PKG_DRAWABLE	, PKG_SELECTION	, 0		, 0		,
 #if GIMP_PARASITE
-                            PKG_PARASITE,
+	                    PKG_PARASITE,
 #endif
-                            0
-                           };
+	                    0
+	                   };
   
   if (bless [type] && !bless_hv [type])
     bless_hv [type] = gv_stashpv (bless [type], 1);
@@ -461,15 +483,15 @@ unbless (SV *sv, char *type, char *croak_str)
 {
   if (sv_isobject (sv))
     if (type == PKG_ANY
-        || (type == PKG_ANYABLE && (sv_derived_from (sv, PKG_DRAWABLE)
-                                    || sv_derived_from (sv, PKG_LAYER)
-                                    || sv_derived_from (sv, PKG_CHANNEL)))
-        || sv_derived_from (sv, type))
+	|| (type == PKG_ANYABLE && (sv_derived_from (sv, PKG_DRAWABLE)
+	                            || sv_derived_from (sv, PKG_LAYER)
+	                            || sv_derived_from (sv, PKG_CHANNEL)))
+	|| sv_derived_from (sv, type))
       {
-        if (SvTYPE (SvRV (sv)) == SVt_PVMG)
-          return SvIV (SvRV (sv));
-        else
-          strcpy (croak_str, "only blessed scalars accepted here");
+	if (SvTYPE (SvRV (sv)) == SVt_PVMG)
+	  return SvIV (SvRV (sv));
+	else
+	  strcpy (croak_str, "only blessed scalars accepted here");
       }
     else
       sprintf (croak_str, "argument type %s expected (not %s)", type, HvNAME(SvSTASH(SvRV(sv))));
@@ -482,7 +504,7 @@ unbless (SV *sv, char *type, char *croak_str)
 static gint32
 unbless_croak (SV *sv, char *type)
 {
-   char croak_str[320];
+   char croak_str[MAX_STRING];
    gint32 r;
    croak_str[0] = 0;
 
@@ -515,19 +537,19 @@ canonicalize_colour (char *err, SV *sv, GParamColor *c)
   if (SvROK(sv))
     {
       if (SvTYPE(SvRV(sv)) == SVt_PVAV)
-        {
-          AV *av = (AV *)SvRV(sv);
-          if (av_len(av) == 2)
-            {
-              c->red   = SvIV(*av_fetch(av, 0, 0));
-              c->green = SvIV(*av_fetch(av, 1, 0));
-              c->blue  = SvIV(*av_fetch(av, 2, 0));
-            }
-          else
-            sprintf (err, "a color must have three components (array elements)");
-        }
+	{
+	  AV *av = (AV *)SvRV(sv);
+	  if (av_len(av) == 2)
+	    {
+	      c->red   = SvIV(*av_fetch(av, 0, 0));
+	      c->green = SvIV(*av_fetch(av, 1, 0));
+	      c->blue  = SvIV(*av_fetch(av, 2, 0));
+	    }
+	  else
+	    sprintf (err, "a color must have three components (array elements)");
+	}
       else
-        sprintf (err, "illegal type for colour specification");
+	sprintf (err, "illegal type for colour specification");
     }
   else
     sprintf (err, "unable to grok colour specification");
@@ -550,7 +572,7 @@ canonicalize_colour (char *err, SV *sv, GParamColor *c)
   if (as_ref)							\
     av = newAV ();						\
   else								\
-    EXTEND (sp, arg[-1].data.d_int32);				\
+    EXTEND (SP, arg[-1].data.d_int32);				\
   for (j = 0; j < arg[-1].data.d_int32; j++)			\
     if (as_ref)							\
       av_push (av, newsv (arg->data.datatype[j]));		\
@@ -583,31 +605,31 @@ push_gimp_sv (GParam *arg, int array_as_ref)
       case PARAM_PATH:		sv = newSViv(arg->data.d_path	); break;
       case PARAM_STATUS:	sv = newSViv(arg->data.d_status	); break;
       case PARAM_STRING:
-        sv = arg->data.d_string ? neuSVpv(arg->data.d_string)
-                                : &PL_sv_undef;
-        break;
-        
+	sv = arg->data.d_string ? neuSVpv(arg->data.d_string)
+	                        : &PL_sv_undef;
+	break;
+	
       case PARAM_COLOR:
-        {
-          /* difficult */
-          AV *av = newAV ();
-          av_push (av, newSViv (arg->data.d_color.red));
-          av_push (av, newSViv (arg->data.d_color.green));
-          av_push (av, newSViv (arg->data.d_color.blue));
-          sv = (SV *)av; /* no newRV, since we're getting autoblessed! */
-        }
-        break;
+	{
+	  /* difficult */
+	  AV *av = newAV ();
+	  av_push (av, newSViv (arg->data.d_color.red));
+	  av_push (av, newSViv (arg->data.d_color.green));
+	  av_push (av, newSViv (arg->data.d_color.blue));
+	  sv = (SV *)av; /* no newRV_inc, since we're getting autoblessed! */
+	}
+	break;
 
 #if GIMP_PARASITE
       case PARAM_PARASITE:
-        {
-          AV *av = newAV ();
-          av_push (av, neuSVpv (arg->data.d_parasite.name));
-          av_push (av, newSViv (arg->data.d_parasite.flags));
-          av_push (av, newSVpv (arg->data.d_parasite.data, arg->data.d_parasite.size));
-          sv = (SV *)av; /* no newRV, since we're getting autoblessed! */
-        }
-        break;
+	{
+	  AV *av = newAV ();
+	  av_push (av, neuSVpv (arg->data.d_parasite.name));
+	  av_push (av, newSViv (arg->data.d_parasite.flags));
+	  av_push (av, newSVpv (arg->data.d_parasite.data, arg->data.d_parasite.size));
+	  sv = (SV *)av; /* no newRV_inc, since we're getting autoblessed! */
+	}
+	break;
 #endif
       
       /* did I say difficult before????  */
@@ -616,11 +638,11 @@ push_gimp_sv (GParam *arg, int array_as_ref)
       case PARAM_INT8ARRAY:	push_gimp_av (arg, d_int8array  , newSVu8, array_as_ref); break;
       case PARAM_FLOATARRAY:	push_gimp_av (arg, d_floatarray , newSVnv, array_as_ref); break;
       case PARAM_STRINGARRAY:	push_gimp_av (arg, d_stringarray, neuSVpv, array_as_ref); break;
-        
+	
       default:
-        croak ("dunno how to return param type %d", arg->type);
-/*        sv = sv_newmortal ();*/
-        abort ();
+	croak ("dunno how to return param type %d", arg->type);
+/*        sv = newSV ();*/
+/*        abort ();*/
     }
   
   if (sv)
@@ -640,7 +662,7 @@ push_gimp_sv (GParam *arg, int array_as_ref)
       arg[-1].data.d_int32 = av_len (av) + 1; \
       arg->data.datatype = g_new (type, av_len (av) + 1); \
       for (i = 0; i <= av_len (av); i++) \
-        arg->data.datatype[i] = svxv (*av_fetch (av, i, 0)); \
+	arg->data.datatype[i] = svxv (*av_fetch (av, i, 0)); \
     } \
   else \
     { \
@@ -651,8 +673,8 @@ push_gimp_sv (GParam *arg, int array_as_ref)
 
 #define sv2gimp_extract_noref(fun,str) \
 	fun(sv); \
-        if (SvROK(sv)) \
-          sprintf (croak_str, "Unable to convert a reference to type '%s'\n", str); \
+	if (SvROK(sv)) \
+	  sprintf (croak_str, "Unable to convert a reference to type '%s'\n", str); \
       	break;
 /*
  * convert a perl scalar into a GParam, return true if
@@ -686,8 +708,8 @@ convert_sv2gimp (char *croak_str, GParam *arg, SV *sv)
       	  arg->data.d_image = gimp_layer_get_image_id   (unbless(sv, PKG_LAYER   , croak_str));
       	else if (sv_derived_from (sv, PKG_CHANNEL ))
       	  arg->data.d_image = gimp_channel_get_image_id (unbless(sv, PKG_CHANNEL , croak_str));
-        else if (sv_derived_from (sv, PKG_IMAGE) || !SvROK (sv))
-          {
+	else if (sv_derived_from (sv, PKG_IMAGE) || !SvROK (sv))
+	  {
       	                        arg->data.d_image      = unbless(sv, PKG_IMAGE   , croak_str); break;
       	  }
       	else
@@ -697,32 +719,32 @@ convert_sv2gimp (char *croak_str, GParam *arg, SV *sv)
       	break;
       	
       case PARAM_COLOR:
-        canonicalize_colour (croak_str, sv, &arg->data.d_color);
-        break;
+	canonicalize_colour (croak_str, sv, &arg->data.d_color);
+	break;
 
 #if GIMP_PARASITE
       case PARAM_PARASITE:
-        if (SvROK(sv))
-          {
-            if (SvTYPE(SvRV(sv)) == SVt_PVAV)
-              {
-                AV *av = (AV *)SvRV(sv);
-                if (av_len(av) == 2)
-                  {
-                    arg->data.d_parasite.name  = SvPv(*av_fetch(av, 0, 0));
-                    arg->data.d_parasite.flags = SvIV(*av_fetch(av, 1, 0));
-                    arg->data.d_parasite.data  = SvPV(*av_fetch(av, 2, 0), arg->data.d_parasite.size);
-                  }
-                else
-                  sprintf (croak_str, "illegal parasite specification, expected three array members");
-              }
-            else
-              sprintf (croak_str, "illegal parasite specification, arrayref expected");
-          }
-        else
-          sprintf (croak_str, "illegal parasite specification, reference expected");
-        
-        break;
+	if (SvROK(sv))
+	  {
+	    if (SvTYPE(SvRV(sv)) == SVt_PVAV)
+	      {
+	        AV *av = (AV *)SvRV(sv);
+	        if (av_len(av) == 2)
+	          {
+	            arg->data.d_parasite.name  = SvPv(*av_fetch(av, 0, 0));
+	            arg->data.d_parasite.flags = SvIV(*av_fetch(av, 1, 0));
+	            arg->data.d_parasite.data  = SvPV(*av_fetch(av, 2, 0), arg->data.d_parasite.size);
+	          }
+	        else
+	          sprintf (croak_str, "illegal parasite specification, expected three array members");
+	      }
+	    else
+	      sprintf (croak_str, "illegal parasite specification, arrayref expected");
+	  }
+	else
+	  sprintf (croak_str, "illegal parasite specification, reference expected");
+	
+	break;
 #endif
       
       case PARAM_INT32ARRAY:	av2gimp (arg, sv, d_int32array , gint32 , Sv32); break;
@@ -730,9 +752,9 @@ convert_sv2gimp (char *croak_str, GParam *arg, SV *sv)
       case PARAM_INT8ARRAY:	av2gimp (arg, sv, d_int8array  , gint8  , SvIV); break;
       case PARAM_FLOATARRAY:	av2gimp (arg, sv, d_floatarray , gdouble, SvNV); break;
       case PARAM_STRINGARRAY:	av2gimp (arg, sv, d_stringarray, gchar *, SvPv); break;
-        
+	
       default:
-        sprintf (croak_str, "dunno how to pass arg type %d", arg->type);
+	sprintf (croak_str, "dunno how to pass arg type %d", arg->type);
     }
   
   return 1;
@@ -747,13 +769,13 @@ destroy_params (GParam *arg, int count)
   for (i = 0; i < count; i++)
     switch (arg[i].type)
       {
-        case PARAM_INT32ARRAY:	g_free (arg[i].data.d_int32array); break;
-        case PARAM_INT16ARRAY:	g_free (arg[i].data.d_int16array); break;
-        case PARAM_INT8ARRAY:	g_free (arg[i].data.d_int8array); break;
-        case PARAM_FLOATARRAY:	g_free (arg[i].data.d_floatarray); break;
-        case PARAM_STRINGARRAY:	g_free (arg[i].data.d_stringarray); break;
-          
-        default: ;
+	case PARAM_INT32ARRAY:	g_free (arg[i].data.d_int32array); break;
+	case PARAM_INT16ARRAY:	g_free (arg[i].data.d_int16array); break;
+	case PARAM_INT8ARRAY:	g_free (arg[i].data.d_int8array); break;
+	case PARAM_FLOATARRAY:	g_free (arg[i].data.d_floatarray); break;
+	case PARAM_STRINGARRAY:	g_free (arg[i].data.d_stringarray); break;
+	  
+	default: ;
       }
   
   g_free (arg);
@@ -777,25 +799,21 @@ destroy_paramdefs (GParamDef *arg, int count)
 }
 #endif
 
-/* first check wether the procedure exists at all.  */
-static void try_call (char *name, int req)
+static void simple_perl_call (char *function, char *arg1)
 {
-  dSP;
-  CV *cv = perl_get_cv (name, 0);
+   char *argv[2];
+   argv[0] = arg1;
+   argv[1] = 0;
 
-  PUSHMARK(sp); perl_call_pv ("Gimp::_initialized_callback", G_DISCARD | G_NOARGS);
-  
-  /* it's not an error if the callback doesn't exist.  */
-  if (cv) {
-    PUSHMARK(sp);
-    perl_call_sv ((SV *)cv, G_DISCARD | G_NOARGS);
-  } else if (req)
-    croak ("required callback '%s' not found", name);
+   perl_call_argv (function, G_DISCARD|G_EVAL, argv);
 }
 
-static void pii_init (void) { try_call ("init" ,0); }
-static void pii_query(void) { try_call ("query",1); }
-static void pii_quit (void) { try_call ("quit" ,0); }
+#define gimp_die_msg(msg) simple_perl_call ("Gimp::die_msg" , (msg))
+#define try_call(cb)      simple_perl_call ("Gimp::callback", (cb) )
+
+static void pii_init (void) { try_call ("-init" ); }
+static void pii_query(void) { try_call ("-query"); }
+static void pii_quit (void) { try_call ("-quit" ); }
 
 static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, GParam **xreturn_vals)
 {
@@ -804,8 +822,8 @@ static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, 
   
   dSP;
   STRLEN dc;
+
   int i, count;
-  GParamDef *return_defs;
   char *err_msg = 0;
   
   char *proc_blurb;
@@ -816,18 +834,17 @@ static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, 
   int proc_type;
   int _nparams;
   GParamDef *params;
-  
-  PUSHMARK(sp); perl_call_pv ("Gimp::_initialized_callback", G_DISCARD | G_NOARGS);
+  GParamDef *return_defs;
 
-  if (return_vals) /* the libgimp is soooooooo braindamaged. */
-    {
-      destroy_params (return_vals, nreturn_vals);
-      return_vals = 0;
-    }
-  
+   if (return_vals) /* the libgimp is soooooooo braindamaged. */
+     {
+       destroy_params (return_vals, nreturn_vals);
+       return_vals = 0;
+     }
+
   if (gimp_query_procedure (name, &proc_blurb, &proc_help, &proc_author,
-                           &proc_copyright, &proc_date, &proc_type, &_nparams, &nreturn_vals,
-                           &params, &return_defs) == TRUE)
+	                   &proc_copyright, &proc_date, &proc_type, &_nparams, &nreturn_vals,
+	                   &params, &return_defs) == TRUE)
     {
       g_free (proc_blurb);
       g_free (proc_help);
@@ -839,106 +856,113 @@ static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, 
       ENTER;
       SAVETMPS;
       
-      PUSHMARK(sp);
+      PUSHMARK(SP);
+
+      EXTEND (SP, 3);
+      PUSHs (sv_2mortal (newSVpv ("-run", 4)));
+      PUSHs (sv_2mortal (newSVpv (name, 0)));
       
       if (nparams)
-        {
-          EXTEND (sp, perl_param_count (param, nparams));
-          PUTBACK;
-          for (i = 0; i < nparams; i++)
-            {
-              if (i < nparams-1 && is_array (param[i+1].type))
-                i++;
-              
-              push_gimp_sv (param+i, nparams > 2);
-            }
-          
-          SPAGAIN;
-        }
+	{
+	  EXTEND (SP, perl_param_count (param, nparams));
+	  PUTBACK;
+	  for (i = 0; i < nparams; i++)
+	    {
+	      if (i < nparams-1 && is_array (param[i+1].type))
+	        i++;
+	      
+	      push_gimp_sv (param+i, nparams > 2);
+	    }
+	  
+	  SPAGAIN;
+	}
+      else
+	PUTBACK;
       
-      count = perl_call_pv (name, G_EVAL
-                            | (nparams ? 0 : G_NOARGS)
-                            | (nreturn_vals == 0 ? G_VOID|G_DISCARD : nreturn_vals == 1 ? G_SCALAR : G_ARRAY));
-      
+      count = perl_call_pv ("Gimp::callback", G_EVAL
+	                    | (nreturn_vals == 0 ? G_VOID|G_DISCARD : nreturn_vals == 1 ? G_SCALAR : G_ARRAY));
       SPAGAIN;
       
       if (count == 1 && !SvOK (TOPs))
-        {
-          POPs;
-          count = 0;
-        }
+	{
+	  POPs;
+	  count = 0;
+	}
       
       if (SvTRUE (ERRSV))
-        {
-           if (strEQ ("BE QUIET ABOUT THIS DIE\n", SvPV (ERRSV, dc)))
-             {
-               nreturn_vals = 1;
-               return_vals = g_new (GParam, 1);
-               return_vals->type = PARAM_STATUS;
-               return_vals->data.d_status = STATUS_SUCCESS;
-               *xnreturn_vals = nreturn_vals;
-               *xreturn_vals = return_vals;
-             }
-           else
-             err_msg = g_strdup (SvPV (ERRSV, dc));
-        }
+	{
+	   if (strEQ ("BE QUIET ABOUT THIS DIE\n", SvPV (ERRSV, dc)))
+	     {
+	       nreturn_vals = 0;
+	       return_vals = g_new (GParam, 1);
+	       return_vals->type = PARAM_STATUS;
+	       return_vals->data.d_status = STATUS_SUCCESS;
+	       *xnreturn_vals = nreturn_vals+1;
+	       *xreturn_vals = return_vals;
+	     }
+	   else
+	     err_msg = g_strdup (SvPV (ERRSV, dc));
+	}
       else
-        {
-          int i;
-          char err_msg [1024];
-          err_msg [0] = 0;
-          
-          return_vals = (GParam *) g_new0 (GParam, nreturn_vals + 1);
-          return_vals->type = PARAM_STATUS;
-          return_vals->data.d_status = STATUS_SUCCESS;
-          *xnreturn_vals = nreturn_vals;
-          *xreturn_vals = return_vals++;
-          
-          for (i = nreturn_vals; i-- && count; )
-             {
-               return_vals[i].type = return_defs[i].type;
-               if ((i >= nreturn_vals-1 || !is_array (return_defs[i+1].type))
-                   && convert_sv2gimp (err_msg, &return_vals[i], TOPs))
-                 {
-                   --count;
-                   POPs;
-                 }
-               
-               if (err_msg [0])
-                 croak (err_msg);
-             }
-          
-          if (count)
-            croak ("callback returned %s more values than expected", count);
-        }
+	{
+	  int i;
+	  char errmsg [MAX_STRING];
+	  errmsg [0] = 0;
+	  
+	  return_vals = (GParam *) g_new0 (GParam, nreturn_vals+1);
+	  return_vals->type = PARAM_STATUS;
+	  return_vals->data.d_status = STATUS_SUCCESS;
+	  *xnreturn_vals = nreturn_vals+1;
+	  *xreturn_vals = return_vals++;
+
+	  for (i = nreturn_vals; i-- && count; )
+	     {
+	       return_vals[i].type = return_defs[i].type;
+	       if ((i >= nreturn_vals-1 || !is_array (return_defs[i+1].type))
+	           && convert_sv2gimp (errmsg, &return_vals[i], TOPs))
+	         {
+	           --count;
+	           POPs;
+	         }
+	       
+	       if (errmsg [0])
+	         {
+	           err_msg = g_strdup (errmsg);
+	           break;
+	         }
+	     }
+	  
+	  if (count && !err_msg)
+	    err_msg = strdup_printf ("plug-in returned %d more values than expected", count);
+	}
       
       while (count--)
-        POPs;
+	POPs;
       
-      g_free (return_defs);
+      destroy_paramdefs (return_defs, nreturn_vals);
       
+      PUTBACK;
       FREETMPS;
       LEAVE;
     }
   else
-    croak ("being called as '%s', but '%s' not registered in the pdb", name, name);
+    err_msg = strdup_printf ("being called as '%s', but '%s' not registered in the pdb", name, name);
   
   if (err_msg)
     {
-      gimp_message (err_msg);
+      gimp_die_msg (err_msg);
       g_free (err_msg);
       
       if (return_vals)
-        destroy_params (return_vals, nreturn_vals);
+	destroy_params (*xreturn_vals, nreturn_vals+1);
       
-      nreturn_vals = 1;
+      nreturn_vals = 0;
       return_vals = g_new (GParam, 1);
       return_vals->type = PARAM_STATUS;
       return_vals->data.d_status = STATUS_EXECUTION_ERROR;
-      *xnreturn_vals = nreturn_vals;
+      *xnreturn_vals = nreturn_vals+1;
       *xreturn_vals = return_vals;
     }
-  
 }
 
 GPlugInInfo PLUG_IN_INFO = { pii_init, pii_quit, pii_query, pii_run };
@@ -1034,9 +1058,9 @@ gimp_main(...)
 		    else
 		      croak ("arguments to main not yet supported!");
 		    
-                    gimp_is_initialized = 1;
+	            gimp_is_initialized = 1;
 		    RETVAL = gimp_main (argc, argv);
-                    gimp_is_initialized = 0;
+	            gimp_is_initialized = 0;
 		  }
 	OUTPUT:
 	RETVAL
@@ -1046,28 +1070,28 @@ PROTOTYPES: ENABLE
 int
 initialized()
 	CODE:
-        RETVAL = gimp_is_initialized;
+	RETVAL = gimp_is_initialized;
 	OUTPUT:
 	RETVAL
 
 int
 gimp_major_version()
    	CODE:
-        RETVAL = gimp_major_version;
+	RETVAL = gimp_major_version;
 	OUTPUT:
 	RETVAL
 
 int
 gimp_minor_version()
    	CODE:
-        RETVAL = gimp_minor_version;
+	RETVAL = gimp_minor_version;
 	OUTPUT:
 	RETVAL
 
 int
 gimp_micro_version()
    	CODE:
-        RETVAL = gimp_micro_version;
+	RETVAL = gimp_micro_version;
 	OUTPUT:
 	RETVAL
 
@@ -1113,7 +1137,7 @@ gimp_call_procedure (proc_name, ...)
 	char *	proc_name
 	PPCODE:
 	{
-		char croak_str[320] = "";
+		char croak_str[MAX_STRING] = "";
 		char *proc_blurb;	
 		char *proc_help;
 		char *proc_author;
@@ -1199,21 +1223,21 @@ gimp_call_procedure (proc_name, ...)
 		        trace_printf (" = ");
 		      }
     		    
-		    if (j != items-1)
+		    if (j != items-1 || i < nparams)
 		      {
 		        if (trace & TRACE_CALL)
 		          trace_printf ("[unfinished]\n");
 		        
 		        sprintf (croak_str, "%s arguments (%d) for function '%s'",
-		                 j == items ? "not enough" : "too many", (int)items-1, proc_name);
+		                 (j == items || i < nparams) ? "not enough" : "too many", (int)items-1, proc_name);
     		        
     		        if (nparams)
     		          destroy_params (args, nparams);
 		      }
 		    else
 		      {
-                        values = gimp_run_procedure2 (proc_name, &nvalues, nparams, args);
-                        
+	                values = gimp_run_procedure2 (proc_name, &nvalues, nparams, args);
+	                
     		        if (nparams)
     		          destroy_params (args, nparams);
     		    
@@ -1223,33 +1247,33 @@ gimp_call_procedure (proc_name, ...)
 			    trace_printf ("\n");
 			  }
 			
-                        if (values && values[0].type == PARAM_STATUS)
-                          {
-                            if (values[0].data.d_status == STATUS_EXECUTION_ERROR)
-                              sprintf (croak_str, "%s: procedural database execution failed", proc_name);
-                            else if (values[0].data.d_status == STATUS_CALLING_ERROR)
-                              sprintf (croak_str, "%s: procedural database execution failed on invalid input arguments", proc_name);
-                            else if (values[0].data.d_status == STATUS_SUCCESS)
-                              {
-                                EXTEND(sp, perl_paramdef_count (return_vals, nvalues-1));
-                                PUTBACK;
-                                for (i = 0; i < nvalues-1; i++)
-                                  {
+	                if (values && values[0].type == PARAM_STATUS)
+	                  {
+	                    if (values[0].data.d_status == STATUS_EXECUTION_ERROR)
+	                      sprintf (croak_str, "%s: procedural database execution failed", proc_name);
+	                    else if (values[0].data.d_status == STATUS_CALLING_ERROR)
+	                      sprintf (croak_str, "%s: procedural database execution failed on invalid input arguments", proc_name);
+	                    else if (values[0].data.d_status == STATUS_SUCCESS)
+	                      {
+	                        EXTEND(SP, perl_paramdef_count (return_vals, nvalues-1));
+	                        PUTBACK;
+	                        for (i = 0; i < nvalues-1; i++)
+	                          {
 	                            if (i < nvalues-2 && is_array (values[i+2].type))
 	                              i++;
 	                            
 	                            push_gimp_sv (values+i+1, nvalues > 2+1);
-                                  }
-                                
-                                SPAGAIN;
-                              }
-                            else
-                              sprintf (croak_str, "unsupported status code: %d\n", values[0].data.d_status);
-                          }
-                        else
-                          sprintf (croak_str, "gimp returned, well.. dunno how to interpret that...");
+	                          }
+	                        
+	                        SPAGAIN;
+	                      }
+	                    else
+	                      sprintf (croak_str, "unsupported status code: %d\n", values[0].data.d_status);
+	                  }
+	                else
+	                  sprintf (croak_str, "gimp returned, well.. dunno how to interpret that...");
 		        
-                      }
+	              }
 		    
 		    error:
 		    
@@ -1333,7 +1357,7 @@ gimp_set_data(id, data)
 		gimp_set_data (SvPV (id, dc), dta, dlen);
 #else
 		{
-		  char str[1024]; /* hack */
+		  char str[MAX_STRING]; /* hack */
 		  SvUPGRADE (id, SVt_PV);
 		  len = SvCUR (id);
 		  Copy (SvPV (id, dc), str, len, char);
@@ -1364,7 +1388,7 @@ gimp_get_data(id)
 		*((char *)SvPV (data, dc) + dlen) = 0;
 #else
 		{
-		  char str[1024]; /* hack */
+		  char str[MAX_STRING]; /* hack */
 		  SvUPGRADE (id, SVt_PV);
 		  len = SvCUR (id);
 		  Copy (SvPV (id, dc), str, len, char);
@@ -1383,7 +1407,7 @@ gimp_get_data(id)
 
 		}
 #endif
-                XPUSHs (data);
+	        XPUSHs (sv_2mortal (data));
 	}
 
 void
@@ -1424,7 +1448,7 @@ gimp_drawable_get(drawable_ID)
 		mg = mg_find (sv, '~');
 		mg->mg_virtual = &vtbl_gdrawable;
 		
-		hv_store (hv, "_gdr"		, 4, sv				, 0);
+		hv_store (hv, "_gdrawable"	,10, sv				, 0);
 		hv_store (hv, "_width"		, 6, newSViv (gdr->width)	, 0);
 		hv_store (hv, "_height"		, 7, newSViv (gdr->height)	, 0);
 		hv_store (hv, "_ntile_rows"	,11, newSViv (gdr->ntile_rows)	, 0);
@@ -1524,15 +1548,15 @@ gimp_pixel_rgn_init(gdrawable, x, y, width, height, dirty, shadow)
 		
 		gimp_pixel_rgn_init (pr, old_gdrawable (gdrawable), x, y, width, height, dirty, shadow);
 		
-		hv_store (hv, "_rgn"	, 4, sv				, 0);
-		hv_store (hv, "_x"	, 2, newSViv (pr->x)		, 0);
-		hv_store (hv, "_y"	, 2, newSViv (pr->y)		, 0);
-		hv_store (hv, "_w"	, 2, newSViv (pr->w)		, 0);
-		hv_store (hv, "_h"	, 2, newSViv (pr->h)		, 0);
+		hv_store (hv, "_rgn"	  , 4, sv			, 0);
+		hv_store (hv, "_x"	  , 2, newSViv (pr->x)		, 0);
+		hv_store (hv, "_y"	  , 2, newSViv (pr->y)		, 0);
+		hv_store (hv, "_w"	  , 2, newSViv (pr->w)		, 0);
+		hv_store (hv, "_h"	  , 2, newSViv (pr->h)		, 0);
 		hv_store (hv, "_rowstride",10, newSViv (pr->rowstride)	, 0);
-		hv_store (hv, "_bpp"	, 4, newSViv (pr->bpp)		, 0);
-		hv_store (hv, "_shadow"	, 7, newSViv (pr->shadow)	, 0);
-		hv_store (hv, "_drawable",9, newSVsv (gdrawable)	, 0);
+		hv_store (hv, "_bpp"	  , 4, newSViv (pr->bpp)	, 0);
+		hv_store (hv, "_shadow"	  , 7, newSViv (pr->shadow)	, 0);
+		hv_store (hv, "_drawable" , 9, SvREFCNT_inc (gdrawable)	, 0);
 		
 		if (!stash)
 		  stash = gv_stashpv (PKG_PIXELRGN, 1);
@@ -1545,8 +1569,8 @@ gimp_pixel_rgn_init(gdrawable, x, y, width, height, dirty, shadow)
 guint
 gimp_pixel_rgn_dirty(pr)
 	GPixelRgn *	pr
-        CODE:
-        RETVAL = pr->dirty;
+	CODE:
+	RETVAL = pr->dirty;
 	OUTPUT:
 	RETVAL
 
@@ -1743,13 +1767,13 @@ gimp_patterns_get_pattern_data(name)
 		if (nreturn_vals == 7
 		    && return_vals[0].data.d_status == STATUS_SUCCESS)
 		  {
-		    EXTEND (sp, 5);
+		    EXTEND (SP, 5);
 		    
-		    PUSHs (newSVpv (return_vals[1].data.d_string, 0));
-		    PUSHs (newSViv (return_vals[2].data.d_int32));
-		    PUSHs (newSViv (return_vals[3].data.d_int32));
-		    PUSHs (newSViv (return_vals[4].data.d_int32));
-		    PUSHs (newSVpvn(return_vals[6].data.d_int8array, return_vals[5].data.d_int32));
+		    PUSHs (sv_2mortal (newSVpv (return_vals[1].data.d_string, 0)));
+		    PUSHs (sv_2mortal (newSViv (return_vals[2].data.d_int32)));
+		    PUSHs (sv_2mortal (newSViv (return_vals[3].data.d_int32)));
+		    PUSHs (sv_2mortal (newSViv (return_vals[4].data.d_int32)));
+		    PUSHs (sv_2mortal (newSVpvn(return_vals[6].data.d_int8array, return_vals[5].data.d_int32)));
 		  }
 		
 		gimp_destroy_params (return_vals, nreturn_vals);

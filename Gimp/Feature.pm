@@ -35,17 +35,14 @@ my %description = (
    'never'      => '(for testing, will never be present)',
 );
 
-# calm down the gimp module
-sub net {}
-sub query {}
-
 sub import {
    my $pkg = shift;
    my $feature;
 
    while(@_) {
       $_=shift;
-      s/^:// and need($_);
+      s/^://;
+      need($_);
    }
 }
 
@@ -59,7 +56,7 @@ sub need {
    my ($feature,$function)=@_;
    unless (present($feature)) {
       missing($description{$feature},$function);
-      Gimp::initialized() ? die "BE QUIET ABOUT THIS DIE\n" : exit Gimp::main();
+      Gimp::initialized() ? die "BE QUIET ABOUT THIS DIE\n" : exit Gimp::quiet_main();
    }
 }
 
@@ -119,7 +116,7 @@ Gimp::Features - check for specific features to be present before registering th
 
 or
 
-  use Gimp::Features qw(:feature1 :feature2 ...);
+  use Gimp::Features qw(feature1 feature2 ...);
 
 =head1 DESCRIPTION
 

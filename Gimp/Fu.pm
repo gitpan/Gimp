@@ -13,13 +13,14 @@ require Exporter;
 
 eval {
    require Data::Dumper;
-   import Data::Dumper;
+   import Data::Dumper 'Dumper';
 };
 if ($@) {
    *Dumper = sub {
       "()";
    };
 }
+
 
 =cut
 
@@ -63,6 +64,9 @@ In general, a Gimp::Fu script looks like this:
 (This distribution comes with example scripts. One is
 C<examples/example-fu.pl>, which is small Gimp::Fu-script you can take as
 starting point for your experiments)
+
+Attention: at the moment it's neccessary to always import the C<Gimp::Fu>
+module after the C<Gimp> module.
 
 =cut
 
@@ -154,6 +158,44 @@ sub _find_digits {
    $digits>0 ? int $digits+0.9 : 0;
 }
 
+sub help_window(\$$$) {
+   my($helpwin,$blurb,$help)=@_;
+   unless ($$helpwin) {
+      $$helpwin = new Gtk::Dialog;
+      $$helpwin->set_title("Help for ".$Gimp::function);
+      my($font,$b);
+
+      $b = new Gtk::Text;
+      $b->set_editable (0);
+
+      $font = load Gtk::Gdk::Font "9x15bold";
+      $font = fontset_load Gtk::Gdk::Font "-*-courier-medium-r-normal--*-120-*-*-*-*-*" unless $font;
+      $font = $b->style->font unless $font;
+      $$helpwin->vbox->add($b);
+      $b->realize; # for gtk-1.0
+      $b->insert($font,$b->style->fg(-normal),undef,"BLURB:\n\n$blurb\n\nHELP:\n\n$help");
+      $b->set_usize($font->string_width('M')*80,($font->ascent+$font->descent)*26);
+
+      my $button = new Gtk::Button "OK";
+      signal_connect $button "clicked",sub { hide $$helpwin };
+      $$helpwin->action_area->add($button);
+      
+      $$helpwin->signal_connect("destroy",sub { undef $$helpwin });
+
+      Gtk->idle_add(sub {
+         require Gimp::Pod;
+         my $pod = new Gimp::Pod;
+         my $text = $pod->format;
+         if ($text) {
+            $b->insert($font,$b->style->fg(-normal),undef,"\n\nEMBEDDED POD DOCUMENTATION:\n\n");
+            $b->insert($font,$b->style->fg(-normal),undef,$text);
+         }
+      });
+   }
+
+   $$helpwin->show_all();
+}
+
 sub interact($$$@) {
    local $^W=0;
    my($function)=shift;
@@ -162,6 +204,7 @@ sub interact($$$@) {
    my(@types)=@{shift()};
    my(@getvals,@setvals,@lastvals,@defaults);
    my($button,$box,$bot,$g);
+   my($helpwin);
    my $res=0;
 
    # only pull these in if _really_ required
@@ -388,9 +431,10 @@ sub interact($$$@) {
            }
            
         } elsif($type == PF_CUSTOM) {
-           $a=$extra->[0];
-           push(@setvals,$extra->[1]);
-           push(@getvals,$extra->[2]);
+           my (@widget)=&$extra;
+           $a=$widget[0];
+           push(@setvals,$widget[1]);
+           push(@getvals,$widget[2]);
            
         } else {
            $label="Unsupported argumenttype $type";
@@ -414,17 +458,7 @@ sub interact($$$@) {
      
      $button = new Gtk::Button "Help";
      $g->attach($button,0,1,$res,$res+1,{},{},4,2);
-     signal_connect $button "clicked", sub {
-        my $helpwin = new Gtk::Dialog;
-        set_title $helpwin $0;
-        $helpwin->vbox->add(new Gtk::Label "Blurb:\n".Gimp::wrap_text($blurb,40)
-                                          ."\n\nHelp:\n".Gimp::wrap_text($help,40));
-        my $button = new Gtk::Button "Close";
-        signal_connect $button "clicked",sub { hide $helpwin };
-        $helpwin->action_area->add($button);
-        
-        show_all $helpwin;
-     };
+     signal_connect $button "clicked", sub { help_window($helpwin,$blurb,$help) };
      
      my $v=new Gtk::HBox 0,5;
      $g->attach($v,1,2,$res,$res+1,{},{},4,2);
@@ -814,10 +848,10 @@ string. The default brush/pattern/gradient-name can be preset.
 
 =item PF_CUSTOM
 
-PF_CUSTOM is for those of you requiring some non-standard-widget. Just supply an array reference
-with three elements as extra argument:
+PF_CUSTOM is for those of you requiring some non-standard-widget. You have
+to supply a code reference returning three values as the extra argument:
 
- [widget, settor, gettor]
+ (widget, settor, gettor)
 
 C<widget> is Gtk widget that should be used.
 
@@ -828,7 +862,7 @@ C<gettor> is a function that should return the current value of the widget.
 
 While the values can be of any type (as long as it fits into a scalar),
 you should be prepared to get a string when the script is started from the
-commandline.
+commandline or via the PDB.
 
 =back
 
