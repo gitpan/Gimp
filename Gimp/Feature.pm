@@ -10,7 +10,7 @@ my($gtk,$gtk_10,$gtk_11);
 sub _check_gtk {
    return if defined $gtk;
 
-   eval { require Gtk }; $gtk = $@ eq "";
+   eval { require Gtk }; $gtk = $@ eq "" && $Gtk::VERSION>=0.3;
 
    if ($gtk) {
       $gtk_10 = (Gtk->major_version==1 && Gtk->minor_version==0);
@@ -33,6 +33,7 @@ my %description = (
    'gtkxmhtml'  => 'the Gtk::XmHTML module',
    'dumper'     => 'the Data::Dumper module',
    'never'      => '(for testing, will never be present)',
+   'unix'	=> 'a unix-like operating system',
 );
 
 sub import {
@@ -43,20 +44,6 @@ sub import {
       $_=shift;
       s/^://;
       need($_);
-   }
-}
-
-sub missing {
-   my ($msg,$function)=@_;
-   require Gimp;
-   Gimp::logger(message => "$_[0] is required but not found", function => $function);
-}
-
-sub need {
-   my ($feature,$function)=@_;
-   unless (present($feature)) {
-      missing($description{$feature},$function);
-      Gimp::initialized() ? die "BE QUIET ABOUT THIS DIE\n" : exit Gimp::quiet_main();
    }
 }
 
@@ -93,6 +80,13 @@ sub present {
       eval { require Gtk::XmHTML }; $@ eq "";
    } elsif ($_ eq "dumper") {
       eval { require Data::Dumper }; $@ eq "";
+   } elsif ($_ eq "unix") {
+      !{
+         MacOS		=> 1,
+         MSWin32	=> 1,
+         os2		=> 1,
+         VMS		=> 1,
+       }->{$^O};
    } elsif ($_ eq "never") {
       0;
    } else {
@@ -102,6 +96,17 @@ sub present {
    }
 }
 
+sub missing {
+   my ($msg,$function)=@_;
+   require Gimp;
+   Gimp::logger(message => "$_[0] is required but not found", function => $function);
+   Gimp::initialized() ? die "BE QUIET ABOUT THIS DIE\n" : exit Gimp::quiet_main();
+}
+
+sub need {
+   my ($feature,$function)=@_;
+   missing($description{$feature},$function) unless present $feature;
+}
 
 1;
 __END__
@@ -151,6 +156,11 @@ checks for the presence of the Gnome-Perl module.
 
 checks for the presence of the Gtk::XmHTML module.
 
+=item C<unix>
+
+checks wether the script runs on a unix-like operating system. At the
+moment, this is every system except windows, macos, os2 and vms.
+
 =back
 
 The following features can only be checked B<after> C<Gimp->main> has been
@@ -171,13 +181,33 @@ checks for the presense of gimp in at least version 1.1 (1.2).
 
 =item present(feature)
 
+Checks for the presense of the single feature given as the
+argument. Returns true if the feature is present, false otherwise.
+
 =item need(feature,[function-name])
+
+Require a specific feature. If the required feature is not present the
+program will exit gracefully, logging an appropriate message. You can
+optionally supply a function name to further specify the place where this
+feature was missing.
+
+This is the function used when importing symbols from the module.
+
+=item missing(feature-description,[function-name])
+   
+Indicates that a generic feature (described by the first argument) is
+missing. A function name can further be specified. This function will log
+the given message and exit gracefully.
 
 =item describe(feature)
 
-=item missing(feature-description,[function-name])
+Returns a string describing the given feature in more detail, or undef if
+there is no description for this feature.
 
 =item list()
+
+Returns a list of features that can be checked for. This list might not be
+complete.
 
 =back
 

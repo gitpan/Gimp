@@ -342,22 +342,27 @@ dump_params (int nparams, GParam *args, GParamDef *params)
 	  case PARAM_PARASITE:
 	    {
 	      gint32 found = 0;
-	      
-	      trace_printf ("[%s, ", args[i].data.d_parasite.name);
-	      if (args[i].data.d_parasite.flags & PARASITE_PERSISTENT)
-	        {
-	          trace_printf ("PARASITE_PERSISTENT");
-	          found |= PARASITE_PERSISTENT;
-	        }
-	      
-	      if (args[i].data.d_parasite.flags & ~found)
-	        {
-	          if (found)
-	            trace_printf ("|");
-	          trace_printf ("%d", args[i].data.d_parasite.flags & ~found);
-	        }
-	      
-	      trace_printf (", %d bytes data]", args[i].data.d_parasite.size);
+
+              if (args[i].data.d_parasite.name)
+                {
+                 trace_printf ("[%s, ", args[i].data.d_parasite.name);
+                 if (args[i].data.d_parasite.flags & PARASITE_PERSISTENT)
+                   {
+                     trace_printf ("PARASITE_PERSISTENT");
+                     found |= PARASITE_PERSISTENT;
+                   }
+                 
+                 if (args[i].data.d_parasite.flags & ~found)
+                   {
+                     if (found)
+                       trace_printf ("|");
+                     trace_printf ("%d", args[i].data.d_parasite.flags & ~found);
+                   }
+                 
+                 trace_printf (", %d bytes data]", args[i].data.d_parasite.size);
+               }
+              else
+                trace_printf ("[undefined]");
 	    }
 	    break;
 #endif
@@ -606,7 +611,7 @@ push_gimp_sv (GParam *arg, int array_as_ref)
       case PARAM_STATUS:	sv = newSViv(arg->data.d_status	); break;
       case PARAM_STRING:
 	sv = arg->data.d_string ? neuSVpv(arg->data.d_string)
-	                        : &PL_sv_undef;
+	                        : newSVsv (&PL_sv_undef);
 	break;
 	
       case PARAM_COLOR:
@@ -622,13 +627,19 @@ push_gimp_sv (GParam *arg, int array_as_ref)
 
 #if GIMP_PARASITE
       case PARAM_PARASITE:
-	{
-	  AV *av = newAV ();
-	  av_push (av, neuSVpv (arg->data.d_parasite.name));
-	  av_push (av, newSViv (arg->data.d_parasite.flags));
-	  av_push (av, newSVpv (arg->data.d_parasite.data, arg->data.d_parasite.size));
-	  sv = (SV *)av; /* no newRV_inc, since we're getting autoblessed! */
-	}
+        {
+          AV *av = newAV ();
+
+          if (arg->data.d_parasite.name)
+            {
+              av_push (av, neuSVpv (arg->data.d_parasite.name));
+              av_push (av, newSViv (arg->data.d_parasite.flags));
+              av_push (av, newSVpv (arg->data.d_parasite.data, arg->data.d_parasite.size));
+            }
+
+          sv = (SV *)av;
+        }
+
 	break;
 #endif
       
@@ -796,6 +807,32 @@ destroy_paramdefs (GParamDef *arg, int count)
     }
   
   g_free (arg);
+}
+#endif
+
+#ifdef GIMP_HAVE_PROCEDURAL_DB_GET_DATA_SIZE
+#define get_data_size gimp_get_data_size
+#else
+guint32
+get_data_size (gchar *id)
+{
+  GParam *return_vals;
+  int nreturn_vals;
+  int length;
+
+  return_vals = gimp_run_procedure ("gimp_procedural_db_get_data",
+                                    &nreturn_vals,
+                                    PARAM_STRING, id,
+                                    PARAM_END);
+
+  if (return_vals[0].data.d_status == STATUS_SUCCESS)
+    length = return_vals[1].data.d_int32;
+  else
+    length = 0;
+
+  gimp_destroy_params (return_vals, nreturn_vals);
+
+  return length;
 }
 #endif
 
@@ -1352,20 +1389,7 @@ gimp_set_data(id, data)
 		
 		dta = SvPV (data, dlen);
 
-		/* do not remove this comment */
-#ifdef GIMP_HAVE_PROCEDURAL_DB_GET_DATA_SIZE
 		gimp_set_data (SvPV (id, dc), dta, dlen);
-#else
-		{
-		  char str[MAX_STRING]; /* hack */
-		  SvUPGRADE (id, SVt_PV);
-		  len = SvCUR (id);
-		  Copy (SvPV (id, dc), str, len, char);
-		  str[len+1] = 0;
-		  str[len] = 'S'; gimp_set_data (str, &dlen, sizeof (STRLEN));
-		  str[len] = 'C'; gimp_set_data (str, dta, dlen);
-		}
-#endif
 	}
 
 void
@@ -1378,35 +1402,12 @@ gimp_get_data(id)
 		STRLEN len;
 		STRLEN dc;
 		
-		/* do not remove this comment */
-#ifdef GIMP_HAVE_PROCEDURAL_DB_GET_DATA_SIZE
-		dlen = gimp_get_data_size (SvPV (id, dc));
+		dlen = get_data_size (SvPV (id, dc));
 		/* I count on dlen being zero if "id" doesn't exist.  */
 		data = newSVpv ("", 0);
 		gimp_get_data (SvPV (id, dc), SvGROW (data, dlen+1));
 		SvCUR_set (data, dlen);
 		*((char *)SvPV (data, dc) + dlen) = 0;
-#else
-		{
-		  char str[MAX_STRING]; /* hack */
-		  SvUPGRADE (id, SVt_PV);
-		  len = SvCUR (id);
-		  Copy (SvPV (id, dc), str, len, char);
-		  
-		  str[len+1] = 0;
-		  dlen = (STRLEN) -1;
-		  str[len] = 'S'; gimp_get_data (str, &dlen);
-		  
-		  data = newSVpv ("", 0);
-		  if (dlen != (STRLEN)-1)
-		    {
-		      str[len] = 'C'; gimp_get_data (str, SvGROW (data, dlen+1));
-		      SvCUR_set (data, dlen);
-		      *((char *)SvPV (data, dc) + dlen) = 0;
-		    }
-
-		}
-#endif
 	        XPUSHs (sv_2mortal (data));
 	}
 

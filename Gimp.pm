@@ -12,7 +12,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
 require DynaLoader;
 
 @ISA=qw(DynaLoader);
-$VERSION = 1.07;
+$VERSION = 1.071;
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -43,7 +43,8 @@ $VERSION = 1.07;
 	SHARPEN		SQUARE		STATUS_CALLING_ERROR		STATUS_EXECUTION_ERROR
 	STATUS_PASS_THROUGH		STATUS_SUCCESS	SUBTRACT_MODE	TRANS_IMAGE_FILL
 	VALUE_MODE	DIVIDE_MODE	PARASITE_PERSISTANT		WHITE_IMAGE_FILL
-        SPIRAL_CLOCKWISE		SPIRAL_ANTICLOCKWISE
+        SPIRAL_CLOCKWISE		SPIRAL_ANTICLOCKWISE		PARASITE_ATTACH_PARENT
+        PARASITE_PARENT_PERSISTENT	PARASITE_GRANDPARENT_PERSISTENT	PARASITE_ATTACH_GRANDPARENT
 	
 	TRACE_NONE	TRACE_CALL	TRACE_TYPE	TRACE_NAME	TRACE_DESC
 	TRACE_ALL
@@ -150,7 +151,7 @@ $_PROT_VERSION	= "2";			# protocol version
 # we really abuse the import facility..
 sub import($;@) {
    my $pkg = shift;
-   my $up = caller();
+   my $up = caller;
    my @export;
 
    # make a quick but dirty guess ;)
@@ -161,6 +162,7 @@ sub import($;@) {
       if ($_ eq ":auto") {
          push(@export,@_consts,@_procs);
          *{"${up}::AUTOLOAD"} = sub {
+            croak "cannot autoload '$AUTOLOAD' at this time" unless initialized();
             my ($class,$name) = $AUTOLOAD =~ /^(.*)::(.*?)$/;
             *{$AUTOLOAD} = sub { Gimp->$name(@_) };
             goto &$AUTOLOAD;
@@ -278,8 +280,10 @@ sub format_msg {
 
 sub _initialized_callback {
    if (@log) {
-      for(@log) {
-         Gimp->message(format_msg($_)) if $_->[3] && $interface_type eq "lib";
+      unless ($in_net || $in_query || $in_quit || $in_init) {
+         for(@log) {
+            Gimp->message(format_msg($_)) if $_->[3];
+         }
       }
       Gimp->_gimp_append_data ('gimp-perl-log', map join("\1",@$_)."\0",@log);
       @log=();
@@ -296,55 +300,12 @@ sub logger {
    $args{function} = ""                   unless defined $args{function};
    $args{fatal}    = 1                    unless defined $args{fatal};
    push(@log,[$basename,@args{'function','message','fatal'}]);
-   print STDERR format_msg($log[-1]),"\n" if ($in_run || $in_net || $verbose);
+   print STDERR format_msg($log[-1]),"\n" if !($in_query || $in_init || $in_quit) || $verbose;
    _initialized_callback if initialized();
 }
 
 sub die_msg {
    logger(message => substr($_[0],0,-1), fatal => 1, function => 'ERROR');
-}
-
-sub call_callback {
-   my $req = shift;
-   my $cb = shift;
-   if (UNIVERSAL::can($caller,$cb)) {
-      &{"${caller}::$cb"};
-   } else {
-      die_msg "required callback '$cb' not found\n" if $req;
-   }
-}
-
-sub callback {
-   my $type = shift;
-   confess unless initialized();
-   _initialized_callback;
-   return () if $caller eq "Gimp";
-   if ($type eq "-run") {
-      local $function = shift;
-      local $in_run = 1;
-      call_callback 1,$function,@_;
-   } elsif ($type eq "-net") {
-      local $in_net = 1;
-      call_callback 1,"net";
-   } elsif ($type eq "-query") {
-      local $in_query = 1;
-      call_callback 1,"query";
-   } elsif ($type eq "-quit") {
-      local $in_quit = 1;
-      call_callback 0,"quit";
-   }
-}
-
-sub main {
-   $caller=caller;
-   #d# #D# # BIG BUG LURKING SOMEWHERE
-   # just calling exit() will be too much for bigexitbug.pl
-   xs_exit(&{"${interface_pkg}::gimp_main"});
-}
-
-# same as main, but callbacks are ignored
-sub quiet_main {
-   main;
 }
 
 unless ($no_SIG) {
@@ -364,6 +325,50 @@ unless ($no_SIG) {
         logger(message => substr($_[0],0,-1), fatal => 0, function => 'WARNING');
       }
    };
+}
+
+sub call_callback {
+   my $req = shift;
+   my $cb = shift;
+   return () if $caller eq "Gimp";
+   if (UNIVERSAL::can($caller,$cb)) {
+      &{"${caller}::$cb"};
+   } else {
+      die_msg "required callback '$cb' not found\n" if $req;
+   }
+}
+
+sub callback {
+   my $type = shift;
+   if ($type eq "-run") {
+      local $function = shift;
+      local $in_run = 1;
+      _initialized_callback;
+      call_callback 1,$function,@_;
+   } elsif ($type eq "-net") {
+      local $in_net = 1;
+      _initialized_callback;
+      call_callback 1,"net";
+   } elsif ($type eq "-query") {
+      local $in_query = 1;
+      _initialized_callback;
+      call_callback 1,"query";
+   } elsif ($type eq "-quit") {
+      local $in_quit = 1;
+      call_callback 0,"quit";
+   }
+}
+
+sub main {
+   $caller=caller;
+   #d# #D# # BIG BUG LURKING SOMEWHERE
+   # just calling exit() will be too much for bigexitbug.pl
+   xs_exit(&{"${interface_pkg}::gimp_main"});
+}
+
+# same as main, but callbacks are ignored
+sub quiet_main {
+   main;
 }
 
 ##############################################################################
@@ -451,8 +456,6 @@ sub AUTOLOAD {
             wantarray ? @r : $r[0];
          };
          goto &$AUTOLOAD;
-      } elsif (defined(*{"${interface_pkg}::$sub"}{CODE})) {
-         die "safety net $interface_pkg :: $sub (REPORT THIS!!)";#d#
       }
    }
    # for performance reasons: supply a DESTROY method
@@ -526,9 +529,15 @@ package Gimp::Parasite;
 
 sub is_type($$)		{ $_[0]->[0] eq $_[1] }
 sub is_persistant($)	{ $_[0]->[1] & PARASITE_PERSISTANT }
-sub is_error($)		{ $_[0]->is_type("error") }
-sub error($)		{ ["error", 0, ""] }
+sub is_error($)		{ !defined $_[0]->[0] }
+sub has_flag($$)	{ $_[0]->[1] & $_[1] }
 sub copy($)		{ [@{$_[0]}] }
+sub name($)		{ $_[0]->[0] }
+sub flags($)		{ $_[0]->[1] }
+sub data($)		{ $_[0]->[2] }
+sub compare($$)		{ $_[0]->[0] eq $_[1]->[0] and
+			  $_[0]->[1] eq $_[1]->[1] and 
+			  $_[0]->[2] eq $_[1]->[2] }
 
 package Gimp; # for __DATA__
 
@@ -780,10 +789,9 @@ interface (L<Gimp::Net>), and not as a native plug-in. Here's an example:
  
  Gimp::init;
  <do something with the gimp>
- Gimp::end;
 
 The optional argument to init has the same format as the GIMP_HOST variable
-described in L<Gimp::Net>.
+described in L<Gimp::Net>. Calling C<Gimp::end> is optional.
 
 =item Gimp::lock(), Gimp::unlock()
 

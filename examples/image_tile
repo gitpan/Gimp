@@ -429,26 +429,26 @@ sub hue_dist {
   
 # Gimp::Fu registration routine for placing this function into gimp's PDB
 register
-  "image-tile",
+  "image_tile",
   "Tile images to form a larger Image",
   "Use Image Tile to take a directory of images and use it to
 	construct a single, existing image, sort of like the
 	Filters/Artistic/Mosaic plugin, but with images as the
 	tiles.",
-  "Aaron Sherman", "Aaron Sherman (c)", "1999-03-13",
+  "Aaron Sherman", "Aaron Sherman (c)", "1999-03-15",
   "<Image>/Filters/Map/Image Tile",
   "*",
   [
    # Image and drawable are given for free...
    # [PF_IMAGE, "Input image", undef],
    # [PF_DRAWABLE, "Input drawable", undef],
-   [PF_INT32, "Number of tiles (X)", "X tiles", 10],
-   [PF_INT32, "Number of tiles (Y)", "Y tiles", 10],
-   [PF_INT32, "Number of sample cells per tile (X)", "X cells", 4],
-   [PF_INT32, "Number of sample cells per tile (Y)", "Y cells", 4],
-   [PF_INT32, "Duplicates (0[lots] - 100[none])", "Duplicates", 5],
-   [PF_STRING, "Sub-image directories (space speparated)", "Directories","."],
-   [PF_TOGGLE, "Delete cached image samples?", "", 0]
+   [PF_INT32, "tiles_x", "Number of tiles (X)", 10],
+   [PF_INT32, "tiles_y", "Number of tiles (Y)", 10],
+   [PF_INT32, "samples_x", "Number of sample cells per tile (X)", 4],
+   [PF_INT32, "samples_y", "Number of sample cells per tile (Y)", 4],
+   [PF_INT32, "duplicates", "Duplicates (0[lots] - 100[none])", 5],
+   [PF_STRING, "image_dirs", "Sub-image directories (space speparated)"],
+   [PF_TOGGLE, "delete_cached", "Delete cached image samples?", 0]
   ],
   \&perl_fu_image_tile;
 
@@ -488,11 +488,6 @@ memory is much more conservative. The assumption being that a lot more people
 have a Gig of disk free than a Gig of RAM. So, expect a large file to be
 created in your .gimp directory (you can select automatic cleanup of this
 file if you wish).
-
-Note that this plug-in now works only with version 1.1 of the GIMP. If you
-wish to make it work with previous versions, you will have to search for
-"1.1" in the code, and put back the first argument to a lot of functions
-(each deletion has been noted).
 
 =head1 PARAMETERS
 

@@ -34,7 +34,7 @@ register "xach_shadows",
          "<Image>/Filters/Map/Xach Shadows",
          "RGB*, GRAY*",
          [
-          [PF_SLIDER,	"Block size",	"The size of the blocks...", 10, [0, 255, 1]],
+          [PF_SLIDER,	"block_size",	"The size of the blocks...", 10, [0, 255, 1]],
          ],
          sub {
    my($img,$drawable,$blocksize) =@_;
@@ -79,5 +79,6 @@ register "xach_shadows",
 	gimp_displays_flush();
 	return();
 };
+
 exit main;
 
