@@ -105,8 +105,7 @@ EOF
 # the contents of the Makefile that is written.
 WriteMakefile(
     'dist'	=> {
-                    'PREOP'     => 'chmod -R u=rwX,go=rX . ;'.
-                    		   '[ -x ./cphp ] && ./cphp',
+                    'PREOP'     => 'chmod -R u=rwX,go=rX . ;',
 #                                   '&& pod2man Gimp.pm | groff -man -P-buo -Tascii > README',
                     'COMPRESS'	=> 'gzip -9v',
                     'SUFFIX'	=> '.gz',

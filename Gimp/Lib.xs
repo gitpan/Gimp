@@ -12,6 +12,11 @@
 #include "perl.h"
 #include "XSUB.h"
 
+/* I actually do care a bit about older perls... */
+#ifndef ERRSV
+# define ERRSV GvSV(errgv)
+#endif
+
 /* FIXME */
 /* dirty is used in gimp.h.  */
 #undef dirty
@@ -380,7 +385,7 @@ autobless (SV *sv, int type)
 
 /* return gint32 from object, wether iv or rv.  */
 static gint32
-unbless (SV *sv, char *type)
+unbless (SV *sv, char *type, char *croak_str)
 {
   if (SvROK (sv))
     if (type == PKG_ANY || sv_derived_from (sv, type))
@@ -391,7 +396,10 @@ unbless (SV *sv, char *type)
           croak ("only blessed scalars accepted here");
       }
     else
-      croak ("argument type %s expected", type);
+      if (croak_str)
+        sprintf (croak_str, "argument type %s expected", type);
+      else
+        croak ("argument type %s expected", type);
   else
     return SvIV (sv);
 }
@@ -486,7 +494,7 @@ push_gimp_sv (GParam *arg, int array_as_ref)
       case PARAM_STATUS:	sv = newSViv(arg->data.d_status	); break;
       case PARAM_STRING:
         sv = arg->data.d_string ? neuSVpv(arg->data.d_string)
-                                : sv_newmortal ();
+                                : &sv_undef;
         break;
         
       case PARAM_COLOR:
@@ -520,7 +528,7 @@ push_gimp_sv (GParam *arg, int array_as_ref)
 }
 
 #define SvPv(sv) SvPV((sv), na)
-#define Sv32(sv) unbless ((sv), PKG_ANY)
+#define Sv32(sv) unbless ((sv), PKG_ANY, croak_str)
 
 #define av2gimp(arg,sv,datatype,type,svxv) { \
   if (SvROK (sv) && SvTYPE(SvRV(sv)) == SVt_PVAV) \
@@ -533,7 +541,7 @@ push_gimp_sv (GParam *arg, int array_as_ref)
         arg->data.datatype[i] = svxv (*av_fetch (av, i, 0)); \
     } \
   else \
-    sprintf (err, "perl-arrayref required as datatype for a gimp-array"); \
+    sprintf (croak_str, "perl-arrayref required as datatype for a gimp-array"); \
 }
 
 /*
@@ -541,7 +549,7 @@ push_gimp_sv (GParam *arg, int array_as_ref)
  * the argument has been consumed.
  */
 static int
-convert_sv2gimp (char *err, GParam *arg, SV *sv)
+convert_sv2gimp (char *croak_str, GParam *arg, SV *sv)
 {
   switch (arg->type)
     {
@@ -550,31 +558,31 @@ convert_sv2gimp (char *err, GParam *arg, SV *sv)
       case PARAM_INT8:		arg->data.d_int8	= SvIV(sv); break;
       case PARAM_FLOAT:		arg->data.d_float	= SvNV(sv); break;
       case PARAM_STRING:	arg->data.d_string	= SvPv(sv); break;
-      case PARAM_DISPLAY:	arg->data.d_display	= unbless(sv, PKG_DISPLAY  ); break;
-      case PARAM_LAYER:		arg->data.d_layer	= unbless(sv, PKG_LAYER    ); break;
-      case PARAM_CHANNEL:	arg->data.d_channel	= unbless(sv, PKG_CHANNEL  ); break;
-      case PARAM_DRAWABLE:	arg->data.d_drawable	= unbless(sv, PKG_ANY      ); break;
-      case PARAM_SELECTION:	arg->data.d_selection	= unbless(sv, PKG_SELECTION); break;
+      case PARAM_DISPLAY:	arg->data.d_display	= unbless(sv, PKG_DISPLAY  , croak_str); break;
+      case PARAM_LAYER:		arg->data.d_layer	= unbless(sv, PKG_ANY      , croak_str); break;
+      case PARAM_CHANNEL:	arg->data.d_channel	= unbless(sv, PKG_ANY      , croak_str); break;
+      case PARAM_DRAWABLE:	arg->data.d_drawable	= unbless(sv, PKG_ANY      , croak_str); break;
+      case PARAM_SELECTION:	arg->data.d_selection	= unbless(sv, PKG_SELECTION, croak_str); break;
       case PARAM_BOUNDARY:	arg->data.d_boundary	= SvIV(sv); break;
       case PARAM_PATH:		arg->data.d_path	= SvIV(sv); break;
       case PARAM_STATUS:	arg->data.d_status	= SvIV(sv); break;
       case PARAM_IMAGE:
         if (sv_derived_from (sv, PKG_IMAGE))
           {
-      	                        arg->data.d_image	= unbless(sv, PKG_IMAGE    ); break;
+      	                        arg->data.d_image	= unbless(sv, PKG_IMAGE  , croak_str); break;
       	  }
       	else if (sv_derived_from (sv, PKG_DRAWABLE))
-      	  arg->data.d_image = gimp_drawable_image_id    (unbless(sv, PKG_DRAWABLE));
+      	  arg->data.d_image = gimp_drawable_image_id    (unbless(sv, PKG_DRAWABLE, croak_str));
       	else if (sv_derived_from (sv, PKG_LAYER   ))
-      	  arg->data.d_image = gimp_layer_get_image_id   (unbless(sv, PKG_LAYER   ));
+      	  arg->data.d_image = gimp_layer_get_image_id   (unbless(sv, PKG_LAYER   , croak_str));
       	else if (sv_derived_from (sv, PKG_CHANNEL ))
-      	  arg->data.d_image = gimp_channel_get_image_id (unbless(sv, PKG_CHANNEL ));
+      	  arg->data.d_image = gimp_channel_get_image_id (unbless(sv, PKG_CHANNEL , croak_str));
       	
       	return 0;
       	break;
       	
       case PARAM_COLOR:
-        canonicalize_colour (err, sv, &arg->data.d_color);
+        canonicalize_colour (croak_str, sv, &arg->data.d_color);
         break;
       
       case PARAM_INT32ARRAY:	av2gimp (arg, sv, d_int32array , gint32 , Sv32); break;
@@ -584,7 +592,7 @@ convert_sv2gimp (char *err, GParam *arg, SV *sv)
       case PARAM_STRINGARRAY:	av2gimp (arg, sv, d_stringarray, gchar *, SvPv); break;
         
       default:
-        sprintf (err, "dunno how to pass arg type %d", arg->type);
+        sprintf (croak_str, "dunno how to pass arg type %d", arg->type);
     }
   
   return 1;
@@ -697,8 +705,8 @@ static void pii_run(char *name, int nparams, GParam *param, int *xnreturn_vals, 
           count = 0;
         }
       
-      if (SvTRUE (GvSV (errgv)))
-        err_msg = g_strdup (SvPV (GvSV (errgv), na));
+      if (SvTRUE (ERRSV))
+        err_msg = g_strdup (SvPV (ERRSV, na));
       else
         {
           int i;

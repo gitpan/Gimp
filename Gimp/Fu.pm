@@ -75,8 +75,9 @@ sub PF_DRAWABLE	() { PARAM_DRAWABLE	};
 
 sub PF_TOGGLE	() { &PARAM_END+1	};
 sub PF_SLIDER	() { &PARAM_END+2	};
+sub PF_FONT	() { &PARAM_END+3	};
+sub PF_SPINNER	() { &PARAM_END+4	};
 
-sub PF_FONT	() { PF_STRING		};	# at the moment!
 sub PF_BOOL	() { PF_TOGGLE		};
 sub PF_INT	() { PF_INT32		};
 sub PF_VALUE	() { PF_STRING		};
@@ -90,9 +91,10 @@ sub Gimp::RUN_FULLINTERACTIVE { &Gimp::RUN_INTERACTIVE+100 };	# you don't want t
          &PF_FLOAT	=> 'value',
          &PF_STRING	=> 'string',
          &PF_COLOR	=> 'colour',
-#         &PF_FONT	=> 'XLFD',
+         &PF_FONT	=> 'XLFD',
          &PF_TOGGLE	=> 'boolean',
          &PF_SLIDER	=> 'integer',
+         &PF_SPINNER	=> 'integer',
          &PF_IMAGE	=> 'NYI',
          &PF_LAYER	=> 'NYI',
          &PF_CHANNEL	=> 'NYI',
@@ -102,10 +104,10 @@ sub Gimp::RUN_FULLINTERACTIVE { &Gimp::RUN_INTERACTIVE+100 };	# you don't want t
 @_params=qw(PF_INT8 PF_INT16 PF_INT32 PF_FLOAT PF_VALUE
             PF_STRING PF_COLOR PF_COLOUR PF_TOGGLE PF_IMAGE
             PF_DRAWABLE PF_FONT PF_LAYER PF_CHANNEL PF_BOOL
-            PF_SLIDER PF_INT);
+            PF_SLIDER PF_INT PF_SPINNER);
 
 @ISA = qw(Exporter);
-@EXPORT = (qw(register main gimp_main),@_params);
+@EXPORT = (qw(register main gimp_main xlfd_size),@_params);
 @EXPORT_OK = qw(interact $run_mode save_image);
 %EXPORT_TAGS = (params => [@_params]);
 
@@ -126,9 +128,25 @@ sub _default {
    @a;
 }
 
-sub interact($@) {
+sub xlfd_size {
+  local $^W=0;
+  my ($px,$pt)=(split(/-/,$_[0]))[7,8];
+  $px>0 ? ($px,&Gimp::PIXELS)
+        : ($pt,&Gimp::POINTS);
+}
+
+sub wrap_text {
+   my $x=$_[0];
+   $x=~s/(\G.{$_[1]}\S*)\s+/$1\n/g;
+   $x;
+}
+
+sub interact($$$@) {
+   local $^W=0;
+   my($blurb)=shift;
+   my($help)=shift;
    my(@types)=@{shift()};
-   my(@getvals,@setvals,@defaults);
+   my(@getvals,@setvals,@lastvals,@defaults);
    my($w,$t,$button,$box,$bot,$g);
    my $res=0;
    
@@ -140,9 +158,11 @@ sub interact($@) {
      $w = new Gtk::Dialog;
      set_title $w "$0";
      
-     $g = new Gtk::Table scalar@types,2,0;
+     ($g = new Gtk::Label wrap_text($blurb,40))->show;
+     $w->vbox->pack_start($g,1,1,0);
+     
+     ($g = new Gtk::Table scalar@types,2,0)->show;
      $g->border_width(4);
-     show $g;
      $w->vbox->pack_start($g,1,1,0);
      
      for(@types) {
@@ -150,70 +170,102 @@ sub interact($@) {
         my($type,$name,$desc,$default,$extra)=@$_;
         my($value)=shift;
         $value=$default unless defined $value;
-        push(@defaults,$default);
         $label="$name: ";
         
-        if($type == PF_INT8	# perl just maps
-        || $type == PF_INT16	# all this crap
-        || $type == PF_INT32	# into the scalar
-        || $type == PF_FLOAT	# domain.
+        if($type == PF_INT8		# perl just maps
+        || $type == PF_INT16		# all this crap
+        || $type == PF_INT32		# into the scalar
+        || $type == PF_FLOAT		# domain.
         || $type == PF_STRING) {	# I love it
            $a=new Gtk::Entry;
            set_usize $a 0,25;
-           push(@setvals,sub{set_text $a defined $value ? $value : ""});
+           push(@setvals,sub{set_text $a defined $_[0] ? $_[0] : ""});
            #select_region $a 0,1;
            push(@getvals,sub{get_text $a});
            
+        } elsif($type == PF_FONT) {
+           my $fs=new Gtk::FontSelectionDialog "Font Selection Dialog ($desc)";
+           my $def = "-*-courier-helvetica-o-normal--34-*-*-*-*-*-*-*";
+           my $val;
+           
+           (my $l=new Gtk::Label "!error!")->show;
+           my $setval = sub {
+              $val=$_[0];
+              unless (defined $val && $fs->set_font_name ($val)) {
+                 warn "illegal default font description: $val" if defined $val;
+                 $val=$def;
+                 $fs->set_font_name ($val);
+              }
+              
+              $l->set((split(/-/,$val))[2]."@".(xlfd_size($val))[0]);
+           };
+           
+           $fs->ok_button->signal_connect("clicked",sub {$setval->($fs->get_font_name); $fs->hide});
+           $fs->cancel_button->signal_connect("clicked",sub {$fs->hide});
+           
+           push(@setvals,$setval);
+           push(@getvals,sub { $val });
+           
+           $a=new Gtk::Button;
+           $a->add($l);
+           $a->signal_connect("clicked", sub { show $fs });
+           
+        } elsif($type == PF_SPINNER) {
+           my $adj = new Gtk::Adjustment $value,_default($extra,0,99,1,5,5);
+           $a=new Gtk::SpinButton $adj,1,0;
+           $a->set_usize (120,0);
+           push(@setvals,sub{$adj->set_value($_[0])});
+           push(@getvals,sub{$adj->get_value});
+           
         } elsif($type == PF_SLIDER) {
-           my($l,$r,$i)=_default($extra,0,0,99,1);
-           my $adj = new Gtk::Adjustment $value,$l,$r,$i,1,1;
+           my $adj = new Gtk::Adjustment $value,_default($extra,0,99,1,1,5);
            $a=new Gtk::HScale $adj;
            $a->set_usize (120,0);
-           push(@setvals,sub{$adj->set_value($value)});
+           push(@setvals,sub{$adj->set_value($_[0])});
            push(@getvals,sub{$adj->get_value});
            
         } elsif($type == PF_COLOR) {
            $a=new Gtk::HBox (0,5);
-           my $b=new Gtk::ColorSelectButton (-width => 90, -height => 18);
-           show $b; $a->pack_start ($b,1,1,0);
+           (my $b=new Gtk::ColorSelectButton -width => 90, -height => 18)->show;
+           $a->pack_start ($b,1,1,0);
            $value = [216, 152, 32] unless defined $value;
-           push(@setvals,sub{$b->color(join " ",@{Gimp::canonicalize_color $value})});
+           push(@setvals,sub{$b->color(join " ",@{Gimp::canonicalize_color $_[0]})});
            push(@getvals,sub{[split ' ',$b->color]});
            set_tip $t $b,$desc;
            
-           my $c = new Gtk::Button "FG";
+           (my $c = new Gtk::Button "FG")->show;
            signal_connect $c "clicked", sub {
              $b->color(join " ",@{Gimp::Palette->get_foreground});
            };
            set_tip $t $c,"get current foreground colour from the gimp";
-           show $c; $a->pack_start ($c,1,1,0);
+           $a->pack_start ($c,1,1,0);
            
-           my $d = new Gtk::Button "BG";
+           (my $d = new Gtk::Button "BG")->show;
            signal_connect $d "clicked", sub {
              $b->color(join " ",@{Gimp::Palette->get_background});
            };
            set_tip $t $d,"get current background colour from the gimp";
-           show $d; $a->pack_start ($d,1,1,0);
+           $a->pack_start ($d,1,1,0);
            
         } elsif($type == PF_TOGGLE) {
            $a=new Gtk::CheckButton $desc;
-           push(@setvals,sub{set_state $a ($value ? 1 : 0)});
+           push(@setvals,sub{set_state $a ($_[0] ? 1 : 0)});
            push(@getvals,sub{state $a eq "active"});
            
         } elsif($type == PF_IMAGE) {
            my $res;
            $a=new Gtk::HBox (0,5);
-           my $b=new Gtk::OptionMenu;
+           (my $b=new Gtk::OptionMenu)->show;
            $b->set_menu(new Gimp::UI::ImageMenu(sub {1},-1,$res));
-           show $b; $a->pack_start ($b,1,1,0);
+           $a->pack_start ($b,1,1,0);
            push(@setvals,sub{});
            push(@getvals,sub{$res});
            set_tip $t $b,$desc;
            
-#           my $c = new Gtk::Button "Load";
+#           (my $c = new Gtk::Button "Load")->show;
 #           signal_connect $c "clicked", sub {$res = 2; main_quit Gtk};
 #           $g->attach($c,1,2,$res,$res+1,{},{},4,2);
-#           show $c; $a->pack_start ($c,1,1,0);
+#           $a->pack_start ($c,1,1,0);
 #           set_tip $t $c,"Load an image into the Gimp (NYI)";
            
         } elsif($type == PF_LAYER) {
@@ -243,6 +295,8 @@ sub interact($@) {
            push(@getvals,sub{$value});
         }
         
+        push(@lastvals,$value);
+        push(@defaults,$default);
         $setvals[-1]->($value);
         
         $label=new Gtk::Label $label;
@@ -257,13 +311,26 @@ sub interact($@) {
         $res++;
      }
      
-     $button = new Gtk::Button "Reset to previous values";
+     (my $v=new Gtk::HBox 0,5)->show;
+     $g->attach($v,1,2,$res,$res+1,{},{},4,2);
+     
+     $button = new Gtk::Button "Defaults";
      signal_connect $button "clicked", sub {
        for my $i (0..$#defaults) {
          $setvals[$i]->($defaults[$i]);
        }
      };
-     $g->attach($button,0,2,$res,$res+1,{},{},4,2);
+     set_tip $t $button,"Reset all values to their default";
+     show $button;
+     
+     $button = new Gtk::Button "Previous";
+     signal_connect $button "clicked", sub {
+       for my $i (0..$#lastvals) {
+         $setvals[$i]->($lastvals[$i]);
+       }
+     };
+     $g->attach($button,1,2,$res,$res+1,{},{},4,2);
+     set_tip $t $button,"Restore values to the previous ones";
      show $button;
      
      $res=0;
@@ -410,6 +477,7 @@ sub query {
                                       $_->[0]=PARAM_INT32	if $_->[0] == PF_TOGGLE;
                                       $_->[0]=PARAM_STRING	if $_->[0] == PF_FONT;
                                       $_->[0]=PARAM_INT32	if $_->[0] == PF_SLIDER;
+                                      $_->[0]=PARAM_INT32	if $_->[0] == PF_SPINNER;
                                       $_;
                                    } @$params],
                                    $results);
@@ -554,10 +622,23 @@ will be used for the toggle-button label!
 =item PF_SLIDER
 
 Uses a horizontal scale. To set the range and stepsize, append an array ref
-C<[range_min, range_max, step_size]> as "extra argument" to the description
-array, like:
+(see Gtk::Adjustment for an explanation) C<[range_min, range_max, step_size,
+page_increment, page_size]> as "extra argument" to the description array.
+Default values will be substitued for missing entries, like in:
 
  [PF_SLIDER, "alpha value", "the alpha value", 100, [0, 255, 1] ]
+
+=item PF_SPINNER
+
+The same as PF_SLIDER, except that this one uses a spinbutton instead of a scale.
+
+=item PF_FONT
+
+Lets the user select a font and returns a X Logical Font Descriptor (XLFD).
+The default argument, if specified, must be a full XLFD specification, or a
+warning will be printed. Please note that the gimp text functions using
+these fontnames (gimp_text_..._fontname) ignore the size. You can extract
+the size and dimension by using the C<xlfd_size> function.
 
 =back
 
@@ -574,7 +655,7 @@ sub register($$$$$$$$$;@) {
    
    *$function = sub {
       $run_mode=shift;	# global!
-      my(@pre,@defaults);
+      my(@pre,@defaults,@lastvals);
       if ($menupath=~/^<Image>\//) {
          @_ >= 2 or die "<Image> plug-in called without an image and drawable!\n";
          @pre = (shift,shift);
@@ -584,11 +665,6 @@ sub register($$$$$$$$$;@) {
          die "menupath _must_ start with <Image> or <Toolbox>!";
       }
       
-      {
-         my $VAR1; # Data::Dumper is braindamaged
-         local $^W=0; # perl -w is braindamaged
-         @defaults=@{eval $Gimp::Data{"$function/_fu_data"}};
-      }
       if (@defaults) {
          for (0..$#{$params}) {
 	    $params->[$_]->[3]=$defaults[$_];
@@ -602,12 +678,14 @@ sub register($$$$$$$$$;@) {
       
       if ($run_mode == &Gimp::RUN_INTERACTIVE) {
          if (@_) {
-            undef @_;	# gimp doesn't deliver useful values!! #D# #FIXME#
-            @_=interact($params,@_);
-            return unless defined(@_);
+            local $^W=0; # perl -w is braindamaged
+            my $VAR1; # Data::Dumper is braindamaged
+            # gimp is braindamaged, is doesn't deliver useful values!!
+            @_=interact($blurb,$help,$params,@{eval $Gimp::Data{"$function/_fu_data"}});
+            return unless @_;
          }
       } elsif ($run_mode == &Gimp::RUN_FULLINTERACTIVE) {
-         @_=interact([@image_params,@{$params}],@pre,@_);
+         @_=interact($blurb,$help,[@image_params,@{$params}],[@pre,@_]);
          undef @pre;
          return unless defined(@_);
       } elsif ($run_mode == &Gimp::RUN_NONINTERACTIVE) {
@@ -657,6 +735,15 @@ sub register($$$$$$$$$;@) {
 =head2 MISC. FUNCTIONS
 
 =over
+
+=item C<xlfd_size> fontname
+
+This auxillary functions parses the XLFD (usually obtained from a C<PF_FONT>
+parameter) and returns its size and unit (e.g. C<(20,POINTS)>). This can
+conviniently used in the gimp_text_..._fontname functions, which ignore the
+size (no joke ;). Example:
+
+ $drawable->text_fontname (50, 50, "The quick", 5, 1, xlfd_size $font, $font;
 
 =item C<save_image(img,options_and_path)>
 

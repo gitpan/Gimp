@@ -11,7 +11,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '1.035';
+$VERSION = '1.04';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE
@@ -205,11 +205,6 @@ for(qw(_gimp_procedure_available gimp_call_procedure set_trace)) {
 
 *main = *gimp_main = \&{"${interface_pkg}::gimp_main"};
 
-sub _croak($) {
-  $_[0] =~ s/ at .*? line \d+.*$//s;
-  Carp::croak $_[0];
-}
-
 @PREFIXES=("gimp_", "");
 
 my %ignore_function = ();
@@ -224,6 +219,11 @@ my %ignore_function = ();
 
 sub ignore_functions(@) {
    undef $ignore_function{$_} for @_;
+}
+
+sub _croak($) {
+  $_[0] =~ s/ at .*? line \d+.*$//s;
+  Carp::croak $_[0];
 }
 
 sub AUTOLOAD {

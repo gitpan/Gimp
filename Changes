@@ -1,5 +1,12 @@
 Revision history for Gimp-Perl extension.
 
+	- don't disallow drawable arguments as layer parameters.
+	- fixed error reporting again (it should work now but still
+	  compiler with older perls ;)
+	- implemented PF_FONT, see also Gimp::Fu::xlfd_size
+	- implemented PF_SPINNER
+	- another "Attempt to free unrecerenced scalar" warning fixed
+
 1.035 Wed Sep 30 23:58:02 CEST 1998
 	- Gimp::ignore_functions can be used to ignore AUTOLOADING
 	  of some functions. This is mainly for the benefit of interface

@@ -31,7 +31,7 @@ REGION						T_PREF
 INPUT
 
 T_PREF
-	$var = unbless ($arg, PKG_$ntype)
+	$var = unbless ($arg, PKG_$ntype, 0)
 
 T_GDRAWABLE
 	$var = old_gdrawable ($arg)
