@@ -884,6 +884,7 @@ gimp_set_data(id, data)
 #else
 		{
 		  char str[1024]; /* hack */
+		  SvUPGRADE (id, SVt_PV);
 		  len = SvCUR (id);
 		  Copy (SvPV (id, na), str, len, char);
 		  str[len+1] = 0;
@@ -914,6 +915,7 @@ gimp_get_data(id)
 #else
 		{
 		  char str[1024]; /* hack */
+		  SvUPGRADE (id, SVt_PV);
 		  len = SvCUR (id);
 		  Copy (SvPV (id, na), str, len, char);
 		  

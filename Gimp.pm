@@ -11,7 +11,7 @@ use vars qw($help $verbose $host);
 require DynaLoader;
 
 @ISA = qw(DynaLoader);
-$VERSION = '1.0';
+$VERSION = '1.001';
 
 @_param = qw(
 	PARAM_BOUNDARY	PARAM_CHANNEL	PARAM_COLOR	PARAM_DISPLAY	PARAM_DRAWABLE

@@ -1,5 +1,8 @@
 Revision history for Gimp-Perl extension.
 
+1.001 Sat Jul 25 04:01:55 CEST 1998
+	- another fix by Aaron Sherman
+
 1.0   Thu Jul 23 23:35:13 CEST 1998
 	- prefix wrongly defaulted to /usr/local
 	- other configuration changes

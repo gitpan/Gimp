@@ -103,7 +103,8 @@ WriteMakefile(
     'LIBS'	=> [''],
     'INC'	=> "$CPPFLAGS $GIMP_INC $CFLAGS $DEFS",
     'DEFINE'	=> '',
-    'clean'	=> { FILES => "config.log config.h pcfg config.status config.cache config.pl".
+    'realclean'	=> { FILES => "config.status" },
+    'clean'	=> { FILES => "config.log config.h pcfg config.cache config.pl".
                               "etc/{config.pl,config.status,config.cache,config.h,config.log}" },
 );
 
