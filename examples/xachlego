@@ -28,6 +28,7 @@
 #            1.4:   Marc Lehman <pcg@goof.com>, changed function name
 #            1.5:   Seth Burgess <sjburges@gimp.org> added my email, put it
 #                   in a directory more suitable than the lame "Misc"
+#            1.6:   Seth Burgess <sjburges@gimp.org> use Context
 # Here's the boring start of every script...
 
 use Gimp qw(:auto __ N_);
@@ -57,7 +58,7 @@ register "xach_blocks",
 		$img->selection_all;
 		$selection_flag = 1;
 		}
-	$oldbackground = gimp_palette_get_background();
+        Context->push();
 # Now the fun begins :) 
 
 	$selection = $img->selection_save;
@@ -70,7 +71,7 @@ register "xach_blocks",
 	$img->add_layer($gridlayer,0);
 	$img->selection_all;
 	gimp_edit_clear($gridlayer);
-	gimp_palette_set_background([255,255,255]);
+	gimp_context_set_background([255,255,255]);
 	gimp_edit_fill($gridlayer, BACKGROUND_FILL);
 	$gridlayer->plug_in_grid(1, $blocksize, 0, [0,0,0], 255, 1, $blocksize, 0, [0,0,0], 255, 0, 0, 0, [0,0,0], 0);
 	$gridlayer->plug_in_gauss_iir(0.7*$blocksize, 1, 1);
@@ -104,10 +105,10 @@ register "xach_blocks",
 	$img->remove_layer($cleangrid);
 	$img->remove_layer($gridlayer);
 	gimp_selection_load($selection);
-	gimp_palette_set_background($oldbackground);
 	if ($selection_flag ==1) {
 		$img->selection_none;
 		}
+        Context->pop();
         eval { $img->undo_group_end };
 	return ();
 };

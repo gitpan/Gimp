@@ -1,9 +1,32 @@
 <Seth's random notes>
-Convince someone that knows auto* to redo the compilation/installation.  Or move to ExtUtils::PkgConfig for this purpose.
+Make a 2.2 release so I can tag it and start towards 2.4.  Critical items:
+* Cleanup unused stuff:
+  Remove Gimp/PDL.pm
+  Remove Module
+  Remove embed
+  Remove etc
+  Remove nolib
+  Remove examples/image_list
+  Remove or rewrite font_table - logic in it no longer applicable.
+* Fix the code so I don't get "
+Gtk-CRITICAL **: file gtktooltips.c: line 314 (gtk_tooltips_set_tip): assertion `GTK_IS_TOOLTIPS (tooltips)' failed at ..../Gimp/UI.pm line 821.
+" repeated when I use a color picker.
+
+Win32 port?
+
+Add a gtk2 gimp console.
+
+Reorganize Menues.
+
+Impprove documentation quality - feedback desired!
+
+HIGify dialogs as possible.
+
+A Compat12.pm for GIMP 1.2 compatibility (no way to convert xlfd stuff though).
+
+Add POD documentation for gimpdoc.
 
 Make a 'utils' directory for gimpdoc, scm2perl, embedxpm, xcf2pnm and move out of the root directory.
-
-Install 1.2 C libs/dev headers, and see if it interferes; it did for one user at least, so is likely a bug in my auto* or MakeMaker stuff.
 
 Generate a new web presence for Gimp-Perl, with a friendlier face to it.  Redo my scripts page, possibly expanding to cover all working scripts?  Regenerate documentation there.
 
@@ -13,15 +36,9 @@ New mailing list; netcentral doesn't archive, rarely used.
 
 Figure out i18n some day.
 
-Fix the code so I don't get "
-Gtk-CRITICAL **: file gtktooltips.c: line 314 (gtk_tooltips_set_tip): assertion `GTK_IS_TOOLTIPS (tooltips)' failed at ..../Gimp/UI.pm line 821.
-" repeated sometimes when I use a color picker.
-
 Determine what if anything is needed in the enums* in the root.  I expect I can remove all of this.
 
 Remove unused(?) extra.[ch]
-
-Remove ugly logo.xpm
 
 <Marc's previous stuff>
 this is mostly my personal worksheet and notepad, which may not be

@@ -1,5 +1,8 @@
 #!/usr/bin/perl 
 
+eval 'exec /usr/bin/perl  -S $0 ${1+"$@"}'
+    if 0; # not running under some shell
+
 # A plug-in for GIMP for producing logos and other such nifty things
 # which appear to be made of steel and floating over a glowing cloud.
 # This plug-in also includes several filters and such for performing the
@@ -50,7 +53,7 @@ sub perl_fu_glowing_steel {
   ($size, $units) = xlfd_size($font) if $size < 1;
   die("glowing_steel: No font size given or inferable") if $size < 1;
 
-  my $old = gimp_palette_get_foreground();
+  my $old = gimp_context_get_foreground();
   my $image = gimp_image_new(100, 100, RGB);
   gimp_image_undo_disable($image);
   my $textlayer = gimp_text_fontname($image, -1, $radius*2,
@@ -62,7 +65,11 @@ sub perl_fu_glowing_steel {
   my $backlayer = gimp_layer_new($image, $width, $height, RGBA_IMAGE,
 				 "Background", 100, NORMAL_MODE);
   gimp_image_add_layer($image, $backlayer, 1);
-  gimp_layer_set_preserve_trans($textlayer,1);
+
+  if (gimp_version() gt "2.3")  # make work for 2.2 or 2.3
+    { gimp_layer_set_lock_alpha($textlayer, 1); } 
+  else 
+    { gimp_layer_set_preserve_trans($textlayer,1); }
 
   perl_fu_brushed_metal($image, $textlayer, 25, 135);
 
@@ -77,13 +84,13 @@ sub perl_fu_glowing_steel {
 
   # Fill the background
   gimp_selection_all($image);
-  gimp_palette_set_foreground($background);
+  gimp_context_set_foreground($background);
   gimp_edit_bucket_fill($backlayer, FG_BUCKET_FILL, NORMAL_MODE, 100, 0, 1, 0, 0);
 
   # Make the glow:
   perl_fu_add_glow($image, $textlayer, $glow, $radius);
 
-  gimp_palette_set_foreground($old);
+  gimp_context_set_foreground($old);
 
   gimp_image_undo_enable($image);
   gimp_selection_none($image);
@@ -133,13 +140,13 @@ sub perl_fu_add_glow {
   gimp_selection_all($image);
   gimp_edit_clear($glow);
   # Add the glow
-  my $old = gimp_palette_get_foreground();
-  gimp_palette_set_foreground($color);
+  my $old = gimp_context_get_foreground();
+  gimp_context_set_foreground($color);
   gimp_selection_layer_alpha($drawable);
   gimp_selection_grow($image, $radius);
   gimp_selection_feather($image, $radius*1.5);
   gimp_edit_bucket_fill($glow,FG_BUCKET_FILL,NORMAL_MODE,100,255,0,0,0);
-  gimp_palette_set_foreground($old);
+  gimp_context_set_foreground($old);
   gimp_selection_layer_alpha($drawable);
   gimp_edit_clear($glow);
 
@@ -193,7 +200,7 @@ sub perl_fu_brushed_metal {
 
   gimp_brightness_contrast($templ, 50, 0);
   plug_in_noisify($image, $templ, 0, 0.3, 0.3, 0.3, 0);
-  plug_in_mblur($image, $templ, 0, $length, $angle);
+  plug_in_mblur($image, $templ, 0, $length, $angle, 0.0, 0.0, 1);
 
   # Now put it into the target layer
   gimp_selection_load($target_select);
@@ -250,12 +257,12 @@ sub perl_fu_highlight_edges {
   }
   gimp_image_add_layer($image, $black, $lnum);
   gimp_image_add_layer($image, $white, $lnum);
-  my $old = gimp_palette_get_foreground();
-  gimp_palette_set_foreground([255,255,255]);
+  gimp_context_push();
+  gimp_context_set_foreground([255,255,255]);
   gimp_edit_bucket_fill($white,FG_BUCKET_FILL,NORMAL_MODE,100,255,0,0,0);
-  gimp_palette_set_foreground([0,0,0]);
+  gimp_context_set_foreground([0,0,0]);
   gimp_edit_bucket_fill($black,FG_BUCKET_FILL,NORMAL_MODE,100,255,0,0,0);
-  gimp_palette_set_foreground($old);
+  gimp_context_pop();
   gimp_layer_translate($white, $gimp_white_fudge, -1);
   gimp_layer_translate($black, 1, 1);
   $white = gimp_image_merge_down($image, $white, EXPAND_AS_NECESSARY);
@@ -271,6 +278,8 @@ sub perl_fu_highlight_edges {
 }
 
 # Register the plug-ins:
+
+#FIXME: make the pixels parameter mean something
 register
   "highlight_edges",
   "Frame an alpha layer with black and white edges",
@@ -281,7 +290,7 @@ register
   N_"<Image>/Filters/Render/Highlight Edges...",
   "*",
   [
-   [PF_INT32, "edging", "Pixels", 1]
+   [PF_INT32, "edging", "Pixels (non-functional)", 1]
   ],
   \&perl_fu_highlight_edges;
 
@@ -291,7 +300,7 @@ register
   "Use this pluggin to make a surface (selected area) look like ".
 	"brushed metal (kind of like steel).",
   "Aaron Sherman", "Aaron Sherman (c)", "1999-06-14",
-  N_"<Image>/Filters/Render/Brushed Metal...",
+  N_"<Image>/Filters/Render/Pattern/Brushed Metal...",
   "*",
   [
    [PF_SLIDER,   "stroke_length", "Length", 25, [1, 100, 1]],
@@ -333,7 +342,7 @@ register
    [PF_COLOR, "glow_color", "Color", [1.0, 0.8157, 0]],
    [PF_COLOR, "background", "Color", [0x00, 0x00, 0x00]],
    [PF_INT32, "glow_radius", "radius", 4],
-   [PF_TOGGLE, "highlight_edges", "", 1],
+   [PF_TOGGLE, "highlight_edges", "", 0], #FIXME: this is broke if 1!
    [PF_TOGGLE, "antialias", "", 1]
   ],
   [PF_IMAGE],

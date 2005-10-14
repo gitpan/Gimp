@@ -98,7 +98,7 @@ register
     "Geoff Kuenning",
     "Copyright 2003, Geoff Kuenning",
     "2003-04-06",		# Last-mod date
-    "<Image>/Filters/Colors/Auto Red-Eye",	# menu path
+    "<Image>/Filters/Colors/Auto/Auto Red-Eye",	# menu path
     "RGB*",			# Image types
     [
     ],

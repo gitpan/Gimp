@@ -2,52 +2,52 @@
 
 use Cwd 'abs_path';
 
+# make $topdir be where the gimp-perl sources start 
 $topdir = ".";
 $topdir .= "/.." while ! -f "$topdir/MANIFEST";
 $topdir = abs_path $topdir;
 
+use ExtUtils::PkgConfig;
+%gimpcfg = ExtUtils::PkgConfig->find("gimp-2.0");
+%glibcfg = ExtUtils::PkgConfig->find("glib-2.0");
+
 $^W=0;
 
+# pull in the libs/includes/etc from gimp and glib
+$gimppath = ExtUtils::PkgConfig->variable("gimp-2.0", "exec_prefix") . "/bin/";
+$gimplibdir = ExtUtils::PkgConfig->variable("gimp-2.0", "gimplibdir");
+
+# need this for setting library variables below
+$pluginlibs = `$gimppath/gimptool-2.0 --libs`;
+chomp $pluginlibs;
+
+# Get gimp's version and append to make binname 
+$gimpbinname = ExtUtils::PkgConfig->modversion("gimp-2.0");
+$gimpbinname =~ s/^(\d\.\d).*/$1/; # strip off minor versions
+$gimpbinname = "gimp-" . $gimpbinname;
+
 %cfg = (
-   _CPPFLAGS		=> q[@CPPFLAGS@],
-   _CFLAGS		=> q[@CFLAGS@],
-   _LDFLAGS		=> q[@LDFLAGS@],
+   GIMP			=> $gimppath . $gimpbinname, 
+   GIMPTOOL		=> $gimppath . "gimptool-2.0",
+   _GIMP_INC		=> $gimpcfg{"cflags"},
+   _GIMP_INC_NOUI	=> $gimpcfg{"cflags"},
+   _GIMP_LIBS		=> $pluginlibs,
+   _GIMP_LIBS_NOUI	=> $gimpcfg{"libs"},
 
-   prefix		=> q[@prefix@],
-   exec_prefix		=> q[@exec_prefix@],
-   libdir		=> q[@libdir@],
-   bindir		=> q[@bindir@],
-   datadir		=> q[@datadir@],
+   GLIB_CFLAGS		=> $glibcfg{"cflags"},
+   GLIB_LIBS		=> $glibcfg{"libs"},
 
-   _PERL		=> q[@PERL@],
-   GIMP			=> q[@GIMP@],
+   gimpplugindir	=> $gimplibdir,
 
-   GIMPTOOL		=> q[@GIMPTOOL@],
-   _GIMP_INC		=> q[@GIMP_CFLAGS@],
-   _GIMP_INC_NOUI	=> q[@GIMP_CFLAGS_NOUI@],
-   _GIMP_LIBS		=> q[@GIMP_LIBS@],
-   _GIMP_LIBS_NOUI	=> q[@GIMP_LIBS_NOUI@],
-
-   GLIB_CFLAGS		=> q[@GLIB_CFLAGS@],
-   GLIB_LIBS		=> q[@GLIB_LIBS@],
-
-   INSTALL		=> q[@INSTALL@],
-   INSTALL_PROGRAM	=> q[@INSTALL_PROGRAM@],
-   gimpplugindir	=> q[@gimpplugindir@],
-
-   _EXTENSIVE_TESTS	=> q[@EXTENSIVE_TESTS@],
-
-   IN_GIMP		=> q[@IN_GIMP@],
+   _EXTENSIVE_TESTS	=> q[1],
 
    pdl_inc		=> '',
    pdl_typemaps		=> '',
    INC1			=> '',
    DEFINE1		=> '',
 
-   LIBS			=> q[@LIBS@],
-   INTLLIBS		=> q[@INTLLIBS@],
-   MSGFMT		=> q[@MSGFMT@],
-   MSGMERGE		=> q[@MSGMERGE@],
+   LIBS			=> q[],
+   INTLLIBS		=> q[],
 );
 
 sub expand {
@@ -62,6 +62,7 @@ sub expand {
    $cfg;
 }
 
+
 # the next line should no longer be necessary, but...
 $cfg{_CFLAGS} =~ s/\B-Wall\b//g; # remove -Wall from cflags and pray...
 
@@ -73,16 +74,8 @@ while (($k,$v)=each(%cfg)) {
 $GIMPTOOL       = expand($GIMPTOOL);
 $INTLLIBS	= expand($INTLLIBS);
 
-if ($IN_GIMP) {
-   $GIMP = $bindir."/gimp" if $IN_GIMP;
-   $GIMP_PREFIX=expand($prefix);
-} else {
-   chomp ($GIMP_PREFIX = `$GIMPTOOL --prefix`);
-   $gimpplugindir = `$GIMPTOOL --gimpplugindir`;
-   $GIMP = expand($GIMP);
-}
-
-$cfg{GIMP_PREFIX} = $GIMP_PREFIX;
+$gimpplugindir  = `$GIMPTOOL --gimpplugindir`;
+$GIMP           = expand($GIMP);
 
 $GIMP_INC	=~ s%\$topdir%$topdir%g;
 $GIMP_INC_NOUI	=~ s%\$topdir%$topdir%g;
@@ -91,7 +84,6 @@ $GIMP_LIBS_NOUI	=~ s%\$topdir%$topdir%g;
 
 # $...1 variables should be put in front of the corresponding MakeMaker values.
 $INC1    = "-I$topdir";
-$DEFINE1 = $IN_GIMP ? "-DIN_GIMP" : "";
 $DEFINE1 = " -Ddatadir=\"\\\"".expand($datadir)."\\\"\"";
 
 eval "use PDL";
@@ -149,19 +141,7 @@ for(keys %cfg) {
 
 sub MY::makefile {
    my $self = shift;
-   if ($IN_GIMP) {
-      return q{
-}.$self->{MAKEFILE}.q{ : Makefile.PL $(CONFIGDEP)
-	}.$self->{NOECHO}.q{echo "rebuilding Makefile (is out-of-date with respect to $?)"
-	-}.$self->{NOECHO}.q{$(RM_F) }."$self->{MAKEFILE}.old".q{
-	-}.$self->{NOECHO}.q{$(MV) }."$self->{MAKEFILE} $self->{MAKEFILE}.old".q{
-	-$(MAKE) -f }.$self->{MAKEFILE}.q{.old clean $(DEV_NULL) || $(NOOP)
-	$(PERL) "-I$(PERL_ARCHLIB)" "-I$(PERL_LIB)" Makefile.PL --writemakefile }.join(" ",map(qq["$_"],@ARGV)).q{
-
-};
-   } else {
-      return $self->MM::makefile(@_);
-   }
+   return $self->MM::makefile(@_);
 }
 
 

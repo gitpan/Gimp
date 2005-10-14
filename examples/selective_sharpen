@@ -13,7 +13,7 @@ sub PREWITT()      {1}
 sub GRADIENT()     {2} 
 sub ROBERTS()      {3}
 sub DIFFERENTIAL() {4}
-sub LAPLACE        {5}
+sub LAPLACE()      {5}
 
 # Gimp::set_trace(TRACE_ALL); 
 
@@ -34,7 +34,7 @@ sub my_code {
       }     
 
     $saved_selection = $img->selection_save;
-    $img->selection_clear;
+    $img->selection_none;
 
     # 1) take the original photo, duplicate the layer
     $edge_layer = $original_layer->copy(1);
