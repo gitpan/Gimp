@@ -1,6 +1,6 @@
-#!/opt/bin/perl
+#!/usr/bin/perl
 
-eval 'exec /opt/bin/perl  -S $0 ${1+"$@"}'
+eval 'exec /usr/bin/perl  -S $0 ${1+"$@"}'
     if 0; # not running under some shell
 
 # sent to me by Seth Burgess <sjburges@gimp.org>
@@ -36,8 +36,7 @@ sub windify {
                      15, #length
                      $angle, 
                      gimp_drawable_width($windlayercopy)/2,
-                     gimp_drawable_height($windlayercopy)/2,
-                     0 # doesn't matter for linear
+                     gimp_drawable_height($windlayercopy)/2
                      );
 	gimp_layer_set_mode($windlayercopy, 10); # Lighten Only
 	gimp_image_merge_visible_layers($out,0);
@@ -83,6 +82,6 @@ exit main;
 =head1 LICENSE
 
 Copyright Seth Burgess.  
-Distrubuted under the same terms as Gimp-Perl.
+Distributed under the same terms as Gimp-Perl.
 
 =cut

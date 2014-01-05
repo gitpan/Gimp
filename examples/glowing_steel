@@ -27,15 +27,10 @@ use Gimp::Util;
 N_"/Xtns/Render"; N_"/Xtns/Render/Logos"; # i18n workaround
 
 use strict;
-use vars qw($glowing_steel_version $glowing_steel_released
-	$gimp_white_fudge);
+use vars qw($glowing_steel_version $glowing_steel_released);
 
 $glowing_steel_version = "1.0a";
 $glowing_steel_released = "6/14/1999";
-
-# In version 1.1.6, gimp_layer_translate did not work correctly, given an
-# offset of -1, so set this to -1, if that bug goes away:
-$gimp_white_fudge = -2;
 
 sub perl_fu_glowing_steel {
   my $string = shift;
@@ -53,7 +48,8 @@ sub perl_fu_glowing_steel {
   ($size, $units) = xlfd_size($font) if $size < 1;
   die("glowing_steel: No font size given or inferable") if $size < 1;
 
-  my $old = gimp_context_get_foreground();
+  gimp_context_push();
+
   my $image = gimp_image_new(100, 100, RGB);
   gimp_image_undo_disable($image);
   my $textlayer = gimp_text_fontname($image, -1, $radius*2,
@@ -69,7 +65,7 @@ sub perl_fu_glowing_steel {
   if (gimp_version() gt "2.3")  # make work for 2.2 or 2.3
     { gimp_layer_set_lock_alpha($textlayer, 1); } 
   else 
-    { gimp_layer_set_preserve_trans($textlayer,1); }
+    { gimp_layer_set_lock_alpha($textlayer,1); }
 
   perl_fu_brushed_metal($image, $textlayer, 25, 135);
 
@@ -90,11 +86,11 @@ sub perl_fu_glowing_steel {
   # Make the glow:
   perl_fu_add_glow($image, $textlayer, $glow, $radius);
 
-  gimp_context_set_foreground($old);
-
   gimp_image_undo_enable($image);
   gimp_selection_none($image);
   gimp_image_set_active_layer($image,$backlayer);
+
+  gimp_context_pop();
 
   return $image;
 }
@@ -140,13 +136,14 @@ sub perl_fu_add_glow {
   gimp_selection_all($image);
   gimp_edit_clear($glow);
   # Add the glow
-  my $old = gimp_context_get_foreground();
+
+  gimp_context_push();
+
   gimp_context_set_foreground($color);
   gimp_selection_layer_alpha($drawable);
   gimp_selection_grow($image, $radius);
   gimp_selection_feather($image, $radius*1.5);
   gimp_edit_bucket_fill($glow,FG_BUCKET_FILL,NORMAL_MODE,100,255,0,0,0);
-  gimp_context_set_foreground($old);
   gimp_selection_layer_alpha($drawable);
   gimp_edit_clear($glow);
 
@@ -154,6 +151,8 @@ sub perl_fu_add_glow {
   gimp_floating_sel_anchor($drawable) if $is_float;
   gimp_image_set_active_layer($image,$old_draw);
   gimp_image_undo_group_end($image);
+
+  gimp_context_pop();
   gimp_displays_flush();
 }
 
@@ -200,7 +199,11 @@ sub perl_fu_brushed_metal {
 
   gimp_brightness_contrast($templ, 50, 0);
   plug_in_noisify($image, $templ, 0, 0.3, 0.3, 0.3, 0);
-  plug_in_mblur($image, $templ, 0, $length, $angle, 0.0, 0.0, 1);
+  if (gimp_version() gt "2.3")  # make work for 2.2 or 2.3
+    { plug_in_mblur($image, $templ, 0, $length, $angle, 0.0, 0.0, 1); }
+  else
+    { plug_in_mblur($image, $templ, 0, $length, $angle, 0.0, 0.0); }
+
 
   # Now put it into the target layer
   gimp_selection_load($target_select);
@@ -257,14 +260,15 @@ sub perl_fu_highlight_edges {
   }
   gimp_image_add_layer($image, $black, $lnum);
   gimp_image_add_layer($image, $white, $lnum);
+
   gimp_context_push();
+
   gimp_context_set_foreground([255,255,255]);
   gimp_edit_bucket_fill($white,FG_BUCKET_FILL,NORMAL_MODE,100,255,0,0,0);
   gimp_context_set_foreground([0,0,0]);
   gimp_edit_bucket_fill($black,FG_BUCKET_FILL,NORMAL_MODE,100,255,0,0,0);
-  gimp_context_pop();
-  gimp_layer_translate($white, $gimp_white_fudge, -1);
-  gimp_layer_translate($black, 1, 1);
+  gimp_layer_translate($white, -1*$pixels, -1*$pixels);
+  gimp_layer_translate($black, 1*$pixels, 1*$pixels);
   $white = gimp_image_merge_down($image, $white, EXPAND_AS_NECESSARY);
   gimp_drawable_set_name($white, "Edge Highlight");
   gimp_selection_layer_alpha($drawable);
@@ -274,12 +278,13 @@ sub perl_fu_highlight_edges {
   gimp_floating_sel_anchor($drawable) if $is_float;
   # gimp_image_set_active_layer($image,$old_draw);
   gimp_image_undo_group_end($image);
+
+  gimp_context_pop();
   gimp_displays_flush();
 }
 
 # Register the plug-ins:
 
-#FIXME: make the pixels parameter mean something
 register
   "highlight_edges",
   "Frame an alpha layer with black and white edges",
@@ -337,12 +342,12 @@ register
   [
    [PF_STRING, "string", "string", "GET LOST"],
    # The font in the poster was like "cobalt extended"
-   [PF_FONT, "font", "Font", undef],
+   [PF_FONT, "font", "Font", "Bitstream Charter Bold 72"],
    [PF_SPINNER, "size", "Size", 100, [0, 3000, 1]],
    [PF_COLOR, "glow_color", "Color", [1.0, 0.8157, 0]],
    [PF_COLOR, "background", "Color", [0x00, 0x00, 0x00]],
    [PF_INT32, "glow_radius", "radius", 4],
-   [PF_TOGGLE, "highlight_edges", "", 0], #FIXME: this is broke if 1!
+   [PF_TOGGLE, "highlight_edges", "", 0],
    [PF_TOGGLE, "antialias", "", 1]
   ],
   [PF_IMAGE],

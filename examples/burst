@@ -3,7 +3,7 @@
 eval 'exec /usr/bin/perl  -S $0 ${1+"$@"}'
     if 0; # not running under some shell
 
-eval 'exec /opt/bin/perl  -S $0 ${1+"$@"}'
+eval 'exec /usr/bin/perl  -S $0 ${1+"$@"}'
     if 0; # not running under some shell
 
 # <sjburges@gimp.org> 
@@ -282,6 +282,6 @@ exit main;
 =head1 LICENSE
 
 Copyright Seth Burgess.  
-Distrubuted under the same terms as Gimp-Perl.
+Distributed under the same terms as Gimp-Perl.
 
 =cut

@@ -1,4 +1,4 @@
-#!/opt/bin/perl
+#!/usr/bin/perl
 
 # slightly edited by pcg@goof.com
 
@@ -98,6 +98,6 @@ exit main;
 =head1 LICENSE
 
 Copyright Simon Budig, Peter Daum. (original scheme by Simon Budig).
-Distrubuted under the terms of the GNU Publice License, v2 or higher.
+Distributed under the terms of the GNU Publice License, v2 or higher.
 
 =cut

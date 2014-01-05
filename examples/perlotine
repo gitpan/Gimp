@@ -1,4 +1,4 @@
-#!/opt/bin/perl
+#!/usr/bin/perl
 
 # <sjburges@gimp.org>
 # This is tigert's request.  I suppose it'll be useful to those that do
@@ -47,7 +47,7 @@ sub get_vguides {
     my @vguides;
     while ($i=$img->find_next_guide($i)) {
         if ($img->get_guide_orientation($i) == &Gimp::ORIENTATION_VERTICAL){
-            $keyval = sprintf("%4d", $img->get_guide_position($i));
+	    $keyval = sprintf("%4d", $img->get_guide_position($i));
             $vkeys{$keyval} = $i;
             }
         }
@@ -257,6 +257,6 @@ exit main;
 =head1 LICENSE
 
 Copyright Seth Burgess.  
-Distrubuted under the same terms as Gimp-Perl.
+Distributed under the same terms as Gimp-Perl.
 
 =cut

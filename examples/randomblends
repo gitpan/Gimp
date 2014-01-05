@@ -1,4 +1,4 @@
-#!/opt/bin/perl
+#!/usr/bin/perl
 
 # <sjburges@gimp.org>
 # This is adrian's idea - take random blends and difference them.  You're
@@ -67,6 +67,6 @@ exit main;
 =head1 LICENSE
 
 Copyright Seth Burgess.  
-Distrubuted under the same terms as Gimp-Perl.
+Distributed under the same terms as Gimp-Perl.
 
 =cut

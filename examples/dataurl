@@ -1,6 +1,6 @@
-#!/opt/bin/perl
+#!/usr/bin/perl
 
-eval 'exec /opt/bin/perl  -S $0 ${1+"$@"}'
+eval 'exec /usr/bin/perl  -S $0 ${1+"$@"}'
     if 0; # not running under some shell
 # pcg@goof.com
 # this is not totally serious...
@@ -288,6 +288,6 @@ Tommer> Pull out your red+blue 3D glasses and go to: http://www.aceldama.com/~to
 =head1 LICENSE
 
 Copyright Marc Lehman.
-Distrubuted under the same terms as Gimp-Perl.
+Distributed under the same terms as Gimp-Perl.
 
 =cut

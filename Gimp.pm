@@ -10,7 +10,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD %EXPORT_TAGS @EXPORT_FAIL
 use subs qw(init end lock unlock canonicalize_color);
 
 BEGIN {
-   $VERSION = 2.0;
+   $VERSION = 2.3;
    eval {
       require XSLoader;
       XSLoader::load Gimp $VERSION;
@@ -296,8 +296,8 @@ sub canonicalize_colour {
       return [@loc_col];
    } elsif  
    ($_[0] =~ /^#([0-9a-fA-F]{2,2})([0-9a-fA-F]{2,2})([0-9a-fA-F]{2,2})$/) {
-    # convert hex specfier of #xxyyzz  
-     [map {eval "0x$_"} ($1/255.0,$2/255.0,$3/255.0)];
+    # convert hex specfier of #xxyyzz
+    return [ map { eval "0x$_/255.0" } ($1, $2, $3) ];
    } else {
       unless (%rgb_db) {
          if ($rgb_db_path) {

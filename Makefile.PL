@@ -14,7 +14,7 @@ if ($ARGV[0] ne "--writemakefile") {
    }
    
    # run the config.pl to setup enviornment
-   do './config.pl';
+   do './config.pl' or die $@;
    
    # Set it up to do lots of tests
    $EXTENSIVE_TESTS = 1;
@@ -217,8 +217,8 @@ print "writing Gimp/Config.pm... ";
 }
 print "ok\n";
 
-@EXE_FILES = qw(gimpdoc xcftopnm embedxpm);
-push @EXE_FILES, qw(scm2perl) if $PRD;
+@EXE_FILES = qw(utils/gimpdoc utils/xcftopnm utils/embedxpm);
+push @EXE_FILES, qw(utils/scm2perl) if $PRD;
 
 WriteMakefile(
     'dist'	=> {
@@ -246,7 +246,7 @@ WriteMakefile(
     		    'Gimp/Config.pm'	=> '$(INST_LIBDIR)/Gimp/Config.pm',
     		   },
     'LDFROM'	=> expand("\$(OBJECT) $LIBS $INTLLIBS"),
-    'INC'	=> "$INC1 $GIMP_INC_NOUI $CPPFLAGS $CFLAGS",
+    'INC'	=> "$INC1 $GIMP_INC_NOUI $GTK_CFLAGS $CPPFLAGS $CFLAGS",
     'DEFINE'	=> "$DEFINE1 $DEFS",
     'EXE_FILES'	=> \@EXE_FILES,
     'macro'	=> \%cfg,
@@ -281,6 +281,3 @@ EOF
    close MAKEFILE;
    exit;
 }
-
-
-
