@@ -10,7 +10,7 @@ eval 'exec /usr/bin/perl  -S $0 ${1+"$@"}'
 use Gimp;
 use Gimp::Fu;
 use Gimp::Util;
- 
+
 register "guide_to_selection",
          "Puts a selection mask around the guides",
          "Selects the area under the guides (1px wide)",
@@ -26,30 +26,33 @@ register "guide_to_selection",
           [PF_SPINNER,	"feather_radius","Radius for feather operation",	1, [0, 1000, 1e0]],
          ],
          [],
-         ['gimp-1.1'],
          sub {
     my($img, $drawable, $operation, $feather, $radius) = @_;
     my($W,$H) = ($img->width, $img->height);
+    Gimp::Context->push;
+    Gimp::Context->set_feather($feather);
+    Gimp::Context->set_feather_radius($radius, $radius);
 
     $i = $img->find_next_guide(0);
     while ($i) {
       my ($x,$y,$w,$h);
       $x = $img->get_guide_position($i);
       if ($img->get_guide_orientation($i) == ORIENTATION_HORIZONTAL) {
-         ($x,$y,$w,$h) = (0,$x-$width,$W,1);
+         ($x,$y,$w,$h) = (0,$x-$w,$W,1);
       } else {
          ($x,$y,$w,$h) = ($x,0,1,$H);
       }
-      $img->rect_select($x,$y,$w,$h,$operation,$feather,$radius);
+      $img->select_rectangle($operation,$x,$y,$w,$h);
       $operation = CHANNEL_OP_ADD if $operation == CHANNEL_OP_REPLACE;
-      
+
       $i = $img->find_next_guide($i);
-    }         
+    }
+    Gimp::Context->pop;
 
     ();
 };
 
-exit main;                                        
+exit main;
 
 =head1 LICENSE
 

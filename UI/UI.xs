@@ -1,8 +1,5 @@
 #include "config.h"
 
-/* dunno where this comes from */
-#undef VOIDUSED
-
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
@@ -20,7 +17,104 @@
 #include <libgimp/gimpexport.h>
 #endif
 
-#include "extra.c"
+#include <glib-object.h>
+
+#include <gtk2perl-autogen.h>
+
+/* need to factor these out, otherwise we always need gtk :( */
+#include <libgimpwidgets/gimpwidgets.h>
+#include <libgimpbase/gimpbasetypes.h>
+
+#include "gimp-perl.h"
+
+static void
+sv_color3 (SV *sv, gdouble *e, gdouble *f, gdouble *g, gdouble *a)
+{
+  if (!SvROK (sv)
+      || SvTYPE (SvRV (sv)) != SVt_PVAV
+      || av_len ((AV *)SvRV (sv)) < 2
+      || av_len ((AV *)SvRV (sv)) > 3)
+    croak ("GimpRGB/HSV/HLS must be specified as an arrayref with length three or four");
+
+  *e = SvNV (*av_fetch ((AV *)SvRV (sv), 0, 1));
+  *f = SvNV (*av_fetch ((AV *)SvRV (sv), 1, 1));
+  *g = SvNV (*av_fetch ((AV *)SvRV (sv), 2, 1));
+  *a = av_len ((AV *)SvRV (sv)) < 3
+             ? 1.
+             : SvNV (*av_fetch ((AV *)SvRV (sv), 3, 1));
+}
+
+static SV *
+newSV_color3 (gdouble e, gdouble f, gdouble g, gdouble a)
+{
+  AV *av = newAV ();
+
+  av_push (av, newSVnv (e));
+  av_push (av, newSVnv (f));
+  av_push (av, newSVnv (g));
+  av_push (av, newSVnv (a));
+
+  return newRV_noinc ((SV *)av);
+}
+
+#define ENUM(name)          \
+  static GType t_ ## name;      \
+  static GType name ## _type (void) \
+  {                 \
+    if (!t_ ## name)            \
+      t_ ## name = g_enum_register_static (# name, _ ## name ## _values);   \
+    return t_ ## name;          \
+  }
+
+static const GEnumValue _gimp_unit_values[] = {
+  { GIMP_UNIT_PIXEL, "GIMP_UNIT_PIXEL", "pixel" },
+  { GIMP_UNIT_INCH, "GIMP_UNIT_INCH", "inch" },
+  { GIMP_UNIT_MM, "GIMP_UNIT_MM", "mm" },
+  { GIMP_UNIT_POINT, "GIMP_UNIT_POINT", "point" },
+  { GIMP_UNIT_PICA, "GIMP_UNIT_PICA", "pica" },
+  { GIMP_UNIT_END, "GIMP_UNIT_END", "end" },
+  { 0, NULL, NULL }
+};
+ENUM(gimp_unit)
+static const GEnumValue _gimp_chain_position_values[] = {
+  { GIMP_CHAIN_TOP, "GIMP_CHAIN_TOP", "top" },
+  { GIMP_CHAIN_LEFT, "GIMP_CHAIN_LEFT", "left" },
+  { GIMP_CHAIN_BOTTOM, "GIMP_CHAIN_BOTTOM", "bottom" },
+  { GIMP_CHAIN_RIGHT, "GIMP_CHAIN_RIGHT", "right" },
+  { 0, NULL, NULL }
+};
+ENUM(gimp_chain_position)
+static const GEnumValue _gimp_color_area_type_values[] = {
+  { GIMP_COLOR_AREA_FLAT, "GIMP_COLOR_AREA_FLAT", "flat" },
+  { GIMP_COLOR_AREA_SMALL_CHECKS, "GIMP_COLOR_AREA_SMALL_CHECKS", "small-checks" },
+  { GIMP_COLOR_AREA_LARGE_CHECKS, "GIMP_COLOR_AREA_LARGE_CHECKS", "large-checks" },
+  { 0, NULL, NULL }
+};
+ENUM(gimp_color_area_type)
+static const GEnumValue _gimp_color_selector_channel_values[] = {
+  { GIMP_COLOR_SELECTOR_HUE, "GIMP_COLOR_SELECTOR_HUE", "hue" },
+  { GIMP_COLOR_SELECTOR_SATURATION, "GIMP_COLOR_SELECTOR_SATURATION", "saturation" },
+  { GIMP_COLOR_SELECTOR_VALUE, "GIMP_COLOR_SELECTOR_VALUE", "value" },
+  { GIMP_COLOR_SELECTOR_RED, "GIMP_COLOR_SELECTOR_RED", "red" },
+  { GIMP_COLOR_SELECTOR_GREEN, "GIMP_COLOR_SELECTOR_GREEN", "green" },
+  { GIMP_COLOR_SELECTOR_BLUE, "GIMP_COLOR_SELECTOR_BLUE", "blue" },
+  { GIMP_COLOR_SELECTOR_ALPHA, "GIMP_COLOR_SELECTOR_ALPHA", "alpha" },
+  { 0, NULL, NULL }
+};
+ENUM(gimp_color_selector_channel)
+static const GEnumValue _gimp_size_entry_update_policy_values[] = {
+  { GIMP_SIZE_ENTRY_UPDATE_NONE, "GIMP_SIZE_ENTRY_UPDATE_NONE", "none" },
+  { GIMP_SIZE_ENTRY_UPDATE_SIZE, "GIMP_SIZE_ENTRY_UPDATE_SIZE", "size" },
+  { GIMP_SIZE_ENTRY_UPDATE_RESOLUTION, "GIMP_SIZE_ENTRY_UPDATE_RESOLUTION", "resolution" },
+  { 0, NULL, NULL }
+};
+ENUM(gimp_size_entry_update_policy)
+
+#define SvGimpRGB(sv, color) sv_color3 ((sv), &(color).r, &(color).g, &(color).b, &(color).a)
+#define SvGimpHSV(sv, color) sv_color3 ((sv), &(color).h, &(color).s, &(color).v, &(color).a)
+
+#define newSVGimpRGB(color) newSV_color3 ((color).r, (color).g, (color).b, (color).a)
+#define newSVGimpHSV(color) newSV_color3 ((color).h, (color).s, (color).v, (color).a)
 
 typedef GtkWidget GimpMemsizeEntry_own;
 typedef GtkWidget GimpButton_own;
@@ -34,6 +128,7 @@ typedef GtkWidget GimpColorSelect_own;
 typedef GtkWidget GimpColorSelector_own;
 typedef GtkWidget GimpDialog_own;
 typedef GtkWidget GimpFileEntry_own;
+typedef GtkWidget GimpFontSelectButton_own;
 typedef GtkWidget GimpOffsetArea_own;
 typedef GtkWidget GimpPathEditor_own;
 typedef GtkWidget GimpPickButton_own;
@@ -52,7 +147,7 @@ export_image(image_ID, drawable_ID, format_name, capabilities)
         gchar *	format_name
         gint	capabilities
         PREINIT:
-          gint32 image;       
+          gint32 image;
           gint32 drawable;
         CODE:
           image = SvIV (SvRV (image_ID));
@@ -181,7 +276,7 @@ GimpColorScale_own * gimp_color_scale_new (SV *unused_class, GtkOrientation orie
 	C_ARGS: orientation, channel
 
 void gimp_color_scale_set_channel (GimpColorScale *scale, GimpColorSelectorChannel channel)
-  
+
 void gimp_color_scale_set_color (GimpColorScale *scale, GimpRGB &rgb, GimpHSV &hsv)
 
 MODULE = Gimp::UI	PACKAGE = Gimp::UI::ColorSelect	PREFIX = gimp_color_select_
@@ -282,6 +377,18 @@ utf8_str gimp_file_entry_get_filename (GimpFileEntry *entry)
 
 void gimp_file_entry_set_filename (GimpFileEntry *entry, utf8_str filename)
 
+MODULE = Gimp::UI	PACKAGE = Gimp::UI::FontSelectButton	PREFIX = gimp_font_select_button_
+
+BOOT:
+	gperl_register_object (GIMP_TYPE_FONT_SELECT_BUTTON, "Gimp::UI::FontSelectButton");
+
+GimpFontSelectButton_own * gimp_font_select_button_new (SV *unused_class, utf8_str title, utf8_str font_name)
+	C_ARGS: title, font_name
+
+utf8_str_const gimp_font_select_button_get_font (GimpFontSelectButton *button)
+
+void gimp_font_select_button_set_font (GimpFontSelectButton *button, utf8_str font_name)
+
 MODULE = Gimp::UI	PACKAGE = Gimp::UI::OffsetArea	PREFIX = gimp_offset_area_
 
 BOOT:
@@ -365,7 +472,7 @@ void gimp_size_entry_set_unit (GimpSizeEntry *gse, GimpUnit unit)
 
 void gimp_size_entry_grab_focus (GimpSizeEntry *gse)
 
-MODULE = Gimp::UI	PACKAGE = Gimp::UI::Stock 	PREFIX = gimp_stock_
+MODULE = Gimp::UI	PACKAGE = Gimp::UI::Stock	PREFIX = gimp_stock_
 
 BOOT:
 	gimp_stock_init();

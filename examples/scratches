@@ -13,10 +13,10 @@ sub new_scratchlayer {
     my $type = $image->layertype(0);
     my $layer = $image->layer_new ($drawable->width, $drawable->height, $image->layertype(0),
                                   "displace layer ($angle)", 100, NORMAL_MODE);
-    $layer->add_layer(-1);
+    $layer->insert_layer(0, -1);
     $layer->fill (WHITE_FILL);
     $layer->noisify (0, 1, 1, 1, 0);
-    $layer->mblur (0, $length, $angle, 0, 0, 0);
+    $layer->mblur (0, $length, $angle, 0, 0);
     $layer->levels (HISTOGRAM_VALUE, 120, 255, 0.3, 0, 255);
 
     $layer;
@@ -37,8 +37,6 @@ register "scratches",
           [PF_SPINNER	, "smoothness"	, "The scratch smoothness"	,  15, [  0, 400]],
           [PF_SPINNER	, "length"	, "The scratch length"		,  10, [  0, 400]],
          ],
-         [],
-         ['gimp-1.1'],
          sub {
    my ($image,$drawable,$anglex,$angley,$gamma,$length,$width) = @_;
 
@@ -50,7 +48,7 @@ register "scratches",
    my $layer2 = new_scratchlayer ($image, $drawable, $length, $gamma, $angley);
 
    # Verschmiere das Bild.
-   $drawable->displace ($width, $width, 1, 1, $layer1, $layer2, WRAP);
+   $drawable->displace ($width, $width, 1, 1, $layer1, $layer2, 1);
 
    # die beiden Ebenen werden nicht länger benötigt.
    $layer1->remove_layer;
@@ -58,7 +56,7 @@ register "scratches",
 
    $image->undo_group_end;
 
-   $image;
+   ();
 };
 
 exit main;

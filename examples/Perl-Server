@@ -1,0 +1,33 @@
+#!/usr/bin/perl
+
+use strict;
+#BEGIN { $Gimp::verbose = 1; }
+use Gimp qw(__ N_);
+use Gimp::Net ();
+
+N_"/Xtns/Perl"; # workaround for i18n weirdnesses
+
+Gimp::set_trace(\$Gimp::Net::trace_res);
+Gimp::ignore_functions(qw(gimp_progress_init gimp_progress_update));
+
+Gimp::on_run \&Gimp::Net::perl_server_run;
+Gimp::on_quit \&Gimp::Net::perl_server_quit;
+
+Gimp::on_query {
+   Gimp->install_procedure(
+      $Gimp::Net::PERLSERVERPROC, "Gimp-Perl scripts net server",
+      "Allow scripting GIMP with Perl providing Gimp::Net server",
+      "Marc Lehmann <pcg\@goof.com>", "Marc Lehmann", "1999-12-02",
+      N_"<Image>/Filters/Languages/_Perl/_Server", undef,
+      $Gimp::Net::PERLSERVERTYPE,
+      [
+       [&Gimp::PDB_INT32, "run_mode", "Interactive, [non-interactive]"],
+       [&Gimp::PDB_INT32, "flags", "internal flags (must be 0)"],
+       [&Gimp::PDB_INT32, "extra", "multi-purpose"],
+       [&Gimp::PDB_INT32, "verbose", "Gimp verbose var"],
+      ],
+      [],
+   );
+};
+
+exit Gimp::main;

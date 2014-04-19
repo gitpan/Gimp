@@ -36,19 +36,19 @@ register	"repdup",
 		for ($i = 0; $i < $repeats; $i++) {
 			$b[1] = $b[1] + $xoffset;
 			$b[2] = $b[2] + $yoffset;
-			gimp_rect_select($img, $b[1], $b[2], $w, $h, CHANNEL_OP_REPLACE, 0, 0);
+			$img->select_rectangle(CHANNEL_OP_REPLACE, $b[1], $b[2], $w, $h);
 			$bit_bucket = gimp_edit_paste($layer, 0);
 			gimp_floating_sel_anchor($bit_bucket);
 			gimp_selection_none($img);
 		}
 		eval { $img->undo_group_end };
-		return $img;
+		return;
 	};
 exit main;
 
 =head1 LICENSE
 
 Copyright Claes G. Lindblad.
-Distributed under the terms of the GNU Public License, v2 or higher. 
+Distributed under the terms of the GNU Public License, v2 or higher.
 
 =cut

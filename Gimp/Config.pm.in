@@ -1,24 +1,20 @@
 package Gimp::Config;
 
-=cut
-
 =head1 NAME
 
   Gimp::Config - config options found during configure time.
 
 =head1 DESCRIPTION
 
-The Gimp::Config module creates a tied hash %Gimp::Config which contains
-all the definitions the configure script and perl deduced from the system
-configuration at configure time. You can access these values just like you
-access any other values, i.e.  C<$Gimp::Config{KEY}>. Some important keys are:
+The Gimp::Config module creates a hash %Gimp::Config which contains
+all the definitions found by the configuration process.  You can
+access these values just like you access any other values, i.e.
+C<$Gimp::Config{KEY}>. Some important keys are:
 
   IN_GIMP	=> true when gimp-perl was part of the Gimp distribution.
   GIMP		=> the path of the gimp executable
-  prefix	=> the installation prefix
-  libdir	=> the gimp systemwide libdir
-  bindir	=> paths where gimp binaries are installed
-  gimpplugindir	=> the gimp plug-in directory (without the /plug-ins-suffix)
+  GIMPTOOL	=> the path of the gimptool executable
+  gimpplugindir	=> the actual gimp plug-in directory
 
 =head1 SEE ALSO
 
@@ -26,20 +22,5 @@ L<Gimp>.
 
 =cut
 
-sub TIEHASH {
-   my $pkg = shift;
-   my $self;
-
-   bless \$self, $pkg;
-}
-
-sub FETCH {
-   $cfg{$_[1]};
-}
-
-tie %Gimp::Config, 'Gimp::Config';
-
-%cfg = (
-#CFG#);
-
+#CFG#
 1;

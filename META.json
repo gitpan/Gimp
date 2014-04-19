@@ -33,11 +33,13 @@
       "runtime" : {
          "requires" : {
             "Data::Dumper" : "2",
+            "ExtUtils::Depends" : "0",
             "Gtk2" : "1",
-            "PDL" : "0"
+            "IO::All" : "0",
+            "PDL" : "2"
          }
       }
    },
    "release_status" : "stable",
-   "version" : "2.3"
+   "version" : "2.300001"
 }

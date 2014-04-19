@@ -22,7 +22,7 @@ To only insert the xpm data, use this form:
  #%XPM%<what to attach to the end of the data>
 
 Here is an example (taken from the Gimp/PDB program):
- 
+
  C<# create the logo pixmap for the given widget
  sub create_logo($) {
     new Gtk::Pixmap(Gtk::Gdk::Pixmap->create_from_xpm_d(
@@ -56,7 +56,7 @@ Marc Lehmann <pcg@goof.com>
 
 use File::Slurp;
 
-$VERSION=1.0002;
+$VERSION = 1.0002;
 
 if (@ARGV != 3) {
    die "Usage: $0 xpm_file perl_source picture_name\n";
@@ -108,6 +108,3 @@ $patch=~s/^(\s*)(#%XPM:$id%\n).*?(^\s*#%XPM%)(.*?)$/"$1$2".stringify($1,@xpm)."$
 write_file("$file~",$patch);
 chmod((stat($file))[2],"$file~") or die;
 rename "$file~",$file or die;
-
-
-

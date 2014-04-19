@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 
-use Gimp::Feature 'pdl';
-use Gimp 1.1;
+use Gimp;
 use Gimp::Fu;
 use PDL::LiteF;
 
@@ -21,7 +20,7 @@ register "map_to_gradient",
          "Marc Lehmann <pcg\@goof.com>",
          "19990802",
          N_"<Image>/Filters/Colors/Map/Map To Gradient...",
-         "RGB*, GRAY",	
+         "RGB*, GRAY",
          [
           [PF_GRADIENT,	"gradient",	"The gradient to map to"],
          ],
@@ -39,13 +38,13 @@ register "map_to_gradient",
    $grad = $grad->slice('0:-2') unless $alpha;
    $grad = togrey($grad)->dummy(0) unless $drawable->is_rgb;
 
-   my $depth = ($grad->dims)[0]; # precalculcate
+   my $depth = ($grad->dims)[0]; # precalculate
    $grad = $grad->xchg(0,1); # this form is later needed in index, so do it now
 
    my @bounds = $drawable->bounds;
    {
-      my $src = new PixelRgn ($drawable,@bounds,0,0);
-      my $dst = new PixelRgn ($drawable,@bounds,1,1);
+      my $src = new Gimp::PixelRgn ($drawable,@bounds,0,0);
+      my $dst = new Gimp::PixelRgn ($drawable,@bounds,1,1);
 
       my $iter = Gimp->pixel_rgns_register($src,$dst);
       my $area = $bounds[2]*$bounds[3];

@@ -38,19 +38,18 @@ register "guide_grid",
    [PF_TOGGLE, "remove_old_guides", "Remove existing guides?", 0],
   ],
   [],
-  ['gimp-1.1'],
   sub {
     my($img,$layer,$xspace, $yspace, $xoffset, $yoffset, $remove_old_guides) =@_;
 
     #
     # Remove all existing guides (this is optional)
-    #    
+    #
     if($remove_old_guides) {
       $i=$img->find_next_guide(0);
       while ($i != 0) {
         $img->delete_guide($i);
         $i=$img->find_next_guide(0);
-      }         
+      }
     }
 
     #
@@ -61,7 +60,7 @@ register "guide_grid",
 	$img->add_vguide($i);
       }
     }
-    
+
     #
     # Add horizontal guides to the image
     #
@@ -70,9 +69,9 @@ register "guide_grid",
 	$img->add_hguide($i);
       }
     }
-    
-    # 
-    # I fixed this in Gimp C code (it wasn't flushing guides properly) 
+
+    #
+    # I fixed this in Gimp C code (it wasn't flushing guides properly)
     # Seth Burgess <sjburges@gimp.org>
     #
 
@@ -91,7 +90,7 @@ exit main;
 
 =head1 LICENSE
 
-Copyright Seth Burgess.  
+Copyright Seth Burgess.
 Distributed under the same terms as Gimp-Perl.
 
 =cut

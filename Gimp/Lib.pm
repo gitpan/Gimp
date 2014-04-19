@@ -4,14 +4,15 @@ use strict;
 use vars qw($VERSION @ISA);
 
 BEGIN {
-   $VERSION = 2.3;
+   $VERSION = 2.3000_01;
    require XSLoader;
    XSLoader::load Gimp::Lib $VERSION;
+   warn "$$-Loading ".__PACKAGE__ if $Gimp::verbose;
 }
 
 use subs qw(
 	gimp_call_procedure		gimp_main	gimp_init
-	_gimp_procedure_available	set_trace	gimp_end
+	gimp_procedural_db_proc_exists	set_trace	gimp_end
         initialized
 );
 
@@ -20,7 +21,7 @@ sub gimp_init {
 }
 
 sub gimp_end {
-   Gimp::croak Gimp::_("gimp_end not implemented for in the Lib interface");
+   Gimp::croak Gimp::_("gimp_end not implemented for the Lib interface");
 }
 
 sub lock {
@@ -60,8 +61,8 @@ sub _gimp_append_data($$) {
    gimp_set_data ($_[0], gimp_get_data ($_[0]) . $_[1]);
 }
 
-# convinience functions
-sub gimp_drawable_pixel_rgn($$$$$$) {
+# convenience functions
+sub gimp_gdrawable_pixel_rgn($$$$$$$) {
    Gimp::gimp_pixel_rgn_init(@_);
 }
 
@@ -79,6 +80,8 @@ sub gimp_drawable_bounds {
    (@b[0,1],$b[2]-$b[0],$b[3]-$b[1]);
 }
 
+warn "$$-Finished loading ".__PACKAGE__ if $Gimp::verbose;
+
 1;
 __END__
 
@@ -92,8 +95,8 @@ Gimp::Lib - Interface to libgimp (as opposed to Gimp::Net)
 
 =head1 DESCRIPTION
 
-This is the package that interfaces to The Gimp via the libgimp interface,
-i.e. the normal interface to use with the Gimp. You don't normally use this
+This is the package that interfaces to GIMP via the libgimp interface,
+i.e. the normal interface to use with GIMP. You don't normally use this
 module directly, look at the documentation for the package "Gimp".
 
 =head1 AUTHOR

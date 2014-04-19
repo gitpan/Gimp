@@ -22,36 +22,10 @@
 
 #include "../perl-intl.h"
 
-#if HAVE_PDL
-
-# include <pdlcore.h>
-
-#if 0
-/* hack, undocumented, argh! */
-static Core* PDL; /* Structure hold core C functions */
-
-/* get pointer to PDL structure. */
-static void need_pdl (void)
-{
-  SV *CoreSV;
-
-  if (!PDL)
-    {
-      /* Get pointer to structure of core shared C routines */
-      if (!(CoreSV = perl_get_sv("PDL::SHARE",FALSE)))
-        Perl_croak(__("gimp-perl-pixel functions require the PDL::Core module"));
-
-      PDL = (Core*) SvIV(CoreSV);
-    }
-}
-#endif
-
-#endif
-
 #define is_dynamic(sv)				\
 	(strEQ ((sv), "Gimp::Tile")		\
          || strEQ ((sv), "Gimp::PixelRgn")	\
-         || strEQ ((sv), "Gimp::GDrawable"))
+         || strEQ ((sv), "Gimp::GimpDrawable"))
 
 static HV *object_cache;
 static int object_id = 100;
@@ -60,18 +34,13 @@ static int object_id = 100;
 
 static void destroy_object (SV *sv)
 {
-  if (object_cache && sv_isobject (sv))
-    {
-      if (is_dynamic (HvNAME(SvSTASH(SvRV(sv)))))
-        {
-          int id = SvIV(SvRV(sv));
-          hv_delete (object_cache, (char *)&id, sizeof(id), G_DISCARD);
-        }
-      else
-        croak ("Internal error: Gimp::Net #101, please report!");
-    }
-  else
-    croak ("Internal error: Gimp::Net #100, please report!");
+  if (!(object_cache && sv_isobject (sv)))
+    croak (__("Internal error: Gimp::Net #100, please report!"));
+  char *name = HvNAME(SvSTASH(SvRV(sv)));
+  if (!is_dynamic (name))
+    croak (__("Internal error: Gimp::Net #101, please report!"));
+  int id = SvIV(SvRV(sv));
+  (void)hv_delete (object_cache, (char *)&id, sizeof(id), G_DISCARD);
 }
 
 /* allocate this much as initial length */
@@ -104,19 +73,19 @@ static void sv2net (int deobjectify, SV *s, SV *sv)
         {
           char *name = HvNAME (SvSTASH (rv));
 
-          sv_catpvf (s, "b%x:%s", strlen (name), name);
+          sv_catpvf (s, "b%x:%s", (unsigned int)strlen (name), name);
 
           if (deobjectify && is_dynamic (name))
             {
               object_id++;
 
               SvREFCNT_inc(sv);
-              hv_store (object_cache, (char *)&object_id, sizeof(object_id), sv, 0);
-              
+              (void)hv_store (object_cache, (char *)&object_id, sizeof(object_id), sv, 0);
+
               sv_catpvf (s, "i%d:", object_id);
               return; /* well... */
             }
-        } 
+        }
       else
         sv_catpvn (s, "r", 1);
 
@@ -183,7 +152,7 @@ static SV *net2sv (int objectify, char **_s)
       case 'r':
         sv = newRV_noinc (net2sv (objectify, &s));
         break;
-        
+
       case 'b':
         sscanf (s, "%x:%n", &ui, &n); s += n;
         if (ui >= sizeof str)
@@ -253,7 +222,7 @@ args2net(deobjectify,...)
 
 void
 net2args(objectify,s)
-  	int	objectify
+	int	objectify
 	char *	s
         PPCODE:
 
