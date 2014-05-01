@@ -2,10 +2,7 @@
 abstract: unknown
 author:
   - unknown
-build_requires:
-  ExtUtils::MakeMaker: 0
-configure_requires:
-  ExtUtils::MakeMaker: 0
+build_requires: {}
 dynamic_config: 0
 generated_by: 'ExtUtils::MakeMaker version 6.66, CPAN::Meta::Converter version 2.120921'
 license: unknown
@@ -17,10 +14,6 @@ no_index:
   directory:
     - t
     - inc
-requires:
-  Data::Dumper: 2
-  ExtUtils::Depends: 0
-  Gtk2: 1
-  IO::All: 0
-  PDL: 2
-version: 2.300001
+resources:
+  repository: git://git.gnome.org/gimp-perl
+version: 2.3002

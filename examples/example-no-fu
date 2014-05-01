@@ -1,12 +1,27 @@
 #!/usr/bin/perl -w
 
 use Gimp;
-use Gimp::Fu;
-use strict;
+
+use strict 'vars';
+
+# Gimp::set_trace(TRACE_ALL);
+
+# 2014/04/20 Ed J: bit of a stir, still same really
+# 12/5/03: <sjburges@gimp.org>
+#  s/->mask/->get_mask
+# 3/21/04: <sjburges@gimp.org>
+#  s/AlphaFade/alpha_fade/ to be compatible with PDB naming conventions
+
+###
+# Globals
+###
+my ($direction, $proceedFlag);
+my ($plugin) = "plug_in_alpha_fade";
 
 # XPM's that I removed the $ and the @'s from (they get interpreted in
 # strings, which makes for nasty problems).
-our @arr = (
+
+my @arr = (
 ["24 24 66 1",
 " 	c None",
 ".	c #A0A0A0",
@@ -770,20 +785,30 @@ our @arr = (
 
 sub avg { ($_[0] + $_[1]) / 2 }
 
-podregister {
-  die "Can only operate on layers\n" unless $drawable->is_layer;
+sub do_fade {
+  my ($image, $drawable) = @_;
+
+  die <<EOF unless $drawable->is_layer;
+$plugin: Can only operate on layers. Check that you don't have a channel
+or floating selection currently selected.
+EOF
   $drawable->become('Gimp::Layer');
+
   $image->undo_group_start;
   my @bounds = $image->selection_bounds;
+
   $drawable->add_alpha unless $drawable->has_alpha;
+
   my $mask;
   unless ($mask = $drawable->get_mask) {
     $mask = $drawable->create_mask(ADD_ALPHA_MASK);
     $drawable->add_mask($mask);
   }
+
   Gimp::Context->push;
   Gimp::Context->set_background([0.0,0.0,0.0,1.0]);
   Gimp::Context->set_foreground([1.0,1.0,1.0,1.0]);
+
   # Direction Map
   # 0 3 6
   # 1 4 7
@@ -816,79 +841,144 @@ podregister {
   );
   $mask->edit_blend(@blend_args, $dir2argfunc{$direction}->(@bounds));
   $drawable->remove_mask(MASK_APPLY) if $direction >=0 && $direction <9;
+
   Gimp::Context->pop;
   $image->undo_group_end;
+}
+
+sub add_pixmap {
+  my ($window, $but, $num) = @_;
+  my ($pixmap, $mask) = Gtk2::Gdk::Pixmap->colormap_create_from_xpm_d(undef,
+                        $but->get_colormap,
+                        $but->style->bg('normal'),
+			@{$arr[$num]});
+  my ($pixmapId) = new_from_pixmap Gtk2::Image($pixmap, $mask);
+  $pixmapId->show;
+  $but->add($pixmapId);
+}
+
+sub create_window {
+  my $window = new Gtk2::Window('toplevel');
+  $window->set_name("Alpha Fader");
+  $window->set_wmclass("Gimp", "AlphaFader");
+
+  $window->signal_connect("destroy" => \&Gtk2::main_quit);
+  $window->signal_connect("delete_event" => \&Gtk2::false);
+
+  my $box1 = new Gtk2::VBox(0, 0);
+  $box1->set_spacing(2);
+  $window->add($box1);
+
+  my $frm = new Gtk2::Frame "Fade Type";
+  $frm->set_border_width(6);
+  $frm->show;
+
+  $box1->pack_start($frm, 1, 1, 0);
+  my $btnTable = new Gtk2::Table(3,3,1);
+  $btnTable->set_border_width(6);
+  $frm->add($btnTable);
+
+  my $btn = new Gtk2::RadioButton;
+
+  for (my $i=0;$i<3;$i++) {
+    for (my $j=0;$j<3;$j++) {
+      $btn = Gtk2::RadioButton->new_from_widget($btn);
+      $btn->set_mode(0);
+      $btn->signal_connect("clicked", sub { $direction = $_[1]; }, $i*3+$j);
+      $btn->show;
+      $btnTable->attach_defaults($btn, $i, $i+1, $j, $j+1);
+      add_pixmap($window, $btn, $i*3+$j);
+      if (Gimp->get_data($plugin) ne "") {
+	# if run before, get last data
+	$btn->clicked if Gimp->get_data($plugin) == $i*3+$j;
+      } else {
+	# first run of plug-in, set first button
+	$btn->clicked if $i==0 && $j==0;
+      }
+    }
+  }
+
+  my $hsep = new Gtk2::HSeparator;
+  $box1->pack_start($hsep, 0, 0, 0);
+  $hsep->show;
+
+  my $hbox = new Gtk2::HButtonBox;
+  $hbox->set_border_width(2);
+  $hbox->set_spacing(4);
+  $box1->pack_start($hbox, 0, 0, 0);
+  $hbox->show;
+
+  $btn = Gtk2::Button->new_from_stock('gtk-ok');
+  addbutton($btn, sub { $proceedFlag = 1; Gtk2->main_quit; }, $hbox);
+  $btn->grab_default;
+
+  $btn = Gtk2::Button->new_from_stock('gtk-cancel');
+  addbutton($btn, \&Gtk2::main_quit, $hbox);
+
+  $btnTable->show;
+  $box1->show;
+  $window->show;
+}
+
+sub addbutton {
+  my ($btn, $click, $hbox) = @_;
+  $btn->can_default(1);
+  $btn->signal_connect("clicked" => $click);
+  $btn->show;
+  $hbox->pack_start($btn, 0, 0, 0);
+}
+
+Gimp::on_run {
+  (my ($interactive, $img, $drw), $direction) = @_;
+
+  $proceedFlag = 1;
+  if ($interactive == 2) {
+    $direction = Gimp->get_data($plugin);
+  } elsif ($interactive != 1) {
+    $proceedFlag = 0;
+    Gimp::gtk_init;
+    create_window;
+    Gtk2->main;
+  }
+
+  # Do the gimply stuff on it
+  if ($proceedFlag) {
+    do_fade($img, $drw);
+    Gimp->displays_flush;
+    Gimp->set_data($plugin, $direction);
+  }
+  ();
 };
 
-exit main;
-__END__
+Gimp::on_query {
+  Gimp->install_procedure(
+    $plugin,
+    "Fade the alpha channel of a layer from one side to another",
+    <<EOF,
+This was written as a slightly useful exercise, mostly to learn Gtk's
+excellent perl interface. It was inspired by a mailing list question
+that asked how to do exactly what this does, which is fade the alpha
+from one side to another.
+EOF
+    "Seth Burgess",
+    "Seth Burgess",
+    "2000",
+    "<Image>/Layer/Transparency/Fade...",
+    "*",
+    PLUGIN,
+    [
+     [PDB_INT32, "run_mode", "Interactive, [non-interactive"],
+     [PDB_IMAGE, "image", "Input image (unused)"],
+     [PDB_DRAWABLE, "drawable", "Input drawable"],
+     [PDB_INT32, "direction", "Direction to fade(0-8)"]
+    ],
+    []
+  );
+};
 
-=head1 NAME
-
-alpha_fade - Fade the alpha channel of a layer from one side to another
-
-=head1 SYNOPSIS
-
-<Image>/Layer/Transparency/_Fade...
-
-=head1 DESCRIPTION
-
-Inspired by a mailing list question that asked how to do exactly what this
-does, which is fade the alpha from one side to another. Original by Seth
-Burgess, rewritten by Ed J to use Gimp::Fu as demo of PF_CUSTOM widget.
-
-=head1 PARAMETERS
-
-  [PF_CUSTOM, "direction", "Direction to fade(0-8)", 4, sub {
-     my $btnTable = new Gtk2::Table(3,3,1);
-     $btnTable->set_border_width(6);
-     my $btn = new Gtk2::RadioButton;
-     my ($u_direction, @buttons);
-     for (my $x=0;$x<3;$x++) {
-       for (my $y=0;$y<3;$y++) {
-	 my $dir = $x*3 + $y;
-	 $buttons[$dir] = $btn = Gtk2::RadioButton->new_from_widget($btn);
-	 $btn->set_mode(0);
-	 $btn->signal_connect("clicked", sub { $u_direction = $_[1]; }, $dir);
-	 $btn->show;
-	 $btnTable->attach_defaults($btn, $x, $x+1, $y, $y+1);
-	 my $pixmap = Gtk2::Image->new_from_pixmap(
-	   Gtk2::Gdk::Pixmap->colormap_create_from_xpm_d(
-	     undef, $btn->get_colormap,
-	     $btn->style->bg('normal'), @{$::arr[$dir]}
-	   )
-	 );
-	 $pixmap->show;
-	 $btn->add($pixmap);
-       }
-     }
-     $btnTable->show;
-     ($btnTable, sub { $buttons[$_[0]]->clicked }, sub { $u_direction });
-  },
-  ]
-
-=head1 IMAGE TYPES
-
-*
-
-=head1 HISTORY
-
-  2014/04/20 Ed J: rewrite to use Gimp::Fu and PF_CUSTOM
-  12/5/03: <sjburges@gimp.org>
-   s/->mask/->get_mask
-  3/21/04: <sjburges@gimp.org>
-   s/AlphaFade/alpha_fade/ to be compatible with PDB naming conventions
-
-=head1 AUTHOR
-
-Seth Burgess
-
-=head1 DATE
-
-2000
+exit Gimp::main;
 
 =head1 LICENSE
 
 Copyright Seth Burgess.
-
 Distributed under the same terms as Gimp-Perl.

@@ -5,7 +5,7 @@ use strict qw(vars);
 use vars qw($VERSION);
 
 BEGIN {
-   $VERSION = 2.3000_01;
+   $VERSION = 2.3002;
 # XS code in Gimp.xs... for now
 #   eval {
 #      require XSLoader;

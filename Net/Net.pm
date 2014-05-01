@@ -34,7 +34,7 @@ use IO::Socket;
 use Carp 'croak';
 use Fcntl qw(F_SETFD);
 
-$VERSION = 2.3000_01;
+$VERSION = 2.3002;
 bootstrap Gimp::Net $VERSION;
 
 use constant {
@@ -101,7 +101,7 @@ sub gimp_call_procedure {
 	 print $trace_res $trace;
       }
    }
-   die $die_text if $die_text;
+   Gimp::recroak(__FILE__, $die_text) if $die_text;
    wantarray ? @response : $response[0];
 }
 
@@ -516,7 +516,7 @@ also *might* be buffer-overflows (although I do care a lot for these).
 The environment variable C<GIMP_HOST> specifies the default server to
 contact and/or the password to use. The syntax is
 [auth@][tcp/]hostname[:port] for tcp, [auth@]unix/local/socket/path for unix
-and spawn/ for a private gimp instance. Examples are:
+and spawn/ for a private GIMP instance. Examples are:
 
  www.yahoo.com               # just kidding ;)
  yahoo.com:11100             # non-standard port
