@@ -9,14 +9,12 @@ package Gimp::Net;
 #
 # length_of_packet cmd
 #
-# cmd			response		description
-# AUTH password		ok [message]		authorize yourself
+# cmd				response	description
+# AUTH password			ok [message]	authorize yourself
 # QUIT						quit server
-# EXEC func args	status return-vals	run simple command
-# TRCE func trace args	trace status return-vals	run simple command (with tracing)
-# TEST procname		bool			check for procedure existance
+# EXEC verbose func args	$@ return-vals	run simple command
+# TEST procname			bool		check for procedure existence
 # DTRY in-args					destroy all argument objects
-# RSET						reset server (NYI)
 #
 # args is "number of arguments" arguments preceded by length
 # type is first character
@@ -27,30 +25,23 @@ package Gimp::Net;
 BEGIN { warn "$$-Loading ".__PACKAGE__ if $Gimp::verbose; }
 
 use strict 'vars';
-use vars qw($VERSION $trace_res);
+our $VERSION;
 use subs qw(gimp_call_procedure);
 use base qw(DynaLoader);
 use IO::Socket;
 use Carp 'croak';
 use Fcntl qw(F_SETFD);
+use Gimp::Extension;
 
-$VERSION = 2.3002;
+$VERSION = 2.3003;
 bootstrap Gimp::Net $VERSION;
 
-use constant {
-  PS_FLAG_QUIET => 1 << 0, # do not output messages
-  PS_FLAG_BATCH => 1 << 1, # started via Gimp::Net, extra = filehandle
-};
-
-my $PROTOCOL_VERSION = 4; # protocol version
-my ($server_fh, $gimp_pid, $trace_level, $auth);
+my $PROTOCOL_VERSION = 5; # protocol version
+my ($server_fh, $gimp_pid, $auth);
 
 my $DEFAULT_TCP_PORT  = 10009;
 my $DEFAULT_UNIX_DIR  = "/tmp/gimp-perl-serv-uid-$>/";
 my $DEFAULT_UNIX_SOCK = "gimp-perl-serv";
-
-$trace_res = *STDERR;
-$trace_level = 0;
 
 my $initialized = 0;
 
@@ -88,20 +79,10 @@ sub import {
 }
 
 sub gimp_call_procedure {
-   warn "$$-Net::gimp_call_procedure[$trace_level](@_)" if $Gimp::verbose;
-   my $func = shift;
-   unshift @_, $trace_level if $trace_level;
-   my @response = command($trace_level ? "TRCE" : "EXEC", $func, @_);
-   my $trace = shift @response if $trace_level;
+   warn "$$-Net::gimp_call_procedure(@_)" if $Gimp::verbose;
+   my @response = command("EXEC", $Gimp::verbose, @_);
    my $die_text = shift @response;
-   if ($trace_level) {
-      if (ref $trace_res eq "SCALAR") {
-	 $$trace_res = $trace;
-      } else {
-	 print $trace_res $trace;
-      }
-   }
-   Gimp::recroak(__FILE__, $die_text) if $die_text;
+   Gimp::recroak(Gimp::exception_strip(__FILE__, $die_text)) if $die_text;
    wantarray ? @response : $response[0];
 }
 
@@ -114,20 +95,7 @@ sub server_wait {
    waitpid $gimp_pid, 0;
 }
 
-sub set_trace {
-   my($trace)=@_;
-   my $old_level = $trace_level;
-   if(ref $trace) {
-      $trace_res=$trace;
-   } elsif (defined $trace) {
-      $trace_level=$trace;
-   }
-   $old_level;
-}
-
-our $PERLSERVERPROC = 'extension_perl_server';
-(my $PROC_SF = $PERLSERVERPROC) =~ s#_#-#g;
-our $PERLSERVERTYPE = Gimp::EXTENSION; # Gimp::PLUGIN
+my $PROC_SF = 'extension-perl-server';
 
 sub start_server {
    my $opt = shift;
@@ -149,16 +117,15 @@ sub start_server {
    fcntl $gimp_fh, F_SETFD, 0;
    delete $ENV{GIMP_HOST};
    open STDIN,"</dev/null";
-   my $flags = PS_FLAG_BATCH | ($Gimp::verbose ? 0 : PS_FLAG_QUIET);
    my $args = join ' ',
      &Gimp::RUN_NONINTERACTIVE,
-     $flags,
      fileno($gimp_fh),
      int($Gimp::verbose);
    my @exec_args = ($Gimp::Config{GIMP}, qw(--no-splash --console-messages));
    push @exec_args, "--no-data" if $opt=~s/(^|:)no-?data//;
    push @exec_args, "-i" unless $opt=~s/(^|:)gui//;
    push @exec_args, "--verbose" if $Gimp::verbose;
+   push @exec_args, qw(--pdb-compat-mode off);
    push @exec_args, qw(--batch-interpreter plug-in-script-fu-eval -b);
    push @exec_args, "(if (defined? '$PROC_SF) ($PROC_SF $args)) (gimp-quit 0)";
    warn __"$$-exec @exec_args\n" if $Gimp::verbose;
@@ -168,7 +135,7 @@ sub start_server {
 
 sub try_connect {
    local $_=$_[0];
-   warn "$$-".__PACKAGE__."::try_connect(@_)" if $Gimp::verbose;
+   warn "$$-".__PACKAGE__."::try_connect(@_)" if $Gimp::verbose >= 2;
    my $fh;
    $auth = s/^(.*)\@// ? $1 : "";	# get authorization
    if ($_ eq "") {
@@ -194,7 +161,6 @@ sub try_connect {
 }
 
 sub gimp_init {
-   $Gimp::in_top=1;
    warn "$$-gimp_init(@_)" if $Gimp::verbose;
    if (@_) {
       $server_fh = try_connect ($_[0]);
@@ -207,28 +173,24 @@ sub gimp_init {
    }
    defined $server_fh or croak __"could not connect to the gimp server (make sure Perl-Server is running)";
    { my $fh = select $server_fh; $|=1; select $fh }
-
    my @r = response;
-
    die __"expected perl-server at other end of socket, got @r\n"
       unless $r[0] eq "PERL-SERVER";
    shift @r;
    die __"expected protocol version $PROTOCOL_VERSION, but server uses $r[0]\n"
       unless $r[0] eq $PROTOCOL_VERSION;
    shift @r;
-
    for(@r) {
       if($_ eq "AUTH") {
          die __"server requests authorization, but no authorization available\n"
             unless $auth;
          my @r = command "AUTH", $auth;
          die __"authorization failed: $r[1]\n" unless $r[0];
-         print __"authorization ok, but: $r[1]\n" if $Gimp::verbose and $r[1];
+         print __"authorization ok, but: $r[1]\n" if $Gimp::verbose >= 2 and $r[1];
       }
    }
-
    $initialized = 1;
-   warn "$$-Finished gimp_init(@_)" if $Gimp::verbose;
+   warn "$$-Finished gimp_init(@_)" if $Gimp::verbose >= 2;
 }
 
 sub gimp_end {
@@ -244,9 +206,8 @@ sub gimp_end {
 
 sub gimp_main {
    no strict 'refs';
-   $Gimp::in_top=0;
    eval { Gimp::callback("-net") };
-   if($@ && $@ ne "IGNORE THIS MESSAGE\n") {
+   if ($@) {
       chomp(my $exception = $@);
       warn "$0 exception: $exception\n";
       gimp_end;
@@ -270,23 +231,19 @@ END {
 }
 
 # start of server-used block
-use vars qw($use_unix $use_tcp $trace_res $server_quit $max_pkt $unix $tcp
-            $ps_flags $auth @authorized $rm $saved_rm %stats);
+our ($use_unix, $use_tcp, @authorized, %stats);
 # you can enable unix sockets, tcp sockets, or both (or neither...)
-#
 # enabling tcp sockets can be a security risk. If you don't understand why,
 # you shouldn't enable it!
-#
 $use_unix	= 1;
 $use_tcp	= 1;	# tcp is enabled only when authorization is available
 my $unix_path;
 
-$server_quit = 0;
-
 my $max_pkt = 1024*1024*8;
+my $run_mode;
 
 sub slog {
-  return if $ps_flags & PS_FLAG_QUIET;
+  return if $run_mode == &Gimp::RUN_NONINTERACTIVE;
   print localtime.": $$-slog(",@_,")\n";
 }
 
@@ -296,35 +253,27 @@ sub handle_request($) {
    my($fh)=@_;
    my ($req, $data);
    eval {
-      local $SIG{ALRM}=sub { die "1\n" };
-      #alarm(6) unless $ps_flags & PS_FLAG_BATCH;
       my $length;
       read($fh,$length,4) == 4 or die "2\n";
       $length=unpack("N",$length);
       $length>0 && $length<$max_pkt or die "3\n";
-      #alarm(6) unless $ps_flags & PS_FLAG_BATCH;
       read($fh,$req,4) == 4 or die "4\n";
-      #alarm(20) unless $ps_flags & PS_FLAG_BATCH;
       read($fh,$data,$length-4) == $length-4 or die "5\n";
-      #alarm(0);
    };
-   warn "$$-handle_request got '$@'" if $@ and $Gimp::verbose;
+   warn "$$-handle_request got '$@'" if $@ and $Gimp::verbose >= 2;
    return 0 if $@;
-   my @args = net2args(($req eq "TRCE" or $req eq "EXEC"), $data);
+   my @args = net2args(($req eq "EXEC"), $data);
    if(!$auth or $authorized[fileno($fh)]) {
-      if ($req eq "TRCE" or $req eq "EXEC") {
+      if ($req eq "EXEC") {
          no strict 'refs';
+	 my $old_v = $Gimp::verbose;
+	 $Gimp::verbose = shift @args;
 	 my $function = shift @args;
-         if ($req eq "TRCE") {
-	    my $trace_level = shift @args;
-	    Gimp::set_trace($trace_level);
-	    $trace_res = "";
-	 }
-         @args = eval { Gimp->$function(@args) };
-	 unshift @args, $@;
-	 unshift @args, $trace_res if $req eq "TRCE";
-	 senddata $fh, args2net(1, @args);
-         Gimp::set_trace(0) if $req eq "TRCE";
+	 warn "$$-Net:Gimp->$function(@args)" if $Gimp::verbose >= 2;
+         my @retvals = eval { Gimp->$function(@args) };
+	 $Gimp::verbose = $old_v;
+	 unshift @retvals, Gimp::exception_strip(__FILE__, $@);
+	 senddata $fh, args2net(1, @retvals);
       } elsif ($req eq "TEST") {
          no strict 'refs';
          reply $fh,
@@ -366,85 +315,66 @@ sub handle_request($) {
    return 1;
 }
 
-sub new_connection {
-  warn "$$-new_connection(@_)" if $Gimp::verbose;
-  my $fh = shift;
-  $fh->autoflush;
-  reply $fh, "PERL-SERVER", $PROTOCOL_VERSION, ($auth ? "AUTH" : ());
-  $stats{fileno($fh)}=[0,time];
-  Glib::IO->add_watch(fileno($fh), 'in', sub {
-    warn "$$-new_connection WATCHER(@_)" if $Gimp::verbose;
-    my ($fd, $condition, $fh) = @_;
-    if(handle_request($fh)) {
-      $stats{$fd}[0]++;
-    } else {
-      slog sprintf __"closing connection %d (%d requests in %g seconds)", $fd, $stats{$fd}[0], time-$stats{$fd}[1];
-      undef $fh;
-    }
-    $fh ? &Glib::SOURCE_CONTINUE : &Glib::SOURCE_REMOVE;
-  }, $fh);
+sub on_accept {
+  warn "$$-on_accept(@_)" if $Gimp::verbose;
+  my $h = shift;
+  slog sprintf __"new connection(%d)%s",
+    $h->fileno,
+    $h->isa('IO::Socket::INET') ? ' from '.$h->peerport.':'.$h->peerhost : '';
+  reply $h, "PERL-SERVER", $PROTOCOL_VERSION, ($auth ? "AUTH" : ());
+  $stats{fileno($h)}=[0,time];
+}
+
+sub on_input {
+  warn "$$-on_input(@_)" if $Gimp::verbose >= 2;
+  my ($fd, $condition, $fh) = @_;
+  if (handle_request($fh)) {
+    return ++$stats{$fd}[0]; # non-false!
+  } else {
+    slog sprintf __"closing connection %d (%d requests in %g seconds)", $fd, $stats{$fd}[0], time-$stats{$fd}[1];
+    return;
+  }
 }
 
 sub setup_listen_unix {
   warn "$$-setup_listen_unix(@_)" if $Gimp::verbose;
+  use autodie;
   use File::Basename;
   my $host = shift;
   my $dir = dirname($host);
-  mkdir $dir, 0700 or die "mkdir $dir: $!" unless -d $dir;
+  mkdir $dir, 0700 unless -d $dir;
   unlink $host if -e $host;
-  my $unix = IO::Socket::UNIX->new(
+  add_listener(IO::Socket::UNIX->new(
     Type => SOCK_STREAM, Local => $host, Listen => 5
-  ) or die __"unable to create listening unix socket: $!\n";
+  ), \&on_input, \&on_accept);
   slog __"accepting connections in $host";
-  Glib::IO->add_watch(fileno($unix), 'in', sub {
-    warn "$$-setup_listen_unix WATCHER(@_)" if $Gimp::verbose;
-    my ($fd, $condition, $fh) = @_;
-    my $h = $fh->accept or die __"unable to accept unix connection: $!\n";
-    new_connection($h);
-    slog __"accepted unix connection";
-    &Glib::SOURCE_CONTINUE;
-  }, $unix);
 }
 
 sub setup_listen_tcp {
   warn "$$-setup_listen_tcp(@_)" if $Gimp::verbose;
+  use autodie;
   my $host = shift;
   ($host, my $port)=split /:/,$host;
   $port = $DEFAULT_TCP_PORT unless $port;
-  my $tcp = IO::Socket::INET->new(
+  add_listener(IO::Socket::INET->new(
     Type => SOCK_STREAM, LocalPort => $port, Listen => 5, ReuseAddr => 1,
     ($host ? (LocalAddr => $host) : ()),
-  ) or die __"unable to create listening tcp socket: $!\n";
+  ), \&on_input, \&on_accept);
   slog __"accepting connections on port $port";
-  Glib::IO->add_watch(fileno($tcp), 'in', sub {
-    warn "$$-setup_listen_tcp WATCHER(@_)" if $Gimp::verbose;
-    my ($fd, $condition, $fh) = @_;
-    my $h = $fh->accept or die __"unable to accept tcp connection: $!\n";
-    my ($port,$host) = ($h->peerport, $h->peerhost);
-    new_connection($h);
-    slog __"accepted tcp connection from $host:$port";
-    &Glib::SOURCE_CONTINUE;
-  }, $tcp);
 }
 
 sub perl_server_run {
-  (my $run_mode, $ps_flags, my $extra, $Gimp::verbose) = @_;
-  Gimp::gtk_init;
-  Gimp->extension_ack;
-  Gimp->extension_enable;
+  ($run_mode, my $filehandle, $Gimp::verbose) = @_;
   warn "$$-".__PACKAGE__."::perl_server_run(@_)\n" if $Gimp::verbose;
   if ($run_mode == &Gimp::RUN_NONINTERACTIVE) {
-     if ($ps_flags & PS_FLAG_BATCH) {
-	die __"unable to open Gimp::Net communications socket: $!\n"
-	   unless open my $fh,"+<&$extra";
-        new_connection($fh);
-	Gtk2->main;
-        Gimp->quit(0);
-        exit(0);
-     }
-  } else {
-     $run_mode=&Gimp::RUN_INTERACTIVE;
-     $ps_flags=0;
+      die __"unable to open Gimp::Net communications socket: $!\n"
+	 unless open my $fh,"+<&$filehandle";
+      $fh->autoflush;
+      on_accept($fh);
+      Glib::IO->add_watch(fileno($fh), 'in', \&on_input, $fh);
+      Gtk2->main;
+      Gimp->quit(0);
+      exit(0);
   }
   my $host = $ENV{'GIMP_HOST'};
   $auth = $host=~s/^(.*)\@// ? $1 : undef;	# get authorization
@@ -461,12 +391,9 @@ sub perl_server_run {
         setup_listen_tcp($host);
      }
   } else {
-     if ($use_unix) {
-        setup_listen_unix($unix_path = $DEFAULT_UNIX_DIR.$DEFAULT_UNIX_SOCK);
-     }
-     if ($use_tcp && $auth) {
-        setup_listen_tcp(":$DEFAULT_TCP_PORT");
-     }
+     setup_listen_unix($unix_path = $DEFAULT_UNIX_DIR.$DEFAULT_UNIX_SOCK)
+        if $use_unix;
+     setup_listen_tcp(":$DEFAULT_TCP_PORT") if $use_tcp && $auth;
   }
   Gtk2->main;
 }
@@ -475,10 +402,10 @@ sub perl_server_quit {
   return unless $unix_path;
   unlink $unix_path or die "failed to unlink '$unix_path': $!\n";
   rmdir $DEFAULT_UNIX_DIR if $unix_path eq $DEFAULT_UNIX_DIR.$DEFAULT_UNIX_SOCK;
+  slog "server quitting";
 }
 
 1;
-
 __END__
 
 =head1 NAME
@@ -495,9 +422,9 @@ For Gimp::Net (and thus commandline and remote scripts) to work, you
 first have to install the "Perl-Server" plugin somewhere where Gimp
 can find it (e.g in your .gimp/plug-ins/ directory). Usually this is
 done automatically while installing the Gimp extension. If you have a
-menu entry C<<Xtns>/Perl-Server> then it is probably installed.
+menu entry C<Filters/Perl/Server> then it is probably installed.
 
-The Perl-Server can either be started from the C<<Xtns>> menu in Gimp,
+The Perl-Server can either be started from the C<Filters> menu in Gimp,
 or automatically when a perl script can't find a running Perl-Server,
 in which case it will start up its own copy of GIMP.
 
@@ -536,10 +463,11 @@ and spawn/ for a private GIMP instance. Examples are:
 
 =over 4
 
-=item net()
+=item Gimp::on_net($callback)
 
-is called after we have succesfully connected to the server. Do your dirty
-work in this function, or see L<Gimp::Fu> for a better solution.
+C<$callback> is called after we have succesfully connected to the
+server. Do your dirty work in this function, or see L<Gimp::Fu> for a
+better solution.
 
 =back
 
@@ -573,5 +501,3 @@ Marc Lehmann <pcg@goof.com>
 =head1 SEE ALSO
 
 perl(1), L<Gimp>.
-
-=cut

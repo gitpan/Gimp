@@ -3,8 +3,6 @@
 use Gimp;
 use Gimp::Fu;
 
-# Gimp::set_trace(TRACE_ALL);
-
 podregister {
   # Remove all existing guides (this is optional)
   if($remove_old_guides) {
@@ -28,7 +26,7 @@ __END__
 
 =head1 NAME
 
-guide_grid - creates a grid of guides
+guide_grid - Creates a grid of guides
 
 =head1 SYNOPSIS
 

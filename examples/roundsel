@@ -6,8 +6,6 @@ use Gimp qw(:auto __ N_);
 use Gimp::Fu;
 use Gimp::Util;
 
-# Gimp::set_trace(TRACE_ALL);
-
 podregister {
   my($image,$drawable,$round) = @_;
   $image->undo_group_start;
@@ -15,7 +13,7 @@ podregister {
   gimp_selection_none($image);
   plug_in_gauss_iir($image, $channel, $round, 1, 1);
   gimp_levels($channel, 0, 123, 133, 1.0, 0, 255);
-  gimp_selection_load($channel);
+  $image->select_item(CHANNEL_OP_REPLACE, $channel);
   gimp_image_remove_channel($image, $channel);
   # gimp_item_delete($channel);
   $image->undo_group_end;

@@ -1,24 +1,25 @@
 Items as of 2014-04-29 (by Ed J)
-* possible killer app: https://mail.gnome.org/archives/gimp-developer-list/2014-April/msg00017.html
-* <Load> and <Save> need any registration as such done in Gimp::Fu - see pod and e/dataurl
-* Gimp::Fu no -o needs give warning
-* Gimp::UI PF_IMAGE needs "open" button
+* possible killer app: https://mail.gnome.org/archives/gimp-developer-list/2014-April/msg00017.html - also 53
+* gimp-plugins-refresh: load is
+  app/plug-in/gimppluginmanager.c:gimp_plug_in_manager_query_new, closedown
+  is ./app/plug-in/gimppluginmanager.c:gimp_plug_in_manager_exit
+  - issue with removing menus, probably stored in _plug_in data
+  PDB call added in tools/pdbgen/pdb/gimp.pdb
+* jpegoptim and pngcrush save-handlers
 * e/fade-alpha should generate buttons, not hardcode
-* image in Gimp.pm POD http://perlmaven.com/how-to-add-images-to-cpan -
-  input image -> output image of a plugin
 * Gimp/Lib.xs is huge, and not very XS-y - lots of it is manually
   pushing GIMP data structures onto perl stack and vice versa. Figure
   way to pass GIMP data back and forth directly via typemap system. May
   involve a gimp-perl "wrapper" data structure that pairs an SV with its
   GimpParam counterpart - Gimp::Lib::Data?
-* Get gimp PDL objects working right over Gimp::Net - infrastructure is there
+* use Glib array for above
+* unify typemaps and C INCs, for more accurate EU::D support
 * Restructure dirs so all libs under lib/ using ExtUtils::MakeMaker::BigHelper
 * http://search.cpan.org/dist/Glib-Object-Introspection/
 * Add a gtk2 gimp-perl console - cf http://registry.gimp.org/node/29348
   - gimp/plug-ins/script-fu/script-fu-console.c
-* Test Gimp::Fu menupath <Load>/<Save>/<Image>/<Toolbox>/<None>
-* "IGNORE THIS MESSAGE" - $in_top - whole quiet_die probably needs to go too
-* PS flags are obsolete - replace with verbose - set_trace may also be obsolete
+  base on this:
+  http://gtk2-perl.sourceforge.net/doc/gtk2-perl-study-guide/x3661.html
 * interactive collab image-editing:
   http://users.telenet.be/blendix/verse/#gimp_plugin
   https://github.com/verse/verse/wiki/Tutorial-Simple-C-Verse-Client

@@ -4,7 +4,6 @@ use Gimp qw(:auto __ N_);
 use Gimp::Fu;
 use Gimp::Util;
 use strict;
-#Gimp::set_trace(TRACE_ALL);
 
 podregister {
   my $w = $drawable->width();
@@ -19,7 +18,7 @@ podregister {
   my $orientation = ($mirror < 2)
     ? &Gimp::ORIENTATION_VERTICAL
     : &Gimp::ORIENTATION_HORIZONTAL;
-  $temp1 = $temp1->transform_flip_simple($orientation, 1, 0.0, 1);
+  $temp1 = $temp1->transform_flip_simple($orientation, 1, 0.0);
   my @xywh;
   if ($mirror == 0) {
     # upper half
