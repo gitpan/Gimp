@@ -2,10 +2,10 @@ package Gimp::Constant;
 
 use Exporter 'import';
 use strict qw(vars);
-use vars qw($VERSION);
+our ($VERSION, @EXPORT, @PARAMS, @INXS);
 
 BEGIN {
-   $VERSION = 2.3003;
+   $VERSION = 2.3004;
 # XS code in Gimp.xs... for now
 #   eval {
 #      require XSLoader;
@@ -16,8 +16,6 @@ BEGIN {
 #      bootstrap Gimp::Constant $VERSION;
 #   }
 }
-
-use vars qw(@EXPORT @PARAMS @INXS);
 
 my %sub2value;
 

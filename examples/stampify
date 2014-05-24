@@ -1,7 +1,9 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 use Gimp qw(:auto __ N_);
 use Gimp::Fu;
+use strict;
+use warnings;
 
 podregister {
   $nw = int(gimp_image_width($image) + 2 * $marg + $diameter);
@@ -44,7 +46,7 @@ podregister {
   my $float = gimp_edit_paste($layer1, 0);
   gimp_floating_sel_anchor($float);
 # and return command to The Gimp.
-  Gimp::Display->new($img2);
+  eval { Gimp::Display->new($img2); };
   return $img2;
 };
 exit main;

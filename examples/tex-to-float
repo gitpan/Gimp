@@ -1,7 +1,9 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 use Gimp qw(:auto N_);
 use Gimp::Fu;
+use strict;
+use warnings;
 
 my $fn_base = "/tmp/ttf$$";
 my %tmpfiles = (

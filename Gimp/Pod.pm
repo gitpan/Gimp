@@ -3,23 +3,18 @@ package Gimp::Pod;
 use Config;
 use Carp qw(croak carp);
 use strict;
+use warnings;
 use FindBin qw($RealBin $RealScript);
 use File::Basename;
 use base 'Exporter';
+use Pod::Simple::SimpleTree;
 
 our @EXPORT = qw(fixup_args make_arg_line);
-our $VERSION = 2.3003;
+our $VERSION = 2.3004;
 
 warn "$$-Loading ".__PACKAGE__ if $Gimp::verbose;
 
 sub __ ($) { goto &Gimp::__ }
-
-{
-package Gimp::Pod::Parser;
-use base 'Pod::Text';
-sub output { shift->{gpp_text} .= join '', @_; }
-sub get_text { $_[0]->{gpp_text} }
-}
 
 sub new {
    return unless -f "$RealBin/$RealScript";
@@ -29,38 +24,102 @@ sub new {
 sub _cache {
    my $self = shift;
    return $self->{doc} if $self->{doc};
-   my $parser = Gimp::Pod::Parser->new;
-   $parser->parse_from_file($self->{path});
-   $self->{doc} = $parser->get_text;
+   $self->{doc} = Pod::Simple::SimpleTree->new->parse_file($self->{path})->root;
 }
 
-sub format { $_[0]->_cache; }
+sub sections {
+  my ($self, $sub) = @_;
+  my $doc = $self->_cache;
+  if (defined $sub) {
+    my $i = 2; # skip 'Document' and initial attrs
+    $i++ until
+      $i >= @$doc or ($doc->[$i]->[0] eq 'head1' and $doc->[$i]->[2] eq $sub);
+    return if $i >= @$doc;
+    my $i2 = ++$i;
+    $i2++ until $i2 >= @$doc or $doc->[$i2]->[0] =~ /^head1/;
+    $i2--;
+    map { $_->[2] } grep { ref and $_->[0] eq 'head2' } @{$doc}[$i..$i2];
+  } else {
+    map $_->[2], grep { ref eq 'ARRAY' and $_->[0] eq 'head1' } @$doc;
+  }
+}
 
-sub sections { $_[0]->_cache =~ /^\S.*$/mg; }
+sub _flatten_para {
+  my $para = shift;
+  join '', map { ref($_) ? _flatten_para($_) : $_ } @{$para}[2..$#{$para}];
+}
 
 sub section {
-   my $self = shift;
-   warn __PACKAGE__."::section(@_)" if $Gimp::verbose >= 2;
-   return unless defined(my $doc = $self->_cache);
-   ($doc) = $doc =~ /^$_[0]\n(.*?)(?:^[A-Z]|\Z)/sm;
-   if ($doc) {
-      $doc =~ y/\r//d;
-      $doc =~ s/^\s*\n//;
-      $doc =~ s/[\s]+$/\n/;
-      $doc =~ s/^    //mg;
-      chomp $doc;
+  my $self = shift;
+  warn "$$-".__PACKAGE__."::section(@_)" if $Gimp::verbose >= 2;
+  return unless defined(my $doc = $self->_cache);
+  my $i = 2; # skip 'Document' and initial attrs
+  my $depth = 0;
+  while (defined(my $sec = shift)) {
+    $depth++;
+    $i++ until
+      $i >= @$doc or
+      ($doc->[$i]->[0] eq "head$depth" and $doc->[$i]->[2] eq $sec);
+    return if $i >= @$doc;
+  }
+  my $i2 = ++$i;
+  $i2++ until $i2 >= @$doc or $doc->[$i2]->[0] =~ /^head/;
+  $i2--;
+  my $text = join "\n\n", map { _flatten_para($_) } @{$doc}[$i..$i2];
+  warn "$$-".__PACKAGE__."::section returning '$text'" if $Gimp::verbose >= 2;
+  $text;
+}
+
+sub lazy_image_params { ([&Gimp::PDB_IMAGE, "image", "Input image"],
+  [&Gimp::PDB_DRAWABLE, "drawable", "Input drawable", '%a']); }
+sub lazy_load_params  { ([&Gimp::PDB_STRING, "filename", "Filename"],
+  [&Gimp::PDB_STRING, "raw_filename", "User-given filename"]); }
+sub lazy_save_params  { (&lazy_image_params, &lazy_load_params); }
+sub lazy_image_retval { [&Gimp::PDB_IMAGE, "image", "Output image"]; }
+sub insert_params {
+   my @p = @_;
+   die __<<EOF unless $p[6] =~ /^<(?:Image|Load|Save|Toolbox|None)>/;
+Menupath must start with <Image>, <Load>, <Save>, <Toolbox>, or <None>!
+(got '$p[6]')
+EOF
+   if ($p[6] =~ /^<Image>\//) {
+      if ($p[7]) {
+         unshift @{$p[8]}, &lazy_image_params;
+      } else {
+         # undef or ''
+         unshift @{$p[9]}, &lazy_image_retval
+            if !@{$p[9]} or $p[9]->[0]->[0] != &Gimp::PDB_IMAGE;
+      }
+   } elsif ($p[6] =~ /^<Load>\//) {
+      my ($start, $label, $fileext, $prefix) = split '/', $p[6];
+      $prefix = '' unless $prefix;
+      Gimp::on_query { Gimp->register_load_handler($p[0], $fileext, $prefix); };
+      $p[6] = join '/', $start, $label;
+      unshift @{$p[8]}, &lazy_load_params;
+      unshift @{$p[9]}, &lazy_image_retval;
+   } elsif ($p[6] =~ /^<Save>\/(.*)/) {
+      my ($start, $label, $fileext, $prefix) = split '/', $p[6];
+      $prefix = '' unless $prefix;
+      Gimp::on_query { Gimp->register_save_handler($p[0], $fileext, $prefix); };
+      $p[6] = join '/', $start, $label;
+      unshift @{$p[8]}, &lazy_save_params;
+   } elsif ($p[6] =~ m#^<Toolbox>/Xtns/#) {
+      undef $p[7];
+   } elsif ($p[6] =~ /^<None>/) {
+      undef $p[6]; undef $p[7];
    }
-   warn __PACKAGE__."::section returning '$doc'" if $Gimp::verbose >= 2;
-   $doc;
+   @p;
 }
 
 my %IND2SECT = (
    2 => 'DESCRIPTION', 3 => 'AUTHOR', 4 => 'LICENSE',
    5 => 'DATE', 6 => 'SYNOPSIS', 7 => 'IMAGE TYPES',
+   8 => 'PARAMETERS', 9 => 'RETURN VALUES',
 );
 sub _getpod { $_[0] ||= new __PACKAGE__; $_[0]->section($_[1]); }
 sub _patchup_eval ($$) {
    my ($label, $text) = @_;
+   no strict;
    my @result = eval "package main;\n#line 0 \"$0 $label\"\n" . ($text // '');
    die $@ if $@;
    @result;
@@ -68,7 +127,7 @@ sub _patchup_eval ($$) {
 sub fixup_args {
    my @p = @_;
    my $pod;
-   splice @p, 9, 0, [ _patchup_eval 'RETURN VALUES', _getpod($pod, 'RETURN VALUES') ] if @p == 10;
+   splice @p, 9, 0, '' if @p == 10;
    croak sprintf
       __"register given wrong number of arguments: wanted 11, got %d(%s)",
       scalar(@p),
@@ -77,7 +136,10 @@ sub fixup_args {
    @p[0,1] = (_getpod($pod,'NAME')//'') =~ /(.*?)\s*-\s*(.*)/ unless $p[0] or $p[1];
    ($p[0]) = File::Basename::fileparse($RealScript, qr/\.[^.]*/) unless $p[0];
    while (my ($k, $v) = each %IND2SECT) { $p[$k] ||= _getpod($pod, $v); }
-   $p[8] ||= [ _patchup_eval 'PARAMETERS', _getpod($pod, 'PARAMETERS') ];
+   for my $i (8, 9) {
+      my $s = $IND2SECT{$i};
+      $p[$i] = $p[$i] ? ref $p[$i] ? $p[$i] : [ _patchup_eval $s, $p[$i] ] : [];
+   }
    for my $i (0..6, 10) {
       croak "$0: Need arg $i (or POD ".($IND2SECT{$i}//'')." section)" unless $p[$i]
    }
@@ -87,7 +149,11 @@ sub fixup_args {
       carp __"$p[0]: argument name '$val->[1]' contains illegal characters, only 0-9, a-z and _ allowed"
 	unless $val->[1]=~/^[0-9a-z_]+$/;
    }
-   @p;
+   $p[0]="perl_fu_".$p[0] unless $p[0] =~ /^(?:perl_fu_|extension_|plug_in_|file_)/ || $p[0] =~ s/^\+//;
+   $p[0]=~/^[0-9a-z_]+(-ALT)?$/ or carp(__"$p[0]: function name contains unusual characters, good style is to use only 0-9, a-z and _");
+   carp __"function name contains dashes instead of underscores\n"
+      if $p[0] =~ y/-//;
+   insert_params(@p);
 }
 
 sub make_arg_line {
@@ -95,7 +161,7 @@ sub make_arg_line {
    return '' unless @{$p[8]};
    die "$0: parameter had empty string\n" if grep { !length $_->[1] } @{$p[8]};
    my $myline = 'my ('.join(',', map { '$'.$_->[1] } @{$p[8]}).') = @_;';
-   warn __PACKAGE__."::make_arg_line: $myline" if $Gimp::verbose >= 2;
+   warn "$$-".__PACKAGE__."::make_arg_line: $myline" if $Gimp::verbose >= 2;
    $myline;
 }
 
@@ -110,9 +176,9 @@ Gimp::Pod - Evaluate pod documentation embedded in scripts.
 
   use Gimp::Pod;
   my $pod = Gimp::Pod->new;
-  my $text = $pod->format;
   my $synopsis = $pod->section('SYNOPSIS');
-  my @sections = $pod->sections;
+  my @temp_procs = $pod->sections('TEMPORARY PROCEDURES');
+  my $text = $pod->section('TEMPORARY PROCEDURES', 'p1 - x', 'PARAMETERS');
 
   my @args = fixup_args(@register_args);
 
@@ -177,13 +243,16 @@ Defaults to the "PARAMETERS" section of the POD, passed to C<eval>, e.g.:
     [ PF_FONT, 'font', 'Font', 'Arial' ],
 
 You don't B<have> to indent it so that POD treats it as verbatim, but
-it will be more readable in any POD viewer if you do.
+it will be more readable in any POD viewer if you do. If you pass in a
+true non-ref value, it will be evaluated as though it had been read from
+the POD.
 
 =item $results
 
 Defaults to the "RETURN VALUES" section of the POD, passed to C<eval>.
 Not providing the relevant POD section is perfectly valid, so long as
-you intend to return no values.
+you intend to return no values. As above, if passed a true non-ref value,
+it will be evaluated.
 
 =item $other
 
@@ -210,19 +279,16 @@ an empty string).
 Return a new Gimp::Pod object representing the current script or undef, if
 an error occured.
 
-=item format
+=item section(@headers)
 
-Return the embedded pod documentation in text format, or undef if no
-documentation can be found.
+Return the section with the header described by C<@headers>, the first
+being a C<head1>, the second <head2>, etc, or undef if not found. There
+is no trailing newline on the returned string.
 
-=item section($header)
+=item sections(@headers)
 
-Return the section with the header C<$header>, or undef if not
-found. There is no trailing newline on the returned string.
-
-=item sections
-
-Returns a list of paragraph titles found in the pod.
+Returns a list of section titles found in the pod, described similarly
+to above.
 
 =back
 

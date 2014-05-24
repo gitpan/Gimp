@@ -1,8 +1,9 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 use Gimp qw(:auto __ N_);
 use Gimp::Fu;
 use strict;
+use warnings;
 
 podregister {
   my @layers = $image->get_layers;

@@ -1,9 +1,11 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 use Gimp;
 use Gimp::Fu;
 use Gimp::Util;
 use PDL;
+use strict;
+use warnings;
 
 use constant PI => 4 * atan2 1,1;
 
@@ -34,7 +36,7 @@ sub pixelmap {
 
       $_expr = eval $_expr; die "$@" if $@;
 
-      $_iter = Gimp->pixel_rgns_register ($src, $_dst);
+      my $_iter = Gimp->pixel_rgns_register ($src, $_dst);
       my $_area = 0;
 
       do {
@@ -87,7 +89,7 @@ register "pixelgen",
       $image->delete;
       die $error;
    };
-   Gimp::Display->new($image);
+   eval { Gimp::Display->new($image); };
    $image;
 };
 

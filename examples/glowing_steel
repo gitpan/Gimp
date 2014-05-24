@@ -1,9 +1,10 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 use Gimp qw(:auto N_);
 use Gimp::Fu;
 use Gimp::Util;
 use strict;
+use warnings;
 
 N_"/Xtns/Render"; N_"/Xtns/Render/Logos"; # i18n workaround
 
@@ -58,7 +59,7 @@ sub perl_fu_glowing_steel {
   gimp_image_set_active_layer($image,$backlayer);
 
   gimp_context_pop();
-  gimp_display_new($image);
+  eval { gimp_display_new($image); };
 
   return $image;
 }

@@ -6,10 +6,11 @@ use Gtk2;
 use IO::All;
 use List::Util qw(min);
 use strict;
+use warnings;
 
 our (@ISA, $VERSION);
 BEGIN {
-   $VERSION = 2.3003;
+   $VERSION = 2.3004;
    eval {
       require XSLoader;
       XSLoader::load Gimp::UI $VERSION;
@@ -355,7 +356,7 @@ sub _instrument {
 }
 
 sub drawable_box {
-  my $class = 'Gimp::UI::Combo::Layer';
+  my $class = shift;
   my $a = Gtk2::HBox->new(0,5);
   my $b = $class->new;
   $a->pack_start($b, 1, 1, 0);
@@ -514,7 +515,7 @@ my %PF2INFO = (
       my $result = $f->run;
       if ($result eq 'ok') {
 	my $i = Gimp->file_load($f->get_filename, $f->get_filename);
-	Gimp::Display->new($i);
+	eval { Gimp::Display->new($i); };
 	$b->reload;
       }
       $f->destroy;
@@ -656,6 +657,7 @@ sub interact($$$$@) {
   $sw->add_with_viewport($table);
   $w->vbox->add($sw);
 
+  my $mainloop = Glib::MainLoop->new;
   my $button = $w->add_button('gtk-help', 3);
   $button->signal_connect(clicked => sub {
     help_window($helpwin, $w, $title, $help);
@@ -668,17 +670,17 @@ sub interact($$$$@) {
   my $res = 0;
   $button = $w->add_button('gtk-cancel', 0);
   $button->signal_connect(clicked => sub {
-    Gtk2->main_quit;
+    $mainloop->quit;
   });
   can_default $button 1;
   $button = $w->add_button('gtk-ok', 1);
   $button->signal_connect(clicked => sub {
     $res = 1;
-    Gtk2->main_quit;
+    $mainloop->quit;
   });
   can_default $button 1;
   grab_default $button;
-  $w->signal_connect(destroy => sub { Gtk2->main_quit; });
+  $w->signal_connect(destroy => sub { $mainloop->quit; });
 
   show_all $table;
   show_all $sw;
@@ -687,10 +689,12 @@ sub interact($$$$@) {
     min(0.6*$sw->get_screen->get_height, $table->size_request->height + 5)
   );
   show_all $w;
-  Gtk2->main;
+  $mainloop->run;
   die $exception_text if $exception_text;
-  return if $res == 0;
-  return (1, map {&$_} @getvals);
+  my @retvals = map {&$_} @getvals if $res;
+  $w->destroy;
+  return unless $res;
+  return (1, @retvals);
 }
 
 1;
@@ -720,9 +724,9 @@ C<examples/example-no-fu>.
  $button = new Gimp::UI::BrushSelect;
  $button = new Gimp::UI::GradientSelect;
 
- @new_vals = Gimp::UI::interact(
+ ($result, @new_vals) = Gimp::UI::interact(
    $functionname, $blurb, $help, $params, $menupath, @previous_vals
- );
+ ); # $result = true if "Ok", false if "Cancel"
 
 =back
 

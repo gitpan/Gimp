@@ -1,10 +1,11 @@
 package Gimp::Lib;
 
 use strict;
+use warnings;
 use vars qw($VERSION @ISA);
 
 BEGIN {
-   $VERSION = 2.3003;
+   $VERSION = 2.3004;
    require XSLoader;
    XSLoader::load Gimp::Lib $VERSION;
    warn "$$-Loading ".__PACKAGE__ if $Gimp::verbose;

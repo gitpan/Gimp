@@ -1,6 +1,7 @@
 package Gimp;
 
-use strict 'vars';
+use strict;
+use warnings;
 our (
   $VERSION, @ISA, $AUTOLOAD, @EXPORT, @EXPORT_OK, %EXPORT_TAGS, @EXPORT_FAIL,
   $interface_pkg, $interface_type, @PREFIXES,
@@ -9,7 +10,7 @@ our (
 use subs qw(init end lock unlock);
 
 BEGIN {
-   $VERSION = 2.3003; # going forward: 2.xx, or 2.xx_yy for dev
+   $VERSION = 2.3004; # going forward: 2.xx, or 2.xx_yy for dev
    eval {
       require XSLoader;
       XSLoader::load Gimp $VERSION;
@@ -37,6 +38,7 @@ my @POLLUTE_CLASSES;
 my $net_init;
 
 sub import($;@) {
+   no strict 'refs';
    my $pkg = shift;
    warn "$$-$pkg->import(@_)" if $Gimp::verbose >= 2;
    my $up = caller;
@@ -45,6 +47,7 @@ sub import($;@) {
    # make sure we can call GIMP functions - start net conn if required
    map { $net_init = $1 if /net_init=(\S+)/; } @_;
    if ($interface_type eq "net" and not &Gimp::Net::initialized) {
+      no strict 'refs';
       map { *{"Gimp::$_"} = \&{"Gimp::Constant::$_"} }
 	 qw(RUN_INTERACTIVE RUN_NONINTERACTIVE);
       Gimp::Net::gimp_init(grep {defined} $net_init);
@@ -218,6 +221,7 @@ sub on_run  (&) { register_callback "run"  , $_[0] }
 sub on_quit  (&) { register_callback "quit"  , $_[0] }
 
 sub main {
+   no strict 'refs';
    &{"$interface_pkg\::gimp_main"};
 }
 
@@ -238,6 +242,7 @@ warn "$$-Finished loading '$interface_pkg'" if $Gimp::verbose >= 2;
 
 # create some common aliases
 for(qw(gimp_procedural_db_proc_exists gimp_call_procedure initialized)) {
+   no strict 'refs';
    *$_ = \&{"$interface_pkg\::$_"};
 }
 
@@ -252,6 +257,7 @@ my %ignore_function = (DESTROY => 1);
 @PREFIXES=("gimp_", "");
 
 sub ignore_functions(@) {
+   warn "$$-IGNORING(@_)" if $Gimp::verbose;
    @ignore_function{@_}++;
 }
 
@@ -263,6 +269,8 @@ sub exception_strip {
   $e;
 }
 sub AUTOLOAD {
+  no strict 'refs';
+  goto &$AUTOLOAD if defined &$AUTOLOAD; # happens if :auto, not if method call
   my ($class,$name) = $AUTOLOAD =~ /^(.*)::(.*?)$/;
   warn "$$-AUTOLOAD $AUTOLOAD(@_)" if $Gimp::verbose >= 2;
   for(@{"$class\::PREFIXES"}) {
@@ -270,7 +278,7 @@ sub AUTOLOAD {
     if (exists $ignore_function{$sub}) {
       *{$AUTOLOAD} = sub { () };
       goto &$AUTOLOAD;
-    } elsif (UNIVERSAL::can(Gimp::Util,$sub)) {
+    } elsif (UNIVERSAL::can('Gimp::Util',$sub)) {
       my $ref = \&{"Gimp::Util::$sub"};
       *{$AUTOLOAD} = sub {
 	shift unless ref $_[0];
@@ -306,6 +314,7 @@ sub AUTOLOAD {
 sub _pseudoclass {
   my ($class, @prefixes)= @_;
   unshift @prefixes,"";
+  no strict 'refs';
   *{"Gimp::$class\::AUTOLOAD"} = \&AUTOLOAD;
   push @{"Gimp::$class\::PREFIXES"}, @prefixes;
   push @{"Gimp::$class\::ISA"}, 'Gimp::Base';
@@ -380,7 +389,7 @@ sub new($$$$)		{ shift; [@_] }
 {
 package Gimp::Base;
 use overload '""' => sub { ref($_[0]).'->existing('.${$_[0]}.')'; };
-sub existing($$)	{ bless \$_[1], $_[0]; }
+sub existing($$)	{ my $id = $_[1]; bless \$id, $_[0]; }
 sub become($$)		{ bless $_[0], $_[1]; }
 }
 
@@ -403,7 +412,7 @@ Gimp - Write GIMP extensions/plug-ins/load- and save-handlers in Perl
     );
     $image->insert_layer($bg, 1, 0);
     $image->edit_fill($bg, FOREGROUND_FILL);
-    Gimp::Display->new($image);
+    eval { Gimp::Display->new($image); };
     $image;
   };
 

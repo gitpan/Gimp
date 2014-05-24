@@ -1,9 +1,10 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 #BEGIN { $Gimp::verbose = 1; }
 use Gimp;
 use Gimp::Fu;
 use strict;
+use warnings;
 
 podregister {
   my $has_noselection;

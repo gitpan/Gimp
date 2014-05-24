@@ -1,14 +1,14 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 use Gimp;
 use Gimp::Fu;
+use strict;
+use warnings;
 
 # Definiere die Konstante "pi mal zwei"
 use constant PIx2 => 8 * atan2 1,1;
 
 podregister {
-   # Die Parameter werden ganz "normal" übergeben:
-   my ($width,$height,$num_poly,$edges,$revolutions,$feather,$super)=@_;
    Gimp::Context->push();
 
    # Erzeuge ein neues Bild
@@ -75,7 +75,7 @@ podregister {
 
    $image->selection_none;
    $image->undo_enable;
-   Gimp::Display->new($image);
+   eval { Gimp::Display->new($image); };
 
    # Gib das neu erzeugte Bild zurück, damit es angezeigt wird.
    $image;

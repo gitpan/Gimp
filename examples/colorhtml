@@ -1,9 +1,11 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 use Gimp;
 use Gimp::Fu;
 use Gimp::UI;
 use IO::All;
+use strict;
+use warnings;
 my %replace = (
   "&" => "&amp;",
   "<" => "&lt;",

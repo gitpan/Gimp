@@ -24,16 +24,16 @@ package Gimp::Net;
 
 BEGIN { warn "$$-Loading ".__PACKAGE__ if $Gimp::verbose; }
 
-use strict 'vars';
+use strict;
+use warnings;
 our $VERSION;
 use subs qw(gimp_call_procedure);
 use base qw(DynaLoader);
 use IO::Socket;
 use Carp 'croak';
 use Fcntl qw(F_SETFD);
-use Gimp::Extension;
 
-$VERSION = 2.3003;
+$VERSION = 2.3004;
 bootstrap Gimp::Net $VERSION;
 
 my $PROTOCOL_VERSION = 5; # protocol version
@@ -74,7 +74,7 @@ sub import {
    *Gimp::PixelRgn::DESTROY=
    *Gimp::GimpDrawable::DESTROY=sub {
       # is synchronous which avoids deadlock from using non sys*-type functions
-      command "DTRY", @_;
+      command "DTRY", @_ if $server_fh;
    };
 }
 
@@ -240,10 +240,9 @@ $use_tcp	= 1;	# tcp is enabled only when authorization is available
 my $unix_path;
 
 my $max_pkt = 1024*1024*8;
-my $run_mode;
 
 sub slog {
-  return if $run_mode == &Gimp::RUN_NONINTERACTIVE;
+  return if $Gimp::Fu::run_mode == &Gimp::RUN_NONINTERACTIVE;
   print localtime.": $$-slog(",@_,")\n";
 }
 
@@ -344,7 +343,7 @@ sub setup_listen_unix {
   my $dir = dirname($host);
   mkdir $dir, 0700 unless -d $dir;
   unlink $host if -e $host;
-  add_listener(IO::Socket::UNIX->new(
+  Gimp::Extension::add_listener(IO::Socket::UNIX->new(
     Type => SOCK_STREAM, Local => $host, Listen => 5
   ), \&on_input, \&on_accept);
   slog __"accepting connections in $host";
@@ -356,7 +355,7 @@ sub setup_listen_tcp {
   my $host = shift;
   ($host, my $port)=split /:/,$host;
   $port = $DEFAULT_TCP_PORT unless $port;
-  add_listener(IO::Socket::INET->new(
+  Gimp::Extension::add_listener(IO::Socket::INET->new(
     Type => SOCK_STREAM, LocalPort => $port, Listen => 5, ReuseAddr => 1,
     ($host ? (LocalAddr => $host) : ()),
   ), \&on_input, \&on_accept);
@@ -364,9 +363,9 @@ sub setup_listen_tcp {
 }
 
 sub perl_server_run {
-  ($run_mode, my $filehandle, $Gimp::verbose) = @_;
+  (my $filehandle, $Gimp::verbose) = @_;
   warn "$$-".__PACKAGE__."::perl_server_run(@_)\n" if $Gimp::verbose;
-  if ($run_mode == &Gimp::RUN_NONINTERACTIVE) {
+  if ($Gimp::Fu::run_mode == &Gimp::RUN_NONINTERACTIVE) {
       die __"unable to open Gimp::Net communications socket: $!\n"
 	 unless open my $fh,"+<&$filehandle";
       $fh->autoflush;
@@ -396,6 +395,7 @@ sub perl_server_run {
      setup_listen_tcp(":$DEFAULT_TCP_PORT") if $use_tcp && $auth;
   }
   Gtk2->main;
+  ();
 }
 
 sub perl_server_quit {

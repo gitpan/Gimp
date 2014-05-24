@@ -3,12 +3,15 @@ package Gimp::Fu;
 use Gimp::Data;
 use Gimp::Pod;
 use strict;
+use warnings;
 use Carp qw(croak carp);
-use vars qw($run_mode @EXPORT_OK @EXPORT %EXPORT_TAGS);
 use base 'Exporter';
 use Filter::Simple;
 use FindBin qw($RealBin $RealScript);
 use File::stat;
+
+our $run_mode;
+our $VERSION = 2.3004;
 
 # manual import
 sub __ ($) { goto &Gimp::__ }
@@ -94,30 +97,19 @@ my %pf2info = map {
    my $v = $pfname2info{$_}; ($v->[0] => [ @$v[1..3] ])
 } keys %pfname2info;
 
-my @image_params = ([PF_IMAGE, "image", "Input image"],
-                    [PF_DRAWABLE, "drawable", "Input drawable", '%a']);
-my @load_params  = ([PF_STRING, "filename", "Filename"],
-                    [PF_STRING, "raw_filename", "User-given filename"]);
-my @save_params  = (@image_params, @load_params);
-my $image_retval = [PF_IMAGE, "image", "Output image"];
-my %IND2SECT = (
-   2 => 'DESCRIPTION', 3 => 'AUTHOR', 4 => 'LICENSE',
-   5 => 'DATE', 6 => 'SYNOPSIS', 7 => 'IMAGE TYPES',
-);
-
 my $podreg_re = qr/(\bpodregister\s*{)/;
 FILTER {
    return unless /$podreg_re/;
-   my $myline = make_arg_line(insert_params(fixup_args(('') x 9, 1)));
+   my $myline = make_arg_line(fixup_args(('') x 9, 1));
    s/$podreg_re/$1\n$myline/;
    warn __PACKAGE__."::FILTER: found: '$1'" if $Gimp::verbose >= 2;
 };
 
-@EXPORT_OK = qw($run_mode save_image);
-%EXPORT_TAGS = (
+our @EXPORT_OK = qw($run_mode save_image);
+our %EXPORT_TAGS = (
    params => [ keys %pfname2info ]
 );
-@EXPORT = (qw(podregister register main), @{$EXPORT_TAGS{params}});
+our @EXPORT = (qw(podregister register main), @{$EXPORT_TAGS{params}});
 
 my @scripts;
 
@@ -158,7 +150,7 @@ sub string2pf($$) {
    } elsif($type == PF_IMAGE) {
       my $image;
       if ((my $arg) = $s =~ /%(.+)/) {
-	 die "Image % argument not integer - if file, put './' in front\n"
+	 die "Image %argument '$arg' not integer - if file, put './' in front\n"
 	    unless $arg eq int $arg;
 	 $image = Gimp::Image->existing($arg);
 	 die "'$arg' not a valid image - need to run Perl Server?\n"
@@ -199,7 +191,10 @@ sub mangle_key {
 }
 
 Gimp::on_net {
-   *{Gimp::UI::export_image} = sub ($$$$) { &Gimp::EXPORT_IGNORE };
+   require Gimp::UI;
+   # hash-walking in Gimp::Extension deletes aliases, this is real sub
+   undef &Gimp::UI::export_image;
+   *{Gimp::UI::export_image} = sub { &Gimp::EXPORT_IGNORE };
    require Getopt::Long;
    my $proc;
    Getopt::Long::Configure('pass_through');
@@ -230,7 +225,7 @@ Gimp::on_net {
       die __"parameter '$entry->[1]' is not optional\n"
 	 unless defined $args[$i] or $interact>0;
    }
-   $interact = $interact > 0;
+   $interact = @$params && $interact > 0;
    for my $i (0..$#args) {
       eval { $args[$i] = string2pf($args[$i], $params->[$i]); };
       die $@ if $@ and not $interact;
@@ -260,7 +255,7 @@ Gimp::on_net {
       } elsif ($input_image) {
 	 save_image($input_image, sprintf $outputfile, 0);
       } else {
-	 die "$0: outputfile specified but plugin returned no image and no input image\n";
+	 die "$0: outputfile specified but plugin returned no image and no input image\n" unless $menupath =~ /^<Toolbox>/;
       }
    }
 };
@@ -274,76 +269,37 @@ sub datatype(@) {
    return Gimp::PDB_INT32;
 }
 
-Gimp::on_query {
-   for my $s (@scripts) {
-      for my $p (@{$s->[9]}) {
-	 next if $p->[0] < Gimp::PDB_END;
-	 $p->[0] = $pf2info{$p->[0]}->[1] // datatype(values %{+{@{$p->[4]}}});
-      }
-      unshift @{$s->[9]}, [Gimp::PDB_INT32,"run_mode","Interactive:0=yes,1=no"];
-      Gimp->install_procedure(@$s);
-   }
-};
-
-sub insert_params {
-   my @p = @_;
-   die __<<EOF unless $p[6] =~ /^<(?:Image|Load|Save|Toolbox|None)>/;
-Menupath must start with <Image>, <Load>, <Save>, <Toolbox>, or <None>!
-(got '$p[6]')
-EOF
-   if ($p[6] =~ /^<Image>\//) {
-      if ($p[7]) {
-         unshift @{$p[8]}, @image_params;
-      } else {
-         # undef or ''
-         unshift @{$p[9]}, $image_retval
-            if !@{$p[9]} or $p[9]->[0]->[0] != PF_IMAGE;
-      }
-   } elsif ($p[6] =~ /^<Load>\//) {
-      my ($start, $label, $fileext, $prefix) = split '/', $p[6];
-      $prefix = '' unless $prefix;
-      Gimp::on_query { Gimp->register_load_handler($p[0], $fileext, $prefix); };
-      $p[6] = join '/', $start, $label;
-      unshift @{$p[8]}, @load_params;
-      unshift @{$p[9]}, $image_retval;
-   } elsif ($p[6] =~ /^<Save>\/(.*)/) {
-      my ($start, $label, $fileext, $prefix) = split '/', $p[6];
-      $prefix = '' unless $prefix;
-      Gimp::on_query { Gimp->register_save_handler($p[0], $fileext, $prefix); };
-      $p[6] = join '/', $start, $label;
-      unshift @{$p[8]}, @save_params;
-   } elsif ($p[6] =~ m#^<Toolbox>/Xtns/#) {
-      undef $p[7];
-   } elsif ($p[6] =~ /^<None>/) {
-      undef $p[6]; undef $p[7];
-   }
-   @p;
+sub param_gimpify {
+   my $p = shift;
+   return $p if $p->[0] < Gimp::PDB_END;
+   my @c = @$p; # copy as modifying
+   $c[0] = $pf2info{$p->[0]}->[1] // datatype(values %{+{@{$p->[4]}}});
+   \@c;
 }
 
-sub podregister (&) { unshift @_, ('') x 9; goto &register; }
-sub register($$$$$$$$$;@) {
-   no strict 'refs';
+sub procinfo2installable {
+   my @c = @_;
+   $c[9] = [ map { param_gimpify($_) } @{$c[9]} ];
+   unshift @{$c[9]}, [&Gimp::PDB_INT32,"run_mode","Interactive:0=yes,1=no"]
+      if defined $c[6];
+   @c;
+}
+
+Gimp::on_query {
+   for my $s (@scripts) { Gimp->install_procedure(procinfo2installable(@$s)); }
+};
+
+sub make_ui_closure {
    my ($function, $blurb, $help, $author, $copyright, $date, $menupath,
-       $imagetypes, $params, $results, $code) = insert_params(fixup_args(@_));
-   for my $p (@$params,@$results) {
-      next unless ref $p;
-      croak __"$function: argument/return value '$p->[1]' has illegal type '$p->[0]'"
-	unless int($p->[0]) eq $p->[0];
-      carp(__"$function: argument name '$p->[1]' contains illegal characters, only 0-9, a-z and _ allowed")
-	unless $p->[1]=~/^[0-9a-z_]+$/;
-   }
-
-   $function="perl_fu_".$function unless $function =~ /^(?:perl_fu_|extension_|plug_in_|file_)/ || $function =~ s/^\+//;
-   $function=~/^[0-9a-z_]+(-ALT)?$/ or carp(__"$function: function name contains unusual characters, good style is to use only 0-9, a-z and _");
-   carp __"function name contains dashes instead of underscores\n"
-      if $function =~ y/-//;
-
-   Gimp::register_callback $function => sub {
-      $run_mode = shift;	# global!
+       $imagetypes, $params, $results, $code) = @_;
+   warn "$$-Gimp::Fu::make_ui_closure(@_)\n" if $Gimp::verbose >= 2;
+   die "Params must be array, instead: $params\n" unless ref $params eq 'ARRAY';
+   die "Retvals must be array, instead: $results\n" unless ref $results eq 'ARRAY';
+   die "Callback must be code, instead: $code\n" unless ref $code eq 'CODE';
+   sub {
+      warn "$$-Gimp::Fu closure: (@_)\n" if $Gimp::verbose >= 2;
+      $run_mode = defined($menupath) ? shift : Gimp::RUN_NONINTERACTIVE;
       my(@pre,@defaults,@lastvals);
-
-      Gimp::ignore_functions(@Gimp::GUI_FUNCTIONS)
-	 unless $run_mode == Gimp::RUN_INTERACTIVE;
 
       # set default arguments
       for (0..$#{$params}) {
@@ -354,7 +310,9 @@ sub register($$$$$$$$$;@) {
       }
 
       for($menupath) {
-         if (/^<Image>\//) {
+         if (not defined $_ or m#^<Toolbox>#) {
+	    # no-op
+         } elsif (/^<Image>\//) {
 	    if (defined $imagetypes and length $imagetypes) {
 	       @_ >= 2 or die __"<Image> plug-in called without both image and drawable arguments!\n";
 	       @pre = (shift,shift);
@@ -365,20 +323,22 @@ sub register($$$$$$$$$;@) {
          } elsif (/^<Save>\//) {
             @_ >= 4 or die __"<Save> plug-in called without the 5 standard arguments!\n";
             @pre = (shift,shift,shift,shift);
-	 } elsif (m#^<Toolbox>/Xtns/#) {
-	    # no-op
          } elsif (defined $_) {
-	    die __"menupath _must_ start with <Image>, <Load>, <Save>, <Toolbox>/Xtns/, or <None>!";
+	    die __"menupath _must_ start with <Image>, <Load>, <Save>, <Toolbox>, or <None>!";
          }
       }
       warn "perlsub: rm=$run_mode" if $Gimp::verbose >= 2;
-      if ($run_mode == Gimp::RUN_INTERACTIVE
+      if ($run_mode == Gimp::RUN_NONINTERACTIVE or not defined $run_mode) {
+         # nop
+      } elsif ($run_mode == Gimp::RUN_INTERACTIVE
           || $run_mode == Gimp::RUN_WITH_LAST_VALS) {
          my $fudata = $Gimp::Data{"$function/_fu_data"};
 	 if ($fudata) {
 	    my $data_savetime = shift @$fudata;
 	    my $script_savetime = stat("$RealBin/$RealScript")->mtime;
 	    undef $fudata if $script_savetime > $data_savetime;
+	 } else {
+	    undef $fudata;
 	 }
 	 if ($Gimp::verbose >= 2) {
 	    require Data::Dumper;
@@ -399,8 +359,6 @@ sub register($$$$$$$$$;@) {
                unshift @$params, @hide;
             }
          }
-      } elsif ($run_mode == Gimp::RUN_NONINTERACTIVE) {
-         # nop
       } else {
          die __"run_mode must be INTERACTIVE, NONINTERACTIVE or RUN_WITH_LAST_VALS\n";
       }
@@ -418,8 +376,13 @@ sub register($$$$$$$$$;@) {
       Gimp->displays_flush;
       wantarray ? @retvals : $retvals[0];
    };
-   push(@scripts,[$function,$blurb,$help,$author,$copyright,$date,
-		$menupath,$imagetypes,Gimp::PLUGIN,$params,$results]);
+}
+
+sub podregister (&) { unshift @_, ('') x 9; goto &register; }
+sub register($$$$$$$$$;@) {
+   my @procinfo = fixup_args(@_);
+   Gimp::register_callback $procinfo[0] => make_ui_closure(@procinfo);
+   push @scripts, [ @procinfo[0..7], Gimp::PLUGIN, @procinfo[8,9] ];
 }
 
 sub save_image($$) {
@@ -762,11 +725,10 @@ Outline:
     $new_image->delete if $export == EXPORT_EXPORT;
   };
 
-=item <Toolbox>/Xtns/Label
+=item <Toolbox>/Label
 
-This will place the plugin in a special section (as of GIMP 2.8) of the
-"Filters" menu. This type of plugin will also not have the image and
-drawable passed, nor will it require it.
+This type of plugin will not have the image and drawable passed, nor
+will it require (or return) it. It I<will> still have a C<run_mode> added.
 
 =item <None>
 

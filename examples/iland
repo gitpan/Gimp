@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 # 02/06/2001
 # V1.0
@@ -9,6 +9,8 @@
 use Gimp qw(:auto __ N_);
 use Gimp::Fu;
 use PDL::LiteF;
+use strict;
+use warnings;
 
 podregister {
   #gimp_tile_cache_size(20000);
@@ -74,7 +76,7 @@ podregister {
   $newdrawable->merge_shadow(1);
   $newdrawable->update(0,0,$width, $height);
 
-  Gimp->display_new($newimage);
+  eval { Gimp::Display->new($newimage); };
 
   #Original pic => original state
   if ($camerapos==3){
@@ -125,5 +127,4 @@ Fabian Frederick <fabian.frederick@gmx.fr>
 
 =head1 LICENSE
 
-Copyright Fabian Frederick.
-This plugin may be distributed under the same terms as The Gimp itself.
+This plugin may be distributed under the same terms as GIMP itself.

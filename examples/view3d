@@ -1,9 +1,11 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 use Gimp;
 use Gimp::Fu;
 use PDL;
 use PDL::Graphics::TriD;
+use strict;
+use warnings;
 
 podregister {
     my $w = $drawable->width;
