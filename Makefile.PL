@@ -22,7 +22,7 @@ tags: .
 
 # set \$VERSION in all modules
 setver:
-	\$(PERL) -pi -e 's/^(\\s*(?:our)?\\s*\\\$\$VERSION\\s*=\\s*).*;/\$\${1}\$(VERSION);/' Gimp/*.pm UI/*.pm Net/*.pm
+	\$(PERL) -pi -e 's/^(\\s*(?:our)?\\s*\\\$\$VERSION\\s*=\\s*).*;/\$\${1}"\$(VERSION)";/' Gimp/*.pm UI/*.pm Net/*.pm
 
 EOF
 }
@@ -52,6 +52,7 @@ WriteMakefile(
     ExtUtils::PkgConfig	=> 0,
     Gtk2::Ex::PodViewer	=> 0,
     IO::Scalar		=> 0,
+    Web::Scraper	=> 0,
   },
   META_MERGE => {
     "meta-spec" => { version => 2 },

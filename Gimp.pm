@@ -10,7 +10,7 @@ our (
 use subs qw(init end lock unlock);
 
 BEGIN {
-   $VERSION = 2.3004; # going forward: 2.xx, or 2.xx_yy for dev
+   $VERSION = '2.30_05'; # going forward: 2.xx, or 2.xx_yy for dev
    eval {
       require XSLoader;
       XSLoader::load Gimp $VERSION;
@@ -35,7 +35,6 @@ my @_procs = ('__', 'N_');
 #my @_default = (@_procs, ':consts' ,':_auto2');
 my @_default = (@_procs, ':consts');
 my @POLLUTE_CLASSES;
-my $net_init;
 
 sub import($;@) {
    no strict 'refs';
@@ -45,9 +44,9 @@ sub import($;@) {
    my @export;
 
    # make sure we can call GIMP functions - start net conn if required
+   my $net_init;
    map { $net_init = $1 if /net_init=(\S+)/; } @_;
    if ($interface_type eq "net" and not &Gimp::Net::initialized) {
-      no strict 'refs';
       map { *{"Gimp::$_"} = \&{"Gimp::Constant::$_"} }
 	 qw(RUN_INTERACTIVE RUN_NONINTERACTIVE);
       Gimp::Net::gimp_init(grep {defined} $net_init);
@@ -67,16 +66,6 @@ sub import($;@) {
          push @export,@Gimp::Constant::EXPORT,@_procs;
          *{"$up\::AUTOLOAD"} = sub {
             croak "Cannot call '$AUTOLOAD' at this time" unless initialized();
-            my ($class,$name) = $AUTOLOAD =~ /^(.*)::(.*?)$/;
-            *{$AUTOLOAD} = sub { unshift @_, 'Gimp'; $AUTOLOAD = "Gimp::$name"; goto &AUTOLOAD };
-            #*{$AUTOLOAD} = sub { Gimp->$name(@_) }; # old version
-            goto &$AUTOLOAD;
-         };
-      } elsif ($_ eq ":_auto2") {
-         push @export,@Gimp::Constant::EXPORT,@_procs;
-         *{"$up\::AUTOLOAD"} = sub {
-            warn __"$function: calling $AUTOLOAD without specifying the :auto import tag is deprecated!\n";
-            croak __"Cannot call '$AUTOLOAD' at this time" unless initialized();
             my ($class,$name) = $AUTOLOAD =~ /^(.*)::(.*?)$/;
             *{$AUTOLOAD} = sub { unshift @_, 'Gimp'; $AUTOLOAD = "Gimp::$name"; goto &AUTOLOAD };
             #*{$AUTOLOAD} = sub { Gimp->$name(@_) }; # old version
@@ -384,6 +373,7 @@ sub compare($$)		{ $_[0]->[0] eq $_[1]->[0] and
 			  $_[0]->[1] eq $_[1]->[1] and
 			  $_[0]->[2] eq $_[1]->[2] }
 sub new($$$$)		{ shift; [@_] }
+use overload '""' => sub { ref($_[0])."->new([@{[ join ', ', @{$_[0]} ]}])"; };
 }
 
 {
@@ -758,7 +748,21 @@ Gimp-Perl uses some tricks to map the procedural PDB functions onto full
 classes, with methods. These effectively implement object-oriented C,
 not coincidentally in the style of Glib Objects. GIMP plans to move to
 fully supporting Glib Objects, which may mean some (or no) changes to
-the Gimp-Perl programming interface.
+the Gimp-Perl programming interface. The OO interface may well become
+stricter than the current quite thin mapping. This is why the C<:auto>
+method of accessing GIMP functions is deprecated.
+
+Therefore, the guidance is that if you can do it as an object method, do
+- and use the shortest method name that works; no C<gimp_>, no
+C<gimp_layer_>, etc. The key indication is whether the first argument
+is an object of the classes given below, and the GIMP function call:
+C<gimp_image_*> is always either an image object method, or a class
+method. If the first two arguments are an image and a drawable, call the
+method on the drawable, with the exception of C<gimp_image_insert_layer>,
+which we can tell from the prefix is an image method.
+
+If you can't, use a deeper class than just C<Gimp>: C<Gimp::Context>, etc.
+Otherwise, you have to use C<Gimp-E<gt>>, and that's fine.
 
 =head2 AVAILABLE CLASSES
 

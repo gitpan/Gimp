@@ -39,6 +39,7 @@ examples/Perl-Console
 examples/animate_cells
 examples/autosave2
 examples/billboard
+examples/blended2
 examples/blowinout
 examples/bricks
 examples/burst
@@ -78,6 +79,7 @@ examples/randomart1
 examples/randomblends
 examples/README
 examples/redeye
+examples/registry_viewer
 examples/repdup
 examples/scratches
 examples/selective_sharpen
@@ -85,6 +87,7 @@ examples/sethspin
 examples/stampify
 examples/stamps
 examples/tex-to-float
+examples/translogo
 examples/triangle
 examples/view3d
 examples/warp-sharp
@@ -135,6 +138,7 @@ po/vi.po
 po/zh_CN.po
 po/zh_TW.po
 pxgettext
+t/data.t
 t/examples-api.pl
 t/extension.t
 t/gimppod.t

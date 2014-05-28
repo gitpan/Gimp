@@ -5,16 +5,18 @@ use warnings;
 
 sub freeze($) {
    my $data = shift;
-   return $data unless ref $data;
+   return $data unless ref $data or _looks_frozen($data);
    require Data::Dumper;
    $data = Data::Dumper->new([$data]);
    $data->Purity(1)->Terse(0);
    return $data->Dump;
 }
 
+sub _looks_frozen { shift =~ /^\$VAR1 =/; }
+
 sub thaw {
    my $data = shift;
-   if ($data =~ /^\$VAR1 =/) {
+   if (_looks_frozen($data)) {
       my $VAR1;
       no warnings;
       return eval $data;
@@ -40,10 +42,30 @@ sub STORE {
 }
 
 sub EXISTS {
-   $_[0]->FETCH ? 1 : ();
+   FETCH(@_) ? 1 : ();
 }
 
-tie (%Gimp::Data, 'Gimp::Data');
+my @allkeys;
+my $key_index;
+sub FIRSTKEY {
+   @allkeys = Gimp->get_parasite_list;
+   $key_index = 0;
+   $allkeys[$key_index];
+}
+
+sub NEXTKEY {
+   die "NEXTKEY: expected last key $allkeys[$key_index] but got $_[1]\n"
+      unless $allkeys[$key_index] eq $_[1];
+   $allkeys[++$key_index];
+}
+
+sub DELETE {
+   my $value = FETCH(@_);
+   Gimp->detach_parasite($_[1]);
+   $value;
+}
+
+tie %Gimp::Data, __PACKAGE__;
 
 1;
 __END__
@@ -81,30 +103,8 @@ like your plug-in's name. As an example, the Gimp::Fu module uses
 As of L<Gimp> version 2.3 (and GIMP 2.8), your data B<will> survive a
 restart of the Gimp application.
 
-C<Gimp::Data> will try to freeze your data when you pass in a reference. On
+C<Gimp::Data> will freeze your data when you pass in a reference. On
 retrieval, the data is thawed again. See L<Data::Dumper> for more info.
-
-=head1 PERSISTENCE
-
-C<Gimp::Data> contains the following functions to ease applications where
-persistence for perl data structures is required:
-
-=over 4
-
-=item Gimp::Data::freeze(reference)
-
-Freeze (serialize) the reference.
-
-=item Gimp::Data::thaw(data)
-
-Thaw (unserialize) the dsata and return the original reference.
-
-=back
-
-=head1 LIMITATIONS
-
-You cannot store references, and you cannot (yet) iterate through the keys
-(with C<keys>, C<values> or C<each>).
 
 =head1 AUTHOR
 
@@ -113,5 +113,3 @@ Marc Lehmann <pcg@goof.com>
 =head1 SEE ALSO
 
 perl(1), L<Gimp>.
-
-=cut

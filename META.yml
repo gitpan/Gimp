@@ -16,4 +16,4 @@ no_index:
     - inc
 resources:
   repository: git://git.gnome.org/gimp-perl
-version: 2.3004
+version: 2.30_05

@@ -19,7 +19,7 @@
          "inc"
       ]
    },
-   "release_status" : "stable",
+   "release_status" : "testing",
    "resources" : {
       "repository" : {
          "type" : "git",
@@ -27,5 +27,5 @@
          "web" : "https://git.gnome.org/browse/gimp-perl/"
       }
    },
-   "version" : "2.3004"
+   "version" : "2.30_05"
 }

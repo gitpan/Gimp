@@ -11,7 +11,7 @@ use FindBin qw($RealBin $RealScript);
 use File::stat;
 
 our $run_mode;
-our $VERSION = 2.3004;
+our $VERSION = "2.30_05";
 
 # manual import
 sub __ ($) { goto &Gimp::__ }
@@ -191,10 +191,6 @@ sub mangle_key {
 }
 
 Gimp::on_net {
-   require Gimp::UI;
-   # hash-walking in Gimp::Extension deletes aliases, this is real sub
-   undef &Gimp::UI::export_image;
-   *{Gimp::UI::export_image} = sub { &Gimp::EXPORT_IGNORE };
    require Getopt::Long;
    my $proc;
    Getopt::Long::Configure('pass_through');
@@ -445,7 +441,7 @@ sub main {
    my $proc;
    Getopt::Long::Configure('pass_through');
    Getopt::Long::GetOptions('p=s' => \$proc);
-   my $this = defined($proc) ? find_script($proc) : undef;
+   my $this = find_script($proc);
    print __<<EOF;
        interface-arguments are
            -o | --output <filespec>   write image to disk
