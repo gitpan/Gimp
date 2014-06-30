@@ -12,7 +12,7 @@ use Gtk2;
 sub __ ($) { goto &Gimp::__ }
 sub main { goto &Gimp::main; }
 
-our $VERSION = "2.30_05";
+our $VERSION = "2.31";
 our @EXPORT = qw(podregister main add_listener register_temp podregister_temp);
 
 # this is to avoid warnings from importing main etc from Gimp::Fu AND here
@@ -34,7 +34,7 @@ Gimp::on_query {
 sub podregister (&) {
    my @procinfo = fixup_args(('')x9, @_);
    Gimp::register_callback $procinfo[0] => sub {
-      warn "$$-Gimp::Extension sub: $procinfo[0](@_)" if $Gimp::verbose;
+      warn "$$-Gimp::Extension sub: $procinfo[0](@_)" if $Gimp::verbose >= 2;
       for my $tp (@temp_procs) {
 	 my @tpinfo = (
 	    @{$tp}[0..2],

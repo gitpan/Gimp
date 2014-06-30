@@ -10,7 +10,7 @@ our (
 use subs qw(init end lock unlock);
 
 BEGIN {
-   $VERSION = '2.30_05'; # going forward: 2.xx, or 2.xx_yy for dev
+   $VERSION = '2.31'; # going forward: 2.xx, or 2.xx_yy for dev
    eval {
       require XSLoader;
       XSLoader::load Gimp $VERSION;
@@ -223,7 +223,7 @@ if ($interface_type=~/^lib$/i) {
 } else {
    croak __"interface '$interface_type' unsupported.";
 }
-warn "$$-Using interface '$interface_type'" if $Gimp::verbose;
+warn "$$-Using interface '$interface_type'" if $Gimp::verbose >= 2;
 
 eval "require $interface_pkg" or croak $@;
 $interface_pkg->import;
@@ -246,8 +246,28 @@ my %ignore_function = (DESTROY => 1);
 @PREFIXES=("gimp_", "");
 
 sub ignore_functions(@) {
-   warn "$$-IGNORING(@_)" if $Gimp::verbose;
+   warn "$$-IGNORING(@_)" if $Gimp::verbose >= 2;
    @ignore_function{@_}++;
+}
+
+my %proc2deprecated = (
+  # needed to get the Perl-Server up and running
+  gimp_procedural_db_query => 0,
+  gimp_procedural_db_proc_exists => 0,
+  gimp_enums_get_type_names => 0,
+  gimp_enums_list_type => 0,
+  gimp_install_procedure => 0,
+);
+my $deprecations_loaded = 0;
+sub deprecated {
+  warn "$$-deprecated(@_)" if $Gimp::verbose >= 2;
+  my $proc = shift;
+  unless ($deprecations_loaded or defined $proc2deprecated{$proc}) {
+    $deprecations_loaded = 1;
+    map { s#-#_#g; $proc2deprecated{$_}++ }
+      Gimp->procedural_db_query('.*', '.*deprecated.*', ('.*') x 5);
+  }
+  $proc2deprecated{$proc} = !!$proc2deprecated{$proc};
 }
 
 sub recroak { $_[0] =~ /\n$/ ? die shift : croak shift; }
@@ -258,41 +278,42 @@ sub exception_strip {
   $e;
 }
 sub AUTOLOAD {
+  my $autoload_copy = $AUTOLOAD; # needed as if autoload inside, not restored
+  warn "$$-AUTOLOAD $autoload_copy(@_)" if $Gimp::verbose >= 2;
   no strict 'refs';
-  goto &$AUTOLOAD if defined &$AUTOLOAD; # happens if :auto, not if method call
-  my ($class,$name) = $AUTOLOAD =~ /^(.*)::(.*?)$/;
-  warn "$$-AUTOLOAD $AUTOLOAD(@_)" if $Gimp::verbose >= 2;
+  goto &$autoload_copy if defined &$autoload_copy; # happens if :auto, not if method call
+  my ($class,$name) = $autoload_copy =~ /^(.*)::(.*?)$/;
   for(@{"$class\::PREFIXES"}) {
     my $sub = $_.$name;
     if (exists $ignore_function{$sub}) {
-      *{$AUTOLOAD} = sub { () };
-      goto &$AUTOLOAD;
+      *{$autoload_copy} = sub { () };
+      goto &$autoload_copy;
     } elsif (UNIVERSAL::can('Gimp::Util',$sub)) {
       my $ref = \&{"Gimp::Util::$sub"};
-      *{$AUTOLOAD} = sub {
+      *{$autoload_copy} = sub {
 	shift unless ref $_[0];
 	my @r = eval { &$ref };
 	recroak exception_strip(__FILE__, $@) if $@; wantarray ? @r : $r[0];
       };
-      goto &$AUTOLOAD;
+      goto &$autoload_copy;
     } elsif (UNIVERSAL::can($interface_pkg,$sub)) {
       my $ref = \&{"$interface_pkg\::$sub"};
-      *{$AUTOLOAD} = sub {
+      *{$autoload_copy} = sub {
 	shift unless ref $_[0];
 	my @r = eval { &$ref };
 	recroak exception_strip(__FILE__, $@) if $@; wantarray ? @r : $r[0];
       };
-      goto &$AUTOLOAD;
-    } elsif (gimp_procedural_db_proc_exists($sub)) {
-      *{$AUTOLOAD} = sub {
+      goto &$autoload_copy;
+    } elsif (not deprecated($sub) and gimp_procedural_db_proc_exists($sub)) {
+      *{$autoload_copy} = sub {
 	warn "$$-gimp_call_procedure{0}(@_)" if $Gimp::verbose >= 2;
 	shift unless ref $_[0];
 	unshift @_, $sub;
-	warn "$$-gimp_call_procedure{1}(@_)" if $Gimp::verbose;
+	warn "$$-gimp_call_procedure{1}(@_)" if $Gimp::verbose >= 2;
 	my @r = eval { gimp_call_procedure (@_) };
 	recroak exception_strip(__FILE__, $@) if $@; wantarray ? @r : $r[0];
       };
-      goto &$AUTOLOAD;
+      goto &$autoload_copy;
     }
   }
   croak __"function/macro \"$name\" not found in $class";
@@ -352,10 +373,14 @@ _pseudoclass qw(Pattern	        gimp_pattern_);
 
 {
 package Gimp::PixelRgn;
+use vars qw(@CARP_NOT); # package scope
+@CARP_NOT = qw(Gimp);
 
 sub new($$$$$$$$) {
    shift;
-   Gimp::PixelRgn->init(@_);
+   my $self = eval { Gimp::PixelRgn->init(@_); };
+   die "Args=(@_): ".$@ if $@;
+   $self;
 }
 }
 
@@ -374,14 +399,38 @@ sub compare($$)		{ $_[0]->[0] eq $_[1]->[0] and
 			  $_[0]->[2] eq $_[1]->[2] }
 sub new($$$$)		{ shift; [@_] }
 use overload '""' => sub { ref($_[0])."->new([@{[ join ', ', @{$_[0]} ]}])"; };
+sub id			{ goto &name; }
 }
 
 {
 package Gimp::Base;
 use overload '""' => sub { ref($_[0]).'->existing('.${$_[0]}.')'; };
-sub existing($$)	{ my $id = $_[1]; bless \$id, $_[0]; }
-sub become($$)		{ bless $_[0], $_[1]; }
+sub existing($$) {
+  my $id = $_[1];
+  my $self = bless \$id, $_[0];
+  Gimp::croak "$id not valid $_[0]" unless $self->is_valid;
+  $self;
 }
+sub become($$) {
+  warn "$$-".__PACKAGE__."::become(@_)" if $Gimp::verbose >= 2;
+  my ($self, $class) = @_;
+  my $old_class = ref $self;
+  bless $self, $class;
+  unless ($self->is_valid) {
+    warn "$$-$self->is_valid false" if $Gimp::verbose >= 2;
+    bless $self, $old_class;
+    Gimp::croak "$_[0] not valid $class"
+  }
+  $self;
+}
+sub id { ${+shift} }
+}
+
+sub Gimp::Channel::is_valid { shift->is_channel }
+sub Gimp::Drawable::is_valid { shift->is_drawable }
+sub Gimp::Layer::is_valid { shift->is_layer }
+sub Gimp::Selection::is_valid { shift->is_selection }
+sub Gimp::Vectors::is_valid { shift->is_vectors }
 
 1;
 __END__
@@ -443,7 +492,8 @@ if you are running from a package.
 
 Using the C<Help/Procedure Browser> is a good way to learn GIMP's
 Procedural Database (PDB). For referencing functions you already know of,
-the included script L<gimpdoc> is useful.
+the included script L<gimpdoc> is useful. B<Be warned Gimp-Perl does
+not allow use of deprecated GIMP procedures>. You'll thank me in time.
 
 Some highlights:
 
@@ -808,17 +858,32 @@ Methods:
 =head4 $object->become($class)
 
 Allows an object of one class to change its class to another, but with
-the same ID. No checking is performed. It is intended for use in plugins,
-e.g. where GIMP passes a C<Gimp::Drawable>, but you need a C<Gimp::Layer>:
+the same ID. If a method call of C<is_valid> returns false, an exception
+will be thrown. It is intended for use in plugins, e.g. where GIMP passes
+a C<Gimp::Drawable>, but you need a C<Gimp::Layer>:
 
-  my ($image, $layer, $color) = @_;
-  die "Can only operate on a layer\n" unless $layer->is_layer;
-  $layer->become('Gimp::Layer'); # now can call layer methods on it
+  my ($image, $drawable, $color) = @_;
+  $drawable->become('Gimp::Layer'); # now can call layer methods on it
+
+Returns C<$object>.
 
 =head4 $class->existing($id)
 
 Allows you to instantiate a Gimp-Perl object with the given C<$class>
-and C<$id>. Again, no checking is performed.
+and C<$id>. The same check as above is done, throwing an exception
+if failed.
+
+=head4 $object->id
+
+Returns the underlying GIMP identifier, an integer.
+
+=head4 $object->is_valid
+
+Returns true if the object is a valid object of the relevant class.
+Subclasses use appropriate GIMP functions: e.g. Gimp::Layer uses
+C<gimp_item_is_layer>.
+
+=head4 stringify
 
 It also provides a "stringify" overload method, so debugging output can
 be more readable.

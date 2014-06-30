@@ -5,6 +5,7 @@ use warnings;
 #BEGIN { $Gimp::verbose = 1; }
 use Gimp;
 use Gimp::Fu;
+use Gimp::UI; # will initialise GIMP UI including theme
 use Gtk2::Gdk::Keysyms;
 
 my $INIT_TEXT = "Gimp-Perl Console v1.0\n\n";
@@ -122,7 +123,9 @@ sub process_input {
     $output = "Error stringifying output: $@" if $@;
   }
   chomp $output;
-  "> $input\n$output";
+  my $to_add = "> $input\n$output";
+  $to_add =~ s#\0#\\0#g;
+  $to_add;
 }
 __END__
 

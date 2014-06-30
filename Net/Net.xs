@@ -4,6 +4,7 @@
 #include "perl.h"
 #include "XSUB.h"
 #include "gppport.h"
+#include <locale.h>
 
 #if !defined(PERLIO_IS_STDIO) && defined(HASATTRIBUTE)
 # undef printf
@@ -44,6 +45,7 @@ static void destroy_object (SV *sv)
  * a num sv*		array
  * p len cont		pv
  * i int		iv
+ * n double		nv
  * b stash sv		blessed reference
  * r			simple reference
  * h len (key sv)*	hash (not yet supported!)
@@ -123,6 +125,10 @@ static void sv2net (int deobjectify, SV *s, SV *sv)
 	{
 	  sv_catpvf (s,"i%ld:", (long)SvIV(sv));
 	}
+      else if (SvNOK(sv))
+        {
+	  sv_catpvf (s,"n%.20lf:", (double)SvNV(sv));
+	}
       else
         {
           char *str;
@@ -148,12 +154,18 @@ static SV *net2sv (int objectify, char **_s)
   unsigned int ui, n;
   int i, j;
   long l;
+  double d;
   char str[64];
 
   switch (*s++)
     {
       case 'u':
         sv = newSVsv (&PL_sv_undef);
+        break;
+
+      case 'n':
+        sscanf (s, "%lf:%n", &d, &n); s += n;
+        sv = newSVnv ((NV)d);
         break;
 
       case 'i':
@@ -239,17 +251,24 @@ MODULE = Gimp::Net	PACKAGE = Gimp::Net
 
 PROTOTYPES: ENABLE
 
+BOOT:
+#ifdef ENABLE_NLS
+        setlocale (LC_ALL, "");
+#endif
+
 SV *
 args2net(deobjectify,...)
 int deobjectify
 CODE:
   int index;
+  char* previous_locale = setlocale(LC_NUMERIC, "C");
   if (deobjectify) init_object_cache;
   RETVAL = newSVpv ("", 0);
   (void) SvUPGRADE (RETVAL, SVt_PV);
   SvGROW (RETVAL, INITIAL_PV);
   for (index = 1; index < items; index++)
     sv2net (deobjectify, RETVAL, ST(index));
+  setlocale(LC_NUMERIC, previous_locale);
 OUTPUT:
   RETVAL
 
@@ -260,6 +279,7 @@ char *	s
 PPCODE:
   if (objectify) init_object_cache;
   /* this depends on a trailing zero! */
+  char* previous_locale = setlocale(LC_NUMERIC, "C");
   while (*s)
     {
       SV *sv;
@@ -268,6 +288,7 @@ PPCODE:
       SPAGAIN; // works without, but recommended by perl expert - leaving in
       XPUSHs (sv_2mortal (sv));
     }
+  setlocale(LC_NUMERIC, previous_locale);
 
 void
 destroy_objects(...)

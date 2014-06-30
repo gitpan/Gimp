@@ -2,7 +2,11 @@ package Gimp::UI;
 
 use Gimp ('__');
 use Gimp::Fu;
+use POSIX qw(locale_h);
+my $locale;
+BEGIN { $locale = setlocale(LC_NUMERIC); setlocale(LC_NUMERIC, "C"); }
 use Gtk2;
+BEGIN { setlocale(LC_NUMERIC, $locale); }
 use IO::All;
 use List::Util qw(min);
 use strict;
@@ -10,7 +14,8 @@ use warnings;
 
 our (@ISA, $VERSION);
 BEGIN {
-   $VERSION = "2.30_05";
+   no locale;
+   $VERSION = "2.31";
    eval {
       require XSLoader;
       XSLoader::load Gimp::UI $VERSION;
@@ -43,11 +48,7 @@ package Gimp::UI::Combo;
 use Gimp ('__');
 our @ISA = 'Gtk2::ComboBox';
 
-sub image_name {
-   my $name = $_[0]->get_filename;
-   $name = "Untitled-".${$_[0]} if $name eq "";
-   $name;
-}
+sub image_name { $_[0]->get_filename || "Untitled-".${$_[0]}; }
 
 sub Gimp::UI::Combo::Image::_items {
   +{ map { (image_name($_) => $_) } Gimp::Image->list }
@@ -89,7 +90,7 @@ sub get_active_scalar {
 }
 
 sub reload {
-  warn __PACKAGE__ . "::reload(@_)" if $Gimp::verbose;
+  warn __PACKAGE__ . "::reload(@_)" if $Gimp::verbose >= 2;
   my ($self) = @_;
   my $count = keys %{ $self->{GIMPUI_text2scalar} };
   $self->remove_text(0) while $count--;
@@ -309,13 +310,13 @@ sub _find_digits {
 }
 
 sub help_window(\$$$$) {
-   my ($helpwin, $parent, $title, $help) = @_;
+   my ($helpwin, $parent, $title, $blurb) = @_;
    unless ($$helpwin) {
-      $$helpwin = new Gtk2::Dialog;
-      $$helpwin->set_title(sprintf __"Help for %s", $title);
+      $$helpwin = new Gtk2::Dialog sprintf(__"Help for %s", $title), $parent, [];
       $$helpwin->action_area->set_border_width (2);
-      my $tophelp = new Gtk2::Label $help;
+      my $tophelp = new Gtk2::Label $blurb;
       $tophelp->set_alignment(0.5,0.5);
+      $tophelp->set_line_wrap(1);
       $$helpwin->vbox->pack_start($tophelp,0,1,3);
       my $sw = new Gtk2::ScrolledWindow undef,undef;
       $sw->set_policy (-automatic, -automatic);
@@ -338,7 +339,7 @@ sub help_window(\$$$$) {
 }
 
 sub _instrument {
-  return unless $Gimp::verbose;
+  return unless $Gimp::verbose >= 2;
   my $obj = shift;
   my $class = ref $obj;
   my %sig2done;
@@ -436,7 +437,7 @@ my %PF2INFO = (
     my ($a, $s, $g);
     if ($Gimp::interface_pkg ne 'Gimp::Net') {
       $a = new Gimp::UI::FontSelectButton $desc, $default;
-      $s = sub { $a->set_font($_[0]) };
+      $s = sub { $a->set_font($_[0] || 'Arial') };
       $g = sub { $a->get_font };
 #      _instrument($a);
     } else {
@@ -445,7 +446,7 @@ my %PF2INFO = (
       my $val;
       my $l = new Gtk2::Label "!error!";
       my $setval = sub {
-	$val = shift;
+	$val = shift // '';
 	$val =~ s#\s*(Bold)?\s*(Italic)?\s*\d+$##; # vim highlighter
 	unless (defined $val && $fs->set_font_name ("$val 10")) {
 	  warn sprintf __"Illegal default font description: %s\n", $val
@@ -467,13 +468,29 @@ my %PF2INFO = (
   },
   &PF_COLOR => sub {
     my ($name,$desc,$default,$extra,$value) = @_;
-    $default = [0.8,0.6,0.1] unless defined $default;
-    $default = Gimp::canonicalize_color($default);
-    my $b = new Gimp::UI::ColorButton $desc, 90, 14, $default, 'small-checks';
-#    _instrument($b);
-    ($b, sub {
-      $b->set_color (defined $_[0] ? Gimp::canonicalize_color $_[0] : [0.8,0.6,0.1])
-    }, sub { $b->get_color });
+    my ($a, $s, $g);
+    if ($Gimp::interface_pkg eq 'Gimp::Net') {
+      $a = Gtk2::ColorButton->new;
+      $s = sub {
+	my $colour = Gimp::canonicalize_color(shift // [0.8,0.6,0.1]);
+	my @rgb = map { $_ * ((1<<16)-1) } @$colour[0..2];
+	$a->set_color(Gtk2::Gdk::Color->new(@rgb));
+      };
+      $g = sub {
+	my $gc = $a->get_color;
+	my @c = map { $_ / ((1<<16)-1) } $gc->red, $gc->green, $gc->blue;
+	\@c;
+      };
+    } else {
+      $default = Gimp::canonicalize_color($default // [0.8,0.6,0.1]);
+      $a = new Gimp::UI::ColorButton $desc, 90, 14, $default, 'small-checks';
+#      _instrument($a);
+      $s = sub {
+	$a->set_color(Gimp::canonicalize_color(shift // [0.8,0.6,0.1]));
+      };
+      $g = sub { $a->get_color };
+    }
+    ($a, $s, $g);
   },
   &PF_TOGGLE => sub {
     my $a = new Gtk2::CheckButton;
@@ -602,8 +619,8 @@ my %PF2INFO = (
   },
 );
 
-sub interact($$$$@) {
-  warn __PACKAGE__ . "::interact(@_)" if $Gimp::verbose;
+sub interact {
+  warn __PACKAGE__ . "::interact(@_)" if $Gimp::verbose >= 2;
   my ($function, $blurb, $help, $params, $menupath) = splice @_, 0, 5;
   my (@getvals, @setvals, @lastvals, @defaults);
   my $helpwin;
@@ -638,7 +655,7 @@ sub interact($$$$@) {
     $value=$default unless defined $value;
     die sprintf __"Unsupported argumenttype %s for %s\n", $type, $name
       unless $PF2INFO{$type};
-    my ($a, $sv, $gv) = $PF2INFO{$type}->( $name,$desc,$default,$extra,$value);
+    my ($a, $sv, $gv) = $PF2INFO{$type}->($name,$desc,$default,$extra,$value);
     push @setvals, $sv;
     push @getvals, $gv;
     push @lastvals, $value;
@@ -660,7 +677,7 @@ sub interact($$$$@) {
   my $mainloop = Glib::MainLoop->new;
   my $button = $w->add_button('gtk-help', 3);
   $button->signal_connect(clicked => sub {
-    help_window($helpwin, $w, $title, $help);
+    help_window($helpwin, $w, $title, $blurb);
   });
   $button = $w->add_button('gimp-reset', 2);
   $button->signal_connect(clicked => sub {
@@ -681,6 +698,7 @@ sub interact($$$$@) {
   can_default $button 1;
   grab_default $button;
   $w->signal_connect(destroy => sub { $mainloop->quit; });
+  set_transient($w);
 
   show_all $table;
   show_all $sw;

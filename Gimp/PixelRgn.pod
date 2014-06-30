@@ -80,7 +80,7 @@ region, and a writable "destination" region:
   my ($x,$y,$w,$h)=($dst->x,$dst->y,$dst->w,$dst->h);
   my $pdl = $src->get_rect($x,$y,$w,$h);
   $pdl += 7; # trivial operation
-  $dst->data($pdl);
+  $dst->set_rect($pdl, $x, $y);
   $drawable->merge_shadow(1);
 
 However, it B<is> possible to use dirty=1, shadow=0; see the "setpixel"
@@ -103,6 +103,16 @@ And the corresponding set-functions:
 
 Please note that (unlike the C functions they call), the size arguments
 (width and/or height) are omitted; they are calculated from the piddle.
+
+The dimensions of the piddle are, for a rectangle (due to how GIMP stores
+the data):
+
+  ($bytesperpixel, $width, $height) = $r->get_rect($l->bounds)->dims;
+
+For a row or column:
+
+  ($bytesperpixel, $width) = $r->get_row(0, 0, $width)->dims;
+  ($bytesperpixel, $height) = $r->get_col(0, 0, $height)->dims;
 
 =head1 EXAMPLES
 
@@ -174,6 +184,10 @@ objects get destroyed, and they get flushed and detached.
 Once the operation is complete and the shadow tiles have all been set with
 the right data, C<$drawable-E<gt>merge_shadow($undo)> is called. C<$undo>
 is a boolean telling GIMP "whether to add an undo step for the operation".
+
+=item data method only valid for iterators
+
+The C<$region-E<gt>data> method is only valid for use within an iterator.
 
 =back
 

@@ -38,6 +38,8 @@ my @pins = qw(
   gouge
   redeye
   pixelmap
+  image_tile
+  iland
 );
 
 sub install_plugin_target {

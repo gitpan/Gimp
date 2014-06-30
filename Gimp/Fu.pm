@@ -11,7 +11,7 @@ use FindBin qw($RealBin $RealScript);
 use File::stat;
 
 our $run_mode;
-our $VERSION = "2.30_05";
+our $VERSION = "2.31";
 
 # manual import
 sub __ ($) { goto &Gimp::__ }
@@ -164,10 +164,10 @@ sub string2pf($$) {
       if ((my $arg) = $s =~ /%(.+)/) {
 	 if ($arg eq 'a') {
 	    $latest_image->get_active_drawable;
-	 } elsif ((my $file, $arg) = $arg =~ /(.*):(\d+)/) {
+	 } elsif (my ($file, $subarg) = $arg =~ /(.*):(\d+)/) {
 	    $latest_imagefile = $file;
 	    $latest_image = Gimp->file_load(Gimp::RUN_NONINTERACTIVE, $file, $file),
-	    ($latest_image->get_layers)[$arg]->become('Gimp::Drawable');
+	    ($latest_image->get_layers)[$subarg]->become('Gimp::Drawable');
 	 } else {
 	    die "Drawable % argument not integer\n"
 	       unless $arg eq int $arg;
@@ -209,7 +209,7 @@ Gimp::on_net {
 	 ("$_=s"=>sub {$args[$mangleparam2index{$_[0]}] = $_[1]; $interact--;})
       } keys %mangleparam2index,
    );
-   warn "$$-".__PACKAGE__." on_net (@args) (@ARGV) '$interact'" if $Gimp::verbose;
+   warn "$$-".__PACKAGE__." on_net (@args) (@ARGV) '$interact'" if $Gimp::verbose >= 2;
    die "$0: too many arguments. Try $0 --help\n" if @ARGV > @$params;
    $interact -= @ARGV;
    map { $args[$_] = $ARGV[$_] } (0..$#ARGV); # can mix & match --args and bare
@@ -324,7 +324,7 @@ sub make_ui_closure {
          }
       }
       warn "perlsub: rm=$run_mode" if $Gimp::verbose >= 2;
-      if ($run_mode == Gimp::RUN_NONINTERACTIVE or not defined $run_mode) {
+      if ($run_mode == Gimp::RUN_NONINTERACTIVE) {
          # nop
       } elsif ($run_mode == Gimp::RUN_INTERACTIVE
           || $run_mode == Gimp::RUN_WITH_LAST_VALS) {
@@ -383,7 +383,7 @@ sub register($$$$$$$$$;@) {
 
 sub save_image($$) {
    my($img,$path)=@_;
-   warn "saving image $path\n" if $Gimp::verbose;
+   warn "saving image $path\n" if $Gimp::verbose >= 2;
    my $flatten=0;
    my $interlace=0;
    my $quality=0.75;
@@ -448,7 +448,7 @@ sub main {
            -i | --interact            let the user edit the values first
 EOF
    print "           -p <procedure> (one of @{[
-      map { my $s = $_->[0]; $s =~ s/^(?:perl_fu|plug_in)_//; $s } @scripts
+      map { $_->[0] =~ s/^(?:perl_fu|plug_in)_//r; } @scripts
    ]})\n" if @scripts > 1;
    print "       script-arguments are\n" if @{($this // [])->[9] // []};
    for(@{($this // [])->[9] // []}) {
